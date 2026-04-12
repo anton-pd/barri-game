@@ -50,10 +50,11 @@ async function summarizeAndUpdateWorldState(sessionId: string, scenarioId: strin
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sessionId, message, playerIdx } = body as {
+    const { sessionId, message, playerIdx, allActions } = body as {
       sessionId: string;
       message: string;
       playerIdx: number;
+      allActions?: { playerIdx: number; text: string }[];
     };
 
     if (!sessionId || !message) {
@@ -111,7 +112,13 @@ export async function POST(request: Request) {
     const assistantText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
 
     if (!isIntro) {
-      await saveMessage(sessionId, 'user', message, playerIdx);
+      if (allActions && allActions.length > 1) {
+        for (const action of allActions) {
+          await saveMessage(sessionId, 'user', action.text, action.playerIdx);
+        }
+      } else {
+        await saveMessage(sessionId, 'user', message, playerIdx);
+      }
     }
     await saveMessage(sessionId, 'assistant', assistantText);
 

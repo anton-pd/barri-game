@@ -133,6 +133,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showCaseFiles, setShowCaseFiles]     = useState(false);
+  const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const [ttsProvider, setTtsProvider]         = useState<'openai' | 'elevenlabs'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('ttsProvider') as 'openai' | 'elevenlabs') ?? 'openai';
@@ -263,30 +264,67 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     });
   }
 
+  // ── Queue action ─────────────────────────────────────────────────────────────
+
+  function queueAction() {
+    const text = input.trim();
+    if (!text) return;
+    setPendingActions((prev) => [...prev, { playerIdx: activePlayer, text }]);
+    setInput('');
+    // advance to next player automatically
+    setActivePlayer((i) => (i + 1) % session.players.length);
+  }
+
+  function removePending(idx: number) {
+    setPendingActions((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   // ── Send message ─────────────────────────────────────────────────────────────
 
   async function sendMessage(text?: string) {
-    const messageText = (text || input).trim();
-    if (!messageText || isLoading) return;
+    const immediate = (text || input).trim();
+
+    // Build full action list
+    const allActions = immediate
+      ? [...pendingActions, { playerIdx: activePlayer, text: immediate }]
+      : [...pendingActions];
+
+    if (allActions.length === 0 || isLoading) return;
 
     setInput('');
+    setPendingActions([]);
     setIsLoading(true);
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
+    // Build combined message for AI
+    const combinedMessage = allActions.length === 1
+      ? allActions[0].text  // API route adds [Name]: prefix itself
+      : allActions.map((a) => {
+          const name = session.players[a.playerIdx]?.name;
+          return name ? `[${name}]: ${a.text}` : a.text;
+        }).join('\n');
+
+    // Show each action as individual bubble in chat
+    const now = Date.now();
+    const newUserMsgs: Message[] = allActions.map((a, i) => ({
+      id: (now + i).toString(),
       session_id: session.id,
       role: 'user',
-      content: messageText,
-      player_idx: activePlayer,
+      content: a.text,
+      player_idx: a.playerIdx,
       created_at: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
+    }));
+    setMessages((prev) => [...prev, ...newUserMsgs]);
 
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, message: messageText, playerIdx: activePlayer }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          message: combinedMessage,
+          playerIdx: allActions[0].playerIdx,
+          allActions: allActions.length > 1 ? allActions : undefined,
+        }),
       });
       if (!res.ok) throw new Error('AI request failed');
 
@@ -448,6 +486,25 @@ export default function GameChat({ session: initialSession, initialMessages }: G
         </div>
       )}
 
+      {/* Pending actions queue */}
+      {pendingActions.length > 0 && (
+        <div className="px-3 pt-2 pb-1 bg-stone-900 border-t border-stone-800 flex flex-wrap gap-1">
+          {pendingActions.map((a, i) => (
+            <span
+              key={i}
+              className="flex items-center gap-1 text-xs bg-stone-700 text-stone-200 rounded-full px-2 py-1"
+            >
+              <span className="text-amber-500 font-medium">{session.players[a.playerIdx]?.name}</span>
+              <span className="text-stone-400 max-w-[140px] truncate">{a.text}</span>
+              <button
+                onClick={() => removePending(i)}
+                className="text-stone-500 hover:text-stone-300 ml-0.5"
+              >✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="px-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
         <div className="flex gap-2 items-end">
@@ -465,9 +522,19 @@ export default function GameChat({ session: initialSession, initialMessages }: G
           </div>
           <div className="flex flex-col gap-1">
             <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} />
+            {session.players.length > 1 && (
+              <button
+                onClick={queueAction}
+                disabled={isLoading || !input.trim()}
+                title="Додати дію в чергу (наступний гравець)"
+                className="p-2 bg-stone-700 hover:bg-stone-600 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-lg text-stone-300 transition-colors text-sm font-bold"
+              >
+                +
+              </button>
+            )}
             <button
               onClick={() => sendMessage()}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
               className="p-2 bg-amber-800 hover:bg-amber-700 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
             >
               ➤
