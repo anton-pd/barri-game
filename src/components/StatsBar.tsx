@@ -12,11 +12,11 @@ interface StatsBarProps {
 export default function StatsBar({ players, onUpdatePlayers, onUseItem }: StatsBarProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  function updateStat(idx: number, stat: 'hp' | 'sanity', delta: number) {
+  function updateStat(idx: number, stat: 'hp' | 'sanity' | 'luck', delta: number) {
     const updated = players.map((p, i) => {
       if (i !== idx) return p;
-      const max = stat === 'hp' ? p.maxHp : p.maxSanity;
-      return { ...p, [stat]: Math.max(0, Math.min(max, p[stat] + delta)) };
+      const max = stat === 'hp' ? p.maxHp : stat === 'sanity' ? p.maxSanity : (p.maxLuck ?? 99);
+      return { ...p, [stat]: Math.max(0, Math.min(max, (p[stat] ?? 0) + delta)) };
     });
     onUpdatePlayers(updated);
   }
@@ -25,9 +25,11 @@ export default function StatsBar({ players, onUpdatePlayers, onUseItem }: StatsB
     <div className="bg-stone-900 border-b border-stone-700">
       <div className="flex flex-wrap gap-2 p-2">
         {players.map((p, idx) => {
-          const hpPct  = p.maxHp     > 0 ? p.hp     / p.maxHp     : 0;
-          const sanPct = p.maxSanity > 0 ? p.sanity / p.maxSanity : 0;
-          const isOpen = expanded === idx;
+          const hpPct   = p.maxHp     > 0 ? p.hp     / p.maxHp              : 0;
+          const sanPct  = p.maxSanity > 0 ? p.sanity / p.maxSanity          : 0;
+          const maxLuck = p.maxLuck ?? 99;
+          const luckPct = maxLuck    > 0 ? (p.luck ?? 0) / maxLuck          : 0;
+          const isOpen  = expanded === idx;
           const inventory = p.inventory ?? [];
 
           return (
@@ -54,57 +56,37 @@ export default function StatsBar({ players, onUpdatePlayers, onUseItem }: StatsB
                 </div>
               </button>
 
-              {/* HP + Sanity bars */}
+              {/* HP + Sanity + Luck bars */}
               <div className="px-3 pb-2 space-y-1.5">
-                {/* HP */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-red-400 w-7 shrink-0">HP</span>
-                  <button
-                    onClick={() => updateStat(idx, 'hp', -1)}
-                    className="w-5 h-5 text-xs bg-stone-700 hover:bg-red-900 rounded flex items-center justify-center text-stone-300 shrink-0"
-                  >−</button>
-                  <div className="flex-1 bg-stone-700 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${hpPct * 100}%`,
-                        backgroundColor: hpPct > 0.5 ? '#ef4444' : hpPct > 0.25 ? '#f97316' : '#991b1b',
-                      }}
-                    />
+                {[
+                  { key: 'hp'     as const, label: 'HP',  pct: hpPct,   val: p.hp,           max: p.maxHp,           colors: ['#ef4444','#f97316','#991b1b'], textColor: 'text-red-400',    valColor: 'text-red-300',    hoverMinus: 'hover:bg-red-900'    },
+                  { key: 'sanity' as const, label: 'SAN', pct: sanPct,  val: p.sanity,        max: p.maxSanity,       colors: ['#a855f7','#7c3aed','#4c1d95'], textColor: 'text-purple-400', valColor: 'text-purple-300', hoverMinus: 'hover:bg-purple-900' },
+                  { key: 'luck'   as const, label: 'LCK', pct: luckPct, val: p.luck ?? 0,     max: maxLuck,           colors: ['#f59e0b','#d97706','#92400e'], textColor: 'text-amber-400',  valColor: 'text-amber-300',  hoverMinus: 'hover:bg-amber-900'  },
+                ].map(({ key, label, pct, val, max, colors, textColor, valColor, hoverMinus }) => (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <span className={`text-xs ${textColor} w-7 shrink-0`}>{label}</span>
+                    <button
+                      onClick={() => updateStat(idx, key, -1)}
+                      className={`w-5 h-5 text-xs bg-stone-700 ${hoverMinus} rounded flex items-center justify-center text-stone-300 shrink-0`}
+                    >−</button>
+                    <div className="flex-1 bg-stone-700 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct * 100}%`,
+                          backgroundColor: pct > 0.5 ? colors[0] : pct > 0.25 ? colors[1] : colors[2],
+                        }}
+                      />
+                    </div>
+                    <span className={`text-xs ${valColor} font-mono w-10 text-right shrink-0`}>
+                      {val}/{max}
+                    </span>
+                    <button
+                      onClick={() => updateStat(idx, key, +1)}
+                      className="w-5 h-5 text-xs bg-stone-700 hover:bg-green-900 rounded flex items-center justify-center text-stone-300 shrink-0"
+                    >+</button>
                   </div>
-                  <span className="text-xs text-red-300 font-mono w-10 text-right shrink-0">
-                    {p.hp}/{p.maxHp}
-                  </span>
-                  <button
-                    onClick={() => updateStat(idx, 'hp', +1)}
-                    className="w-5 h-5 text-xs bg-stone-700 hover:bg-green-900 rounded flex items-center justify-center text-stone-300 shrink-0"
-                  >+</button>
-                </div>
-
-                {/* Sanity */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-purple-400 w-7 shrink-0">SAN</span>
-                  <button
-                    onClick={() => updateStat(idx, 'sanity', -1)}
-                    className="w-5 h-5 text-xs bg-stone-700 hover:bg-purple-900 rounded flex items-center justify-center text-stone-300 shrink-0"
-                  >−</button>
-                  <div className="flex-1 bg-stone-700 rounded-full h-2 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${sanPct * 100}%`,
-                        backgroundColor: sanPct > 0.5 ? '#a855f7' : sanPct > 0.25 ? '#7c3aed' : '#4c1d95',
-                      }}
-                    />
-                  </div>
-                  <span className="text-xs text-purple-300 font-mono w-10 text-right shrink-0">
-                    {p.sanity}/{p.maxSanity}
-                  </span>
-                  <button
-                    onClick={() => updateStat(idx, 'sanity', +1)}
-                    className="w-5 h-5 text-xs bg-stone-700 hover:bg-green-900 rounded flex items-center justify-center text-stone-300 shrink-0"
-                  >+</button>
-                </div>
+                ))}
               </div>
 
               {/* Expanded: skills + inventory */}

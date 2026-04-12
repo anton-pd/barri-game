@@ -144,14 +144,15 @@ export async function POST(request: Request) {
     // Apply DELTA (HP/sanity changes)
     if (deltaMatch) {
       try {
-        const delta = JSON.parse(deltaMatch[1]) as Record<string, { hp?: number; sanity?: number }>;
+        const delta = JSON.parse(deltaMatch[1]) as Record<string, { hp?: number; sanity?: number; luck?: number }>;
         updatedPlayers = updatedPlayers.map((p, i) => {
           const d = delta[String(i)];
           if (!d) return p;
           return {
             ...p,
-            hp:     Math.max(0, Math.min(p.maxHp,    p.hp     + (d.hp     ?? 0))),
-            sanity: Math.max(0, Math.min(p.maxSanity, p.sanity + (d.sanity ?? 0))),
+            hp:     Math.max(0, Math.min(p.maxHp,          p.hp           + (d.hp     ?? 0))),
+            sanity: Math.max(0, Math.min(p.maxSanity,       p.sanity       + (d.sanity ?? 0))),
+            luck:   Math.max(0, Math.min(p.maxLuck ?? 99,  (p.luck ?? 0)  + (d.luck   ?? 0))),
           };
         });
       } catch { /* malformed — ignore */ }

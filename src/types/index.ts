@@ -23,8 +23,11 @@ export interface Player {
   maxHp: number;
   sanity: number;
   maxSanity: number;
+  luck: number;
+  maxLuck: number;
   skills: Record<string, number>;
   inventory: InventoryItem[];
+  background?: string;
 }
 
 export interface GameSession {
