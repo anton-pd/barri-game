@@ -21,7 +21,31 @@ function isValidJpeg(buf: Buffer): boolean {
 async function generateImage(prompt: string, type: string): Promise<Buffer> {
   const style    = STYLE_MAP[type] ?? STYLE_MAP.scene;
   const full     = `${prompt}, ${style}`;
-  const provider = process.env.IMAGE_PROVIDER ?? 'pollinations';
+  const provider = process.env.IMAGE_PROVIDER ?? 'gemini';
+
+  if (provider === 'gemini') {
+    const apiKey = process.env.GEMINI_API_KEY!;
+    const body = JSON.stringify({
+      contents: [{ parts: [{ text: full }] }],
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+    });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+      );
+      if (res.status === 429) { console.warn(`Gemini rate limit attempt ${attempt + 1}`); continue; }
+      if (!res.ok) throw new Error(`Gemini error ${res.status}`);
+      const data = await res.json() as {
+        candidates: { content: { parts: { inlineData?: { mimeType: string; data: string } }[] } }[]
+      };
+      const part = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+      if (!part?.inlineData) throw new Error('Gemini: no image in response');
+      return Buffer.from(part.inlineData.data, 'base64');
+    }
+    throw new Error('Gemini: rate limit after 3 attempts');
+  }
 
   if (provider === 'openai') {
     const apiKey = process.env.OPENAI_API_KEY!;
