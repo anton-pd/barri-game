@@ -129,14 +129,16 @@ export async function POST(request: Request) {
 
     const updatedSession = await getSession(sessionId);
 
-    // Parse and strip [DELTA:...], [IMAGE:...], [ITEM:...] from response
-    const deltaMatch = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
-    const imageMatch = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
-    const itemMatches = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
+    // Parse and strip [DELTA:...], [IMAGE:...], [ITEM:...], [LOCATION:...] from response
+    const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
+    const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+    const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
+    const itemMatches   = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
     const cleanText  = assistantText
       .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
       .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
       .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
+      .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
       .trim();
 
     let updatedPlayers = session.players;
@@ -184,6 +186,7 @@ export async function POST(request: Request) {
     const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);
     const imageType   = imageMatch?.[1] ?? null;
     const imagePrompt = imageMatch?.[2]?.trim() ?? null;
+    const location    = locationMatch?.[1] ?? null;
 
     return NextResponse.json({
       response: cleanText,
@@ -192,6 +195,7 @@ export async function POST(request: Request) {
       world_state: updatedSession?.world_state,
       imageType,
       imagePrompt,
+      location,
     });
   } catch (error) {
     console.error('Error in AI route:', error);

@@ -64,6 +64,7 @@ export interface Location {
   name: string;
   description: string;
   clues: string[];
+  soundPrompt?: string;
 }
 
 export interface Railguard {

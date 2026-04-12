@@ -141,11 +141,25 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     }
     return 'openai';
   });
+  const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('ambientEnabled') !== 'false';
+    }
+    return true;
+  });
+  const [ambientVolume, setAmbientVolume]     = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      return parseFloat(localStorage.getItem('ambientVolume') ?? '0.35');
+    }
+    return 0.35;
+  });
+  const [currentLocation, setCurrentLocation] = useState<string | null>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef    = useRef<HTMLTextAreaElement>(null);
-  const audioRef       = useRef<HTMLAudioElement | null>(null);
-  const audioCacheRef  = useRef<Map<string, string>>(new Map());
+  const messagesEndRef    = useRef<HTMLDivElement>(null);
+  const textareaRef       = useRef<HTMLTextAreaElement>(null);
+  const audioRef          = useRef<HTMLAudioElement | null>(null);
+  const audioCacheRef     = useRef<Map<string, string>>(new Map());
+  const ambientRef        = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -182,6 +196,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
           if (data.voiceStyle)   setVoiceStyles({ [introId]: data.voiceStyle });
           if (data.world_state)  setSession((s) => ({ ...s, world_state: data.world_state }));
           if (data.imagePrompt)  setDynamicImages({ [introId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' } });
+          if (data.location)     { setCurrentLocation(data.location); playAmbient(data.location); }
           speakMsg(introId, data.response, data.voiceStyle);
         })
         .catch(() => {/* silent */})
@@ -197,6 +212,52 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     window.speechSynthesis?.cancel();
     setSpeakingId(null);
   }
+
+  function playAmbient(locationId: string) {
+    const url = `/scenarios/${session.scenario_id}/sounds/${locationId}.mp3`;
+    const prev = ambientRef.current;
+
+    // Fade out previous
+    if (prev) {
+      const fadeOut = setInterval(() => {
+        if (prev.volume > 0.05) { prev.volume = Math.max(0, prev.volume - 0.05); }
+        else { clearInterval(fadeOut); prev.pause(); prev.src = ''; }
+      }, 80);
+    }
+
+    const audio = new Audio(url);
+    audio.loop = true;
+    audio.volume = 0;
+    ambientRef.current = audio;
+
+    if (!ambientEnabled) return;
+
+    audio.play().then(() => {
+      const target = ambientVolume;
+      const fadeIn = setInterval(() => {
+        if (audio.volume < target - 0.04) { audio.volume = Math.min(target, audio.volume + 0.04); }
+        else { audio.volume = target; clearInterval(fadeIn); }
+      }, 80);
+    }).catch(() => {/* autoplay blocked */});
+  }
+
+  // Sync ambient volume/enabled state
+  useEffect(() => {
+    if (ambientRef.current) {
+      if (ambientEnabled) {
+        if (ambientRef.current.paused && currentLocation) {
+          ambientRef.current.volume = 0;
+          ambientRef.current.play().then(() => { ambientRef.current!.volume = ambientVolume; }).catch(() => {});
+        } else {
+          ambientRef.current.volume = ambientVolume;
+        }
+      } else {
+        ambientRef.current.pause();
+      }
+    }
+    localStorage.setItem('ambientEnabled', String(ambientEnabled));
+    localStorage.setItem('ambientVolume', String(ambientVolume));
+  }, [ambientEnabled, ambientVolume, currentLocation]);
 
   function toggleProvider() {
     setTtsProvider((prev) => {
@@ -372,6 +433,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
 
       if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [msgId]: data.voiceStyle }));
       if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state }));
+      if (data.location)    { setCurrentLocation(data.location); playAmbient(data.location); }
 
       // Apply AI-granted items, then consume used items
       const playersAfterAI = data.players ?? session.players;
@@ -433,6 +495,24 @@ export default function GameChat({ session: initialSession, initialMessages }: G
           >
             {ttsProvider === 'elevenlabs' ? '🔊 11Labs' : '🔊 GPT'}
           </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setAmbientEnabled((v) => !v)}
+              title={ambientEnabled ? 'Вимкнути ambient' : 'Увімкнути ambient'}
+              className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
+            >
+              {ambientEnabled ? '🎵' : '🔇'}
+            </button>
+            {ambientEnabled && (
+              <input
+                type="range" min={0} max={1} step={0.05}
+                value={ambientVolume}
+                onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                className="w-14 accent-amber-600"
+                title="Гучність ambient"
+              />
+            )}
+          </div>
           <button
             onClick={() => setShowCaseFiles(true)}
             className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-amber-600"

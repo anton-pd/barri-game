@@ -90,6 +90,7 @@
   "locations": [
     {
       "id": "whitmores_room",
+      "soundPrompt": "rain on windows, faint telegraph clicking alone in a dark room, distant thunder, electrical hum",
       "name": "Кімната №7, пансіон Ковальської",
       "description": "Невелика кімната на другому поверсі. Запах озону і паленої міді. Вітмор лежить на підлозі між ліжком і столом — вираз обличчя не болісний, радше... здивований. Стіл повністю зайнятий модифікованим телеграфним обладнанням: стандартний ключ Морзе з'єднаний з саморобними котушками, конденсаторами і чимось що нагадує антену зсередини. Маленькі мідні дроти обплутують ніжки столу. Вікно закрите зсередини. Двері замкнені зсередини.",
       "clues": [
@@ -104,6 +105,7 @@
     },
     {
       "id": "boarding_house",
+      "soundPrompt": "old wooden house creaking, rain outside, distant clock ticking, muffled voices from upstairs",
       "name": "Пансіон Ковальської, перший поверх",
       "description": "Старий вікторіанський будинок на Трімонт-стріт. Дерев'яні підлоги скриплять. Запах борщу з кухні. Місіс Ковальська сидить за стійкою — руки складені, але пальці не тихі.",
       "clues": [
@@ -114,6 +116,7 @@
     },
     {
       "id": "boston_telegraph_exchange",
+      "soundPrompt": "telegraph machines clicking rapidly, many operators typing Morse code, background office noise, typewriters, telephone rings",
       "name": "Бостонська телеграфна біржа",
       "description": "Офіційна будівля в центрі. Клацання десятків апаратів. Запах масла і паперу. Вітмор пропрацював тут 30 років — до виходу на пенсію у 1918.",
       "clues": [
@@ -124,6 +127,7 @@
     },
     {
       "id": "boston_public_library",
+      "soundPrompt": "library ambience, quiet room, pages turning, distant footsteps on marble floor, pen scratching paper",
       "name": "Бостонська публічна бібліотека",
       "description": "Мармур і тиша. Запах старого паперу. Читальний зал з високими вікнами. Бібліотекарка Едіт суха і ефективна.",
       "clues": [
@@ -134,6 +138,7 @@
     },
     {
       "id": "szabo_apartment",
+      "soundPrompt": "shuttered apartment, electrical hum, nervous footsteps pacing, distant city noise muffled by closed windows",
       "name": "Квартира Сабо, Бікон-Хілл",
       "description": "Зачинені штори. Електричне освітлення — Сабо не відкриває вікон вже місяць. Все мідне: дверна ручка, рамки картин, підставки. Він обклав квартиру міддю. Мідний ящик — завжди поруч.",
       "clues": [
