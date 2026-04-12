@@ -153,7 +153,8 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     }
     return 0.35;
   });
-  const [currentLocation, setCurrentLocation] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation]     = useState<string | null>(null);
+  const [currentLocationName, setCurrentLocationName] = useState<string | null>(null);
 
   const messagesEndRef    = useRef<HTMLDivElement>(null);
   const textareaRef       = useRef<HTMLTextAreaElement>(null);
@@ -196,7 +197,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
           if (data.voiceStyle)   setVoiceStyles({ [introId]: data.voiceStyle });
           if (data.world_state)  setSession((s) => ({ ...s, world_state: data.world_state }));
           if (data.imagePrompt)  setDynamicImages({ [introId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' } });
-          if (data.location)     { setCurrentLocation(data.location); playAmbient(data.location); }
+          if (data.location)     { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
           speakMsg(introId, data.response, data.voiceStyle);
         })
         .catch(() => {/* silent */})
@@ -433,7 +434,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
 
       if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [msgId]: data.voiceStyle }));
       if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state }));
-      if (data.location)    { setCurrentLocation(data.location); playAmbient(data.location); }
+      if (data.location)    { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
 
       // Apply AI-granted items, then consume used items
       const playersAfterAI = data.players ?? session.players;
@@ -480,7 +481,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
       <div className="flex items-center justify-between px-4 py-2 bg-stone-900 border-b border-stone-700">
         <div>
           <h1 className="text-sm font-semibold text-stone-200">{session.name}</h1>
-          <p className="text-xs text-stone-500">Акт {session.world_state?.act || 1}</p>
+          <p className="text-xs text-stone-500">{currentLocationName ?? `Акт ${session.world_state?.act || 1}`}</p>
         </div>
         <div className="flex gap-2">
           {speakingId && (

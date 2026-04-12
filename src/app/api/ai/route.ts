@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
 import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
-import { buildSystemPrompt, buildSummarizePrompt } from '@/lib/prompts';
+import { buildSystemPrompt, buildSystemPromptBlocks, buildSummarizePrompt } from '@/lib/prompts';
 import type { Scenario, WorldState, NPC } from '@/types';
 
 function detectVoiceStyle(text: string, npcs: NPC[]): string {
@@ -68,7 +68,6 @@ export async function POST(request: Request) {
 
     const scenario = loadScenario(session.scenario_id);
     const recentMessages = await getLastNMessages(sessionId, 30);
-    const systemPromptText = buildSystemPrompt(scenario, session.world_state, session.players);
 
     const isIntro = message === '__intro__';
 
@@ -89,17 +88,32 @@ export async function POST(request: Request) {
 
     conversationHistory.push({ role: 'user', content: userContent });
 
+    // Split prompt for the-last-telegram; single cached block for other scenarios
+    const USE_SPLIT_PROMPT = scenario.id === 'the-last-telegram';
+
+    const systemBlocks = USE_SPLIT_PROMPT
+      ? (() => {
+          const { static: staticText, dynamic: dynamicText } = buildSystemPromptBlocks(
+            scenario, session.world_state, session.players
+          );
+          return [
+            { type: 'text' as const, text: staticText,  cache_control: { type: 'ephemeral' as const } },
+            { type: 'text' as const, text: dynamicText },
+          ];
+        })()
+      : [
+          {
+            type: 'text' as const,
+            text: buildSystemPrompt(scenario, session.world_state, session.players),
+            cache_control: { type: 'ephemeral' as const },
+          },
+        ];
+
     const aiResponse = await anthropic.messages.create(
       {
         model: 'claude-sonnet-4-6',
         max_tokens: 1024,
-        system: [
-          {
-            type: 'text',
-            text: systemPromptText,
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
+        system: systemBlocks,
         messages: conversationHistory,
       },
       {
@@ -183,10 +197,13 @@ export async function POST(request: Request) {
       await updateSession(session.id, { players: updatedPlayers });
     }
 
-    const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);
-    const imageType   = imageMatch?.[1] ?? null;
-    const imagePrompt = imageMatch?.[2]?.trim() ?? null;
-    const location    = locationMatch?.[1] ?? null;
+    const voiceStyle    = detectVoiceStyle(cleanText, scenario.npcs ?? []);
+    const imageType     = imageMatch?.[1] ?? null;
+    const imagePrompt   = imageMatch?.[2]?.trim() ?? null;
+    const location      = locationMatch?.[1] ?? null;
+    const locationName  = location
+      ? (scenario.locations.find((l) => l.id === location)?.name ?? null)
+      : null;
 
     return NextResponse.json({
       response: cleanText,
@@ -196,6 +213,7 @@ export async function POST(request: Request) {
       imageType,
       imagePrompt,
       location,
+      locationName,
     });
   } catch (error) {
     console.error('Error in AI route:', error);
