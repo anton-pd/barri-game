@@ -253,6 +253,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const audioRef          = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef     = useRef<Map<string, string>>(new Map());
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
+  const [ttsProvider, setTtsProvider] = useState<'openai' | 'gemini'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('ttsProvider') as 'openai' | 'gemini') ?? 'openai';
+    }
+    return 'openai';
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -352,6 +358,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     localStorage.setItem('ambientVolume', String(ambientVolume));
   }, [ambientEnabled, ambientVolume, currentLocation]);
 
+  function toggleTtsProvider() {
+    setTtsProvider((prev) => {
+      const next = prev === 'openai' ? 'gemini' : 'openai';
+      localStorage.setItem('ttsProvider', next);
+      audioCacheRef.current.clear();
+      return next;
+    });
+  }
+
   async function speakMsg(msgId: string, text: string, voiceStyle?: string) {
     stopAudio();
     const cached = audioCacheRef.current.get(msgId);
@@ -362,7 +377,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper' }),
+        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper', provider: ttsProvider }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
@@ -572,6 +587,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               ⏹ Стоп
             </button>
           )}
+          <button
+            onClick={toggleTtsProvider}
+            title={ttsProvider === 'gemini' ? 'Gemini TTS (перемкнути на OpenAI)' : 'OpenAI TTS (перемкнути на Gemini)'}
+            className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
+          >
+            {ttsProvider === 'gemini' ? '🔊 Gemini' : '🔊 GPT'}
+          </button>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setAmbientEnabled((v) => !v)}
