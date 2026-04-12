@@ -135,12 +135,6 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const [showCaseFiles, setShowCaseFiles]     = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
-  const [ttsProvider, setTtsProvider]         = useState<'openai' | 'elevenlabs'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('ttsProvider') as 'openai' | 'elevenlabs') ?? 'openai';
-    }
-    return 'openai';
-  });
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('ambientEnabled') !== 'false';
@@ -260,15 +254,6 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     localStorage.setItem('ambientVolume', String(ambientVolume));
   }, [ambientEnabled, ambientVolume, currentLocation]);
 
-  function toggleProvider() {
-    setTtsProvider((prev) => {
-      const next = prev === 'openai' ? 'elevenlabs' : 'openai';
-      localStorage.setItem('ttsProvider', next);
-      audioCacheRef.current.clear(); // clear cache so new provider is used
-      return next;
-    });
-  }
-
   async function speakMsg(msgId: string, text: string, voiceStyle?: string) {
     stopAudio();
     const cached = audioCacheRef.current.get(msgId);
@@ -279,7 +264,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper', provider: ttsProvider }),
+        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper' }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
@@ -489,13 +474,6 @@ export default function GameChat({ session: initialSession, initialMessages }: G
               ⏹ Стоп
             </button>
           )}
-          <button
-            onClick={toggleProvider}
-            title={ttsProvider === 'elevenlabs' ? 'ElevenLabs (перемкнути на OpenAI)' : 'OpenAI TTS (перемкнути на ElevenLabs)'}
-            className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
-          >
-            {ttsProvider === 'elevenlabs' ? '🔊 11Labs' : '🔊 GPT'}
-          </button>
           <div className="flex items-center gap-1">
             <button
               onClick={() => setAmbientEnabled((v) => !v)}
