@@ -133,6 +133,12 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showCaseFiles, setShowCaseFiles]     = useState(false);
+  const [ttsProvider, setTtsProvider]         = useState<'openai' | 'elevenlabs'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('ttsProvider') as 'openai' | 'elevenlabs') ?? 'openai';
+    }
+    return 'openai';
+  });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
@@ -190,6 +196,15 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     setSpeakingId(null);
   }
 
+  function toggleProvider() {
+    setTtsProvider((prev) => {
+      const next = prev === 'openai' ? 'elevenlabs' : 'openai';
+      localStorage.setItem('ttsProvider', next);
+      audioCacheRef.current.clear(); // clear cache so new provider is used
+      return next;
+    });
+  }
+
   async function speakMsg(msgId: string, text: string, voiceStyle?: string) {
     stopAudio();
     const cached = audioCacheRef.current.get(msgId);
@@ -200,7 +215,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper' }),
+        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper', provider: ttsProvider }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
@@ -330,6 +345,13 @@ export default function GameChat({ session: initialSession, initialMessages }: G
               ⏹ Стоп
             </button>
           )}
+          <button
+            onClick={toggleProvider}
+            title={ttsProvider === 'elevenlabs' ? 'ElevenLabs (перемкнути на OpenAI)' : 'OpenAI TTS (перемкнути на ElevenLabs)'}
+            className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
+          >
+            {ttsProvider === 'elevenlabs' ? '🔊 11Labs' : '🔊 GPT'}
+          </button>
           <button
             onClick={() => setShowCaseFiles(true)}
             className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-amber-600"
