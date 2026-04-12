@@ -11,7 +11,7 @@ async function getSessionData(id: string): Promise<{ session: GameSession; messa
     const { getSession, getMessages } = await import('@/lib/queries');
     const session = await getSession(id);
     if (!session) return null;
-    const messages = await getMessages(id, 30);
+    const messages = await getMessages(id);
     return { session, messages };
   } catch {
     return null;
