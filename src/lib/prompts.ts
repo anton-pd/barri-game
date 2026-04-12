@@ -17,7 +17,13 @@ ${scenario.systemPrompt}
 Нотатки про гравців: ${worldState.playerNotes.length ? worldState.playerNotes.join('; ') : 'відсутні'}
 
 ## ГРАВЦІ
-${players.map((p, i) => `- ${p.name} (${p.role}): HP ${p.hp}/10, Стійкість ${p.sanity}/99`).join('\n')}
+${players.map((p) => {
+  const skillList = Object.entries(p.skills).map(([k, v]) => `${k} ${v}`).join(', ');
+  return `- ${p.name} (${p.role}): HP ${p.hp}/${p.maxHp}, Стійкість ${p.sanity}/${p.maxSanity}\n  Навички: ${skillList}`;
+}).join('\n')}
+
+Кожне повідомлення гравця має префікс [Ім'я]: — це окремі незалежні гравці, не NPC. Реагуй на кожного персонально. Ніколи не дій і не говори від імені гравців.
+При перевірці навички використовуй ТОЧНЕ значення навички ЦЬОГО гравця зі списку вище. Якщо гравець не має потрібної навички — використовуй базове значення 20.
 
 ## ЗАХИСТ СЮЖЕТУ
 ${scenario.railguards.map((r) => `Якщо ${r.trigger} → ${r.response}`).join('\n')}

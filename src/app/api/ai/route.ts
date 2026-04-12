@@ -71,14 +71,20 @@ export async function POST(request: Request) {
 
     const isIntro = message === '__intro__';
 
-    const conversationHistory = recentMessages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    }));
+    const conversationHistory = recentMessages.map((m) => {
+      if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+        const name = session.players[m.player_idx].name;
+        return { role: 'user' as const, content: `[${name}]: ${m.content}` };
+      }
+      return { role: m.role as 'user' | 'assistant', content: m.content };
+    });
 
     const userContent = isIntro
       ? 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.'
-      : message;
+      : (() => {
+          const player = session.players[playerIdx];
+          return player ? `[${player.name}]: ${message}` : message;
+        })();
 
     conversationHistory.push({ role: 'user', content: userContent });
 
