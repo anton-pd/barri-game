@@ -332,7 +332,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const playerName = session.players[activePlayer]?.name || 'Гравець';
 
   return (
-    <div className="flex flex-col h-screen bg-stone-950 text-stone-100">
+    <div className="flex flex-col h-dvh bg-stone-950 text-stone-100">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-stone-900 border-b border-stone-700">
         <div>
