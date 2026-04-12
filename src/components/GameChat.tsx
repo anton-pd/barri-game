@@ -255,9 +255,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
   const [ttsProvider, setTtsProvider] = useState<'openai' | 'gemini'>(() => {
     if (typeof window !== 'undefined') {
-      return (localStorage.getItem('ttsProvider') as 'openai' | 'gemini') ?? 'openai';
+      return (localStorage.getItem('ttsProvider') as 'openai' | 'gemini') ?? 'gemini';
     }
-    return 'openai';
+    return 'gemini';
   });
 
   useEffect(() => {
@@ -641,7 +641,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           const player     = isUser && msg.player_idx !== null ? session.players[msg.player_idx] : null;
           const isPlaying  = speakingId === msg.id;
           const isLoadingA = loadingAudioIds.has(msg.id);
-          const imgMeta    = !isUser ? dynamicImages[msg.id] : undefined;
+          // Parse [IMAGE:type:prompt] from message content (persisted in DB for reconstruction)
+          const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
+          const displayContent = imageTagMatch
+            ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
+            : msg.content;
+          const imgMeta = imageTagMatch
+            ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
+            : (!isUser ? dynamicImages[msg.id] : undefined);
 
           return (
             <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
@@ -655,12 +662,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     ? 'bg-stone-700 text-stone-100 rounded-tr-sm'
                     : 'bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700'
                 }`}>
-                  {msg.content}
+                  {displayContent}
                   {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
                 </div>
                 {!isUser && (
                   <button
-                    onClick={() => handleReplay(msg.id, msg.content)}
+                    onClick={() => handleReplay(msg.id, displayContent)}
                     disabled={isLoadingA}
                     className={`text-xs mt-1 ml-1 transition-colors ${
                       isPlaying   ? 'text-amber-500 animate-pulse' :

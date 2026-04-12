@@ -1,3 +1,27 @@
+import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
+
+const CACHE_DIR = path.join(process.cwd(), 'public', 'scenarios', 'dynamic');
+
+function getCacheKey(prompt: string, type: string): string {
+  return crypto.createHash('sha256').update(`${type}:${prompt}`).digest('hex').slice(0, 24);
+}
+
+function getCachedImage(key: string): Buffer | null {
+  const file = path.join(CACHE_DIR, `${key}.jpg`);
+  try { return fs.readFileSync(file); } catch { return null; }
+}
+
+function saveImageToCache(key: string, data: Buffer): void {
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    fs.writeFileSync(path.join(CACHE_DIR, `${key}.jpg`), data);
+  } catch (e) {
+    console.error('Failed to cache image:', e);
+  }
+}
+
 const STYLE_MAP: Record<string, string> = {
   newspaper: 'newspaper clipping 1920s black and white aged paper old typography print',
   map:       'hand-drawn map 1920s aged parchment sepia ink cartographic illustration',
@@ -19,23 +43,33 @@ export async function GET(request: Request) {
 
   if (!prompt) return new Response('prompt is required', { status: 400 });
 
+  const cacheKey = getCacheKey(prompt, type);
+
+  // Serve from disk cache if available
+  const cached = getCachedImage(cacheKey);
+  if (cached) {
+    return new Response(cached.buffer as ArrayBuffer, {
+      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
+    });
+  }
+
   const fullPrompt = buildPrompt(prompt, type);
   const provider   = process.env.IMAGE_PROVIDER ?? 'gemini';
 
+  let response: Response;
   if (provider === 'gemini') {
-    return handleGemini(fullPrompt);
+    response = await handleGemini(fullPrompt, cacheKey);
+  } else if (provider === 'openai') {
+    response = await handleOpenAI(fullPrompt, cacheKey);
+  } else {
+    response = await handlePollinations(fullPrompt, cacheKey);
   }
-
-  if (provider === 'openai') {
-    return handleOpenAI(fullPrompt);
-  }
-
-  return handlePollinations(fullPrompt);
+  return response;
 }
 
 // ── Gemini ───────────────────────────────────────────────────────────────────
 
-async function handleGemini(prompt: string): Promise<Response> {
+async function handleGemini(prompt: string, cacheKey?: string): Promise<Response> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return new Response('Gemini API key not configured', { status: 503 });
 
@@ -74,18 +108,19 @@ async function handleGemini(prompt: string): Promise<Response> {
 
     const { mimeType, data: b64 } = imagePart.inlineData;
     const buf = Buffer.from(b64, 'base64');
+    if (cacheKey) saveImageToCache(cacheKey, buf);
     return new Response(buf, {
-      headers: { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=86400' },
+      headers: { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=604800' },
     });
   }
 
   console.warn('Gemini: rate limit after 3 attempts, falling back to Pollinations');
-  return handlePollinations(prompt);
+  return handlePollinations(prompt, cacheKey);
 }
 
 // ── OpenAI DALL-E ─────────────────────────────────────────────────────────────
 
-async function handleOpenAI(prompt: string): Promise<Response> {
+async function handleOpenAI(prompt: string, cacheKey?: string): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
 
@@ -102,15 +137,16 @@ async function handleOpenAI(prompt: string): Promise<Response> {
 
   const data = await res.json() as { data: { url: string }[] };
   const imgRes = await fetch(data.data[0].url);
-  const imgBuf = await imgRes.arrayBuffer();
+  const imgBuf = Buffer.from(await imgRes.arrayBuffer());
+  if (cacheKey) saveImageToCache(cacheKey, imgBuf);
   return new Response(imgBuf, {
-    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
   });
 }
 
 // ── Pollinations (fallback) ───────────────────────────────────────────────────
 
-async function handlePollinations(prompt: string): Promise<Response> {
+async function handlePollinations(prompt: string, cacheKey?: string): Promise<Response> {
   const encoded = encodeURIComponent(prompt);
   const seed    = Math.floor(Math.random() * 999999);
   const url     = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=512&model=flux-realism&nologo=true&seed=${seed}`;
@@ -119,12 +155,12 @@ async function handlePollinations(prompt: string): Promise<Response> {
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
     const res = await fetch(url, { headers: { 'User-Agent': 'cthulhu-game/1.0' } });
-    const buf = await res.arrayBuffer();
-    const bytes = new Uint8Array(buf);
-    const isJpeg = bytes[0] === JPEG_MAGIC[0] && bytes[1] === JPEG_MAGIC[1] && bytes[2] === JPEG_MAGIC[2];
+    const buf = Buffer.from(await res.arrayBuffer());
+    const isJpeg = buf[0] === JPEG_MAGIC[0] && buf[1] === JPEG_MAGIC[1] && buf[2] === JPEG_MAGIC[2];
     if (isJpeg) {
+      if (cacheKey) saveImageToCache(cacheKey, buf);
       return new Response(buf, {
-        headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+        headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
       });
     }
     console.warn(`Pollinations attempt ${attempt + 1} non-JPEG (${buf.byteLength}b)`);

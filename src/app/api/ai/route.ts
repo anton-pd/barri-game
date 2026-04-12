@@ -125,6 +125,19 @@ export async function POST(request: Request) {
 
     const assistantText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
 
+    // Parse and strip tags BEFORE saving to DB
+    const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
+    const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+    const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
+    const itemMatches   = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
+    // Strip action tags (processed server-side) but KEEP [IMAGE:...] in saved text
+    // so the frontend can reconstruct images after page refresh
+    const cleanText     = assistantText
+      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
+      .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
+      .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+      .trim();
+
     if (!isIntro) {
       if (allActions && allActions.length > 1) {
         for (const action of allActions) {
@@ -134,7 +147,7 @@ export async function POST(request: Request) {
         await saveMessage(sessionId, 'user', message, playerIdx);
       }
     }
-    await saveMessage(sessionId, 'assistant', assistantText);
+    await saveMessage(sessionId, 'assistant', cleanText);
 
     const msgCount = await countMessages(sessionId);
     if (msgCount % 20 === 0) {
@@ -142,18 +155,6 @@ export async function POST(request: Request) {
     }
 
     const updatedSession = await getSession(sessionId);
-
-    // Parse and strip [DELTA:...], [IMAGE:...], [ITEM:...], [LOCATION:...] from response
-    const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
-    const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
-    const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
-    const itemMatches   = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
-    const cleanText  = assistantText
-      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
-      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
-      .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
-      .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
-      .trim();
 
     let updatedPlayers = session.players;
 
