@@ -130,13 +130,10 @@ export async function deleteSession(id: string): Promise<void> {
   await sql`DELETE FROM game_sessions WHERE id = ${id}`;
 }
 
-export async function getMessages(sessionId: string, limit = 30): Promise<Message[]> {
-  const rows = await sql`
-    SELECT * FROM messages
-    WHERE session_id = ${sessionId}
-    ORDER BY created_at ASC
-    LIMIT ${limit}
-  `;
+export async function getMessages(sessionId: string, limit?: number): Promise<Message[]> {
+  const rows = limit
+    ? await sql`SELECT * FROM messages WHERE session_id = ${sessionId} ORDER BY created_at ASC LIMIT ${limit}`
+    : await sql`SELECT * FROM messages WHERE session_id = ${sessionId} ORDER BY created_at ASC`;
   return rows as unknown as Message[];
 }
 
