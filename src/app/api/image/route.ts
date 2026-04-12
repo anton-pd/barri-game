@@ -48,7 +48,7 @@ async function handleGemini(prompt: string): Promise<Response> {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
     );
 
