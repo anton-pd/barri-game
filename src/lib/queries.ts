@@ -35,6 +35,17 @@ export async function initializeSchema() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at)
   `;
+
+  // Migrations for existing tables
+  await sql`
+    ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS scenario_id VARCHAR(100) NOT NULL DEFAULT ''
+  `;
+  await sql`
+    ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS world_state JSONB DEFAULT '{}'
+  `;
+  await sql`
+    ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS players JSONB DEFAULT '[]'
+  `;
 }
 
 export async function getSessions(): Promise<(GameSession & { last_message?: string })[]> {

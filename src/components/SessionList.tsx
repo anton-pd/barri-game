@@ -2,6 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import type { GameSession, Scenario, Player } from '@/types';
+import { ROLE_PRESETS, makePlayer, type RolePreset } from '@/lib/roles';
+
+interface DraftPlayer {
+  name: string;
+  preset: RolePreset | null;
+}
+
+const emptyDraft = (): DraftPlayer => ({ name: '', preset: null });
 
 export default function SessionList() {
   const [sessions, setSessions] = useState<(GameSession & { last_message?: string })[]>([]);
@@ -9,7 +17,8 @@ export default function SessionList() {
   const [showNewGame, setShowNewGame] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [sessionName, setSessionName] = useState('');
-  const [players, setPlayers] = useState<Player[]>([{ name: '', role: '', hp: 10, sanity: 99 }]);
+  const [drafts, setDrafts] = useState<DraftPlayer[]>([emptyDraft()]);
+  const [pickingRoleFor, setPickingRoleFor] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -24,44 +33,44 @@ export default function SessionList() {
     });
   }, []);
 
-  function addPlayer() {
-    if (players.length < 4) {
-      setPlayers((prev) => [...prev, { name: '', role: '', hp: 10, sanity: 99 }]);
-    }
+  function addDraft() {
+    if (drafts.length < 4) setDrafts((prev) => [...prev, emptyDraft()]);
   }
 
-  function removePlayer(idx: number) {
-    if (players.length > 1) {
-      setPlayers((prev) => prev.filter((_, i) => i !== idx));
-    }
+  function removeDraft(idx: number) {
+    if (drafts.length > 1) setDrafts((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  function updatePlayer(idx: number, field: keyof Player, value: string | number) {
-    setPlayers((prev) =>
-      prev.map((p, i) => (i === idx ? { ...p, [field]: value } : p))
-    );
+  function setDraftName(idx: number, name: string) {
+    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, name } : d)));
   }
+
+  function setDraftPreset(idx: number, preset: RolePreset) {
+    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, preset } : d)));
+    setPickingRoleFor(null);
+  }
+
+  const canCreate =
+    !isCreating &&
+    !!sessionName.trim() &&
+    drafts.every((d) => d.name.trim() && d.preset !== null);
 
   async function createSession() {
-    if (!selectedScenario || !sessionName.trim() || players.some((p) => !p.name.trim())) return;
-
+    if (!canCreate || !selectedScenario) return;
     setIsCreating(true);
+
+    const players: Player[] = drafts.map((d) => makePlayer(d.name.trim(), d.preset!));
+
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scenarioId: selectedScenario.id,
-          name: sessionName,
-          players,
-        }),
+        body: JSON.stringify({ scenarioId: selectedScenario.id, name: sessionName, players }),
       });
-
-      if (!res.ok) throw new Error('Failed to create session');
+      if (!res.ok) throw new Error('Failed');
       const session = await res.json();
       window.location.href = `/session/${session.id}`;
-    } catch (err) {
-      console.error(err);
+    } catch {
       setIsCreating(false);
     }
   }
@@ -74,6 +83,14 @@ export default function SessionList() {
     setSessions((prev) => prev.filter((s) => s.id !== id));
   }
 
+  function closeModal() {
+    setShowNewGame(false);
+    setSelectedScenario(null);
+    setSessionName('');
+    setDrafts([emptyDraft()]);
+    setPickingRoleFor(null);
+  }
+
   const difficultyLabel = (d: string) => {
     if (d === 'beginner') return { text: 'Початківець', color: 'text-green-400' };
     if (d === 'intermediate') return { text: 'Середній', color: 'text-yellow-400' };
@@ -83,13 +100,11 @@ export default function SessionList() {
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 p-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-amber-500 mb-1">Call of Cthulhu</h1>
           <p className="text-stone-500 text-sm">AI Keeper — Поклик Ктулху</p>
         </div>
 
-        {/* New Game Button */}
         <button
           onClick={() => setShowNewGame(true)}
           className="w-full py-3 mb-6 bg-amber-800 hover:bg-amber-700 rounded-xl text-amber-100 font-semibold transition-colors"
@@ -97,7 +112,6 @@ export default function SessionList() {
           + Нова гра
         </button>
 
-        {/* Sessions */}
         {loading ? (
           <p className="text-center text-stone-600">Завантаження...</p>
         ) : sessions.length === 0 ? (
@@ -127,7 +141,7 @@ export default function SessionList() {
                     <div className="flex gap-1 mt-2">
                       {(s.players as Player[]).map((p, i) => (
                         <span key={i} className="text-xs bg-stone-800 text-stone-400 rounded px-1.5 py-0.5">
-                          {p.name}
+                          {p.name} · {p.role}
                         </span>
                       ))}
                     </div>
@@ -148,23 +162,51 @@ export default function SessionList() {
         )}
       </div>
 
-      {/* New Game Modal */}
+      {/* Modal */}
       {showNewGame && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
           <div className="bg-stone-900 border border-stone-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-stone-200">Нова гра</h2>
-                <button
-                  onClick={() => { setShowNewGame(false); setSelectedScenario(null); }}
-                  className="text-stone-500 hover:text-stone-300 text-xl"
-                >
-                  ✕
-                </button>
+                <button onClick={closeModal} className="text-stone-500 hover:text-stone-300 text-xl">✕</button>
               </div>
 
-              {/* Scenario Selection */}
-              {!selectedScenario ? (
+              {/* Role picker overlay */}
+              {pickingRoleFor !== null ? (
+                <div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <button onClick={() => setPickingRoleFor(null)} className="text-amber-600 text-sm">← Назад</button>
+                    <span className="text-sm text-stone-400">Оберіть клас для {drafts[pickingRoleFor].name || `Гравця ${pickingRoleFor + 1}`}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {ROLE_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => setDraftPreset(pickingRoleFor, preset)}
+                        className="w-full text-left bg-stone-800 hover:bg-stone-700 border border-stone-700 rounded-xl p-3 transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold text-stone-200">{preset.name}</span>
+                          <div className="flex gap-2 text-xs">
+                            <span className="text-red-400">HP {preset.hp}</span>
+                            <span className="text-purple-400">SAN {preset.sanity}</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-stone-500 mb-2">{preset.description}</p>
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(preset.skills).map(([skill, val]) => (
+                            <span key={skill} className="text-xs bg-stone-700 text-stone-400 rounded px-1.5 py-0.5">
+                              {skill} {val}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : !selectedScenario ? (
+                /* Scenario picker */
                 <div>
                   <p className="text-sm text-stone-400 mb-3">Оберіть сценарій:</p>
                   <div className="space-y-2">
@@ -190,13 +232,13 @@ export default function SessionList() {
                   </div>
                 </div>
               ) : (
+                /* Player setup */
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm text-stone-400">
                     <button onClick={() => setSelectedScenario(null)} className="text-amber-600">←</button>
                     <span>{selectedScenario.titleUk}</span>
                   </div>
 
-                  {/* Session Name */}
                   <div>
                     <label className="text-xs text-stone-500 block mb-1">Назва сесії</label>
                     <input
@@ -208,40 +250,64 @@ export default function SessionList() {
                     />
                   </div>
 
-                  {/* Players */}
                   <div>
-                    <label className="text-xs text-stone-500 block mb-2">Гравці (1-4)</label>
-                    <div className="space-y-2">
-                      {players.map((p, i) => (
-                        <div key={i} className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            value={p.name}
-                            onChange={(e) => updatePlayer(i, 'name', e.target.value)}
-                            placeholder="Ім'я"
-                            className="flex-1 bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-sm text-stone-200 placeholder-stone-600 focus:outline-none"
-                          />
-                          <input
-                            type="text"
-                            value={p.role}
-                            onChange={(e) => updatePlayer(i, 'role', e.target.value)}
-                            placeholder="Роль/клас"
-                            className="flex-1 bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-sm text-stone-200 placeholder-stone-600 focus:outline-none"
-                          />
-                          {players.length > 1 && (
+                    <label className="text-xs text-stone-500 block mb-2">Гравці (1–4)</label>
+                    <div className="space-y-3">
+                      {drafts.map((d, i) => (
+                        <div key={i} className="bg-stone-800 border border-stone-700 rounded-xl p-3">
+                          <div className="flex gap-2 items-center mb-2">
+                            <input
+                              type="text"
+                              value={d.name}
+                              onChange={(e) => setDraftName(i, e.target.value)}
+                              placeholder={`Ім'я гравця ${i + 1}`}
+                              className="flex-1 bg-stone-700 border border-stone-600 rounded-lg px-2 py-1.5 text-sm text-stone-200 placeholder-stone-500 focus:outline-none"
+                            />
+                            {drafts.length > 1 && (
+                              <button
+                                onClick={() => removeDraft(i)}
+                                className="text-stone-600 hover:text-red-500 text-sm px-1"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+
+                          {d.preset ? (
                             <button
-                              onClick={() => removePlayer(i)}
-                              className="text-stone-600 hover:text-red-500 text-sm px-1"
+                              onClick={() => setPickingRoleFor(i)}
+                              className="w-full text-left bg-stone-700 hover:bg-stone-600 rounded-lg px-3 py-2 transition-colors"
                             >
-                              ✕
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-stone-200">{d.preset.name}</span>
+                                <div className="flex gap-2 text-xs">
+                                  <span className="text-red-400">HP {d.preset.hp}</span>
+                                  <span className="text-purple-400">SAN {d.preset.sanity}</span>
+                                  <span className="text-stone-500">змінити →</span>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {Object.entries(d.preset.skills).map(([skill, val]) => (
+                                  <span key={skill} className="text-xs text-stone-500">
+                                    {skill} {val}
+                                  </span>
+                                ))}
+                              </div>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setPickingRoleFor(i)}
+                              className="w-full py-2 text-sm text-amber-700 hover:text-amber-500 border border-dashed border-stone-600 rounded-lg transition-colors"
+                            >
+                              + Обрати клас
                             </button>
                           )}
                         </div>
                       ))}
                     </div>
-                    {players.length < 4 && (
+                    {drafts.length < 4 && (
                       <button
-                        onClick={addPlayer}
+                        onClick={addDraft}
                         className="text-xs text-amber-700 hover:text-amber-500 mt-2"
                       >
                         + Додати гравця
@@ -251,7 +317,7 @@ export default function SessionList() {
 
                   <button
                     onClick={createSession}
-                    disabled={isCreating || !sessionName.trim() || players.some((p) => !p.name.trim())}
+                    disabled={!canCreate}
                     className="w-full py-2.5 bg-amber-800 hover:bg-amber-700 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-amber-100 font-semibold transition-colors"
                   >
                     {isCreating ? 'Створення...' : 'Почати гру'}

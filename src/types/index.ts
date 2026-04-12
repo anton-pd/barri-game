@@ -11,8 +11,12 @@ export interface WorldState {
 export interface Player {
   name: string;
   role: string;
+  roleId: string;
   hp: number;
+  maxHp: number;
   sanity: number;
+  maxSanity: number;
+  skills: Record<string, number>;
 }
 
 export interface GameSession {
@@ -62,6 +66,13 @@ export interface CriticalSuccessRules {
   persuasion: string;
 }
 
+export interface StaticImage {
+  id: string;
+  type: string;
+  prompt: string;
+  label: string;
+}
+
 export interface Scenario {
   id: string;
   title: string;
@@ -75,4 +86,5 @@ export interface Scenario {
   mustHappenEvents: string[];
   npcs: NPC[];
   locations: Location[];
+  staticImages?: StaticImage[];
 }

@@ -136,5 +136,31 @@
         "Книга 'Темні обряди Нової Англії' — є розділ про ритуали зв'язування душі"
       ]
     }
+  ],
+  "staticImages": [
+    {
+      "id": "elm_street_house",
+      "type": "photo",
+      "prompt": "Victorian house on Elm Street Boston 1920 exterior at night fog horror dark atmosphere",
+      "label": "Будинок на Elm Street"
+    },
+    {
+      "id": "corbitt_clipping",
+      "type": "newspaper",
+      "prompt": "Boston Globe 1908 newspaper clipping headline Walter Corbitt occultist arrested dark rituals Elm Street",
+      "label": "Стаття про Корбіта"
+    },
+    {
+      "id": "boston_map",
+      "type": "map",
+      "prompt": "hand drawn map Boston Beacon Hill neighborhood 1920 streets Elm Street location marked X",
+      "label": "Карта кварталу"
+    },
+    {
+      "id": "ritual_photo",
+      "type": "photo",
+      "prompt": "dark basement stone floor mysterious chalk symbols occult ritual circle candles 1920s photograph",
+      "label": "Фотографія підвалу"
+    }
   ]
 }

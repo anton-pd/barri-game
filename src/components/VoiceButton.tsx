@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
@@ -9,53 +9,81 @@ interface VoiceButtonProps {
 
 export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
   const [isListening, setIsListening] = useState(false);
-  const [supported, setSupported] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const w = window as any;
-    const SpeechRecognitionAPI = w.SpeechRecognition || w.webkitSpeechRecognition;
-
-    if (SpeechRecognitionAPI) {
-      setSupported(true);
-      const recognition = new SpeechRecognitionAPI();
-      recognition.lang = 'uk-UA';
-      recognition.continuous = false;
-      recognition.interimResults = false;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        onTranscript(transcript);
-        setIsListening(false);
-      };
-
-      recognition.onerror = () => setIsListening(false);
-      recognition.onend = () => setIsListening(false);
-
-      recognitionRef.current = recognition;
+  async function startRecording() {
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      return; // permission denied or not supported
     }
-  }, [onTranscript]);
 
-  function toggleListening() {
-    if (!recognitionRef.current) return;
+    const recorder = new MediaRecorder(stream);
+    chunksRef.current = [];
 
-    if (isListening) {
-      recognitionRef.current.stop();
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
       setIsListening(false);
+      setIsProcessing(true);
+
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+
+      try {
+        const form = new FormData();
+        form.append('audio', blob, 'audio.webm');
+
+        const res = await fetch('/api/stt', { method: 'POST', body: form });
+        if (res.ok) {
+          const data = await res.json() as { text?: string };
+          if (data.text?.trim()) onTranscript(data.text.trim());
+        }
+      } catch {
+        // silent — user will type instead
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    recorder.start();
+    recorderRef.current = recorder;
+    setIsListening(true);
+  }
+
+  function stopRecording() {
+    recorderRef.current?.stop();
+    recorderRef.current = null;
+  }
+
+  function toggle() {
+    if (isListening) {
+      stopRecording();
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      startRecording();
     }
   }
 
-  if (!supported) return null;
+  if (isProcessing) {
+    return (
+      <button
+        disabled
+        className="p-2 rounded-lg bg-stone-700 text-amber-600 animate-pulse"
+        title="Розпізнавання..."
+      >
+        ⏳
+      </button>
+    );
+  }
 
   return (
     <button
-      onClick={toggleListening}
+      onClick={toggle}
       disabled={disabled}
       className={`p-2 rounded-lg transition-colors ${
         isListening

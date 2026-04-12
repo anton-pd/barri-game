@@ -4,7 +4,15 @@ import fs from 'fs';
 import path from 'path';
 import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
 import { buildSystemPrompt, buildSummarizePrompt } from '@/lib/prompts';
-import type { Scenario, WorldState } from '@/types';
+import type { Scenario, WorldState, NPC } from '@/types';
+
+function detectVoiceStyle(text: string, npcs: NPC[]): string {
+  const lower = text.toLowerCase();
+  for (const npc of npcs) {
+    if (lower.includes(npc.name.toLowerCase())) return npc.voiceStyle;
+  }
+  return 'keeper';
+}
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -61,12 +69,18 @@ export async function POST(request: Request) {
     const recentMessages = await getLastNMessages(sessionId, 30);
     const systemPromptText = buildSystemPrompt(scenario, session.world_state, session.players);
 
+    const isIntro = message === '__intro__';
+
     const conversationHistory = recentMessages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     }));
 
-    conversationHistory.push({ role: 'user', content: message });
+    const userContent = isIntro
+      ? 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.'
+      : message;
+
+    conversationHistory.push({ role: 'user', content: userContent });
 
     const aiResponse = await anthropic.messages.create(
       {
@@ -90,7 +104,9 @@ export async function POST(request: Request) {
 
     const assistantText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
 
-    await saveMessage(sessionId, 'user', message, playerIdx);
+    if (!isIntro) {
+      await saveMessage(sessionId, 'user', message, playerIdx);
+    }
     await saveMessage(sessionId, 'assistant', assistantText);
 
     const msgCount = await countMessages(sessionId);
@@ -100,9 +116,44 @@ export async function POST(request: Request) {
 
     const updatedSession = await getSession(sessionId);
 
+    // Parse and strip [DELTA:...] and [IMAGE:...] from response
+    const deltaMatch = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
+    const imageMatch = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+    const cleanText  = assistantText
+      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/, '')
+      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/, '')
+      .trim();
+
+    let updatedPlayers = session.players;
+    if (deltaMatch) {
+      try {
+        const delta = JSON.parse(deltaMatch[1]) as Record<string, { hp?: number; sanity?: number }>;
+        updatedPlayers = session.players.map((p, i) => {
+          const d = delta[String(i)];
+          if (!d) return p;
+          return {
+            ...p,
+            hp:     Math.max(0, Math.min(p.maxHp,     p.hp     + (d.hp     ?? 0))),
+            sanity: Math.max(0, Math.min(p.maxSanity,  p.sanity + (d.sanity ?? 0))),
+          };
+        });
+        await updateSession(session.id, { players: updatedPlayers });
+      } catch {
+        // malformed delta — ignore
+      }
+    }
+
+    const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);
+    const imageType   = imageMatch?.[1] ?? null;
+    const imagePrompt = imageMatch?.[2]?.trim() ?? null;
+
     return NextResponse.json({
-      response: assistantText,
+      response: cleanText,
+      voiceStyle,
+      players: updatedPlayers,
       world_state: updatedSession?.world_state,
+      imageType,
+      imagePrompt,
     });
   } catch (error) {
     console.error('Error in AI route:', error);
