@@ -20,33 +20,98 @@ export async function GET(request: Request) {
   if (!prompt) return new Response('prompt is required', { status: 400 });
 
   const fullPrompt = buildPrompt(prompt, type);
-  const provider   = process.env.IMAGE_PROVIDER ?? 'pollinations';
+  const provider   = process.env.IMAGE_PROVIDER ?? 'gemini';
+
+  if (provider === 'gemini') {
+    return handleGemini(fullPrompt);
+  }
 
   if (provider === 'openai') {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
+    return handleOpenAI(fullPrompt);
+  }
 
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'dall-e-2', prompt: fullPrompt, n: 1, size: '512x512', response_format: 'url' }),
-    });
+  return handlePollinations(fullPrompt);
+}
+
+// ── Gemini ───────────────────────────────────────────────────────────────────
+
+async function handleGemini(prompt: string): Promise<Response> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return new Response('Gemini API key not configured', { status: 503 });
+
+  const body = JSON.stringify({
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { responseModalities: ['IMAGE', 'TEXT'] },
+  });
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+    );
+
+    if (res.status === 429) {
+      console.warn(`Gemini rate limit, attempt ${attempt + 1}/3`);
+      continue;
+    }
 
     if (!res.ok) {
-      console.error('DALL-E error:', await res.text());
+      console.error('Gemini image error:', res.status, await res.text());
       return new Response('Image generation failed', { status: 502 });
     }
 
-    const data = await res.json() as { data: { url: string }[] };
-    const imgRes = await fetch(data.data[0].url);
-    const imgBuf = await imgRes.arrayBuffer();
-    return new Response(imgBuf, {
-      headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+    const data = await res.json() as {
+      candidates: { content: { parts: { inlineData?: { mimeType: string; data: string } }[] } }[]
+    };
+
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+    if (!imagePart?.inlineData) {
+      console.error('Gemini: no image in response', JSON.stringify(data).slice(0, 200));
+      return new Response('No image returned', { status: 502 });
+    }
+
+    const { mimeType, data: b64 } = imagePart.inlineData;
+    const buf = Buffer.from(b64, 'base64');
+    return new Response(buf, {
+      headers: { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=86400' },
     });
   }
 
-  // Default: Pollinations.ai (free) — retry up to 3 times on rate limit
-  const encoded = encodeURIComponent(fullPrompt);
+  console.warn('Gemini: rate limit after 3 attempts, falling back to Pollinations');
+  return handlePollinations(prompt);
+}
+
+// ── OpenAI DALL-E ─────────────────────────────────────────────────────────────
+
+async function handleOpenAI(prompt: string): Promise<Response> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
+
+  const res = await fetch('https://api.openai.com/v1/images/generations', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'dall-e-2', prompt, n: 1, size: '512x512', response_format: 'url' }),
+  });
+
+  if (!res.ok) {
+    console.error('DALL-E error:', await res.text());
+    return new Response('Image generation failed', { status: 502 });
+  }
+
+  const data = await res.json() as { data: { url: string }[] };
+  const imgRes = await fetch(data.data[0].url);
+  const imgBuf = await imgRes.arrayBuffer();
+  return new Response(imgBuf, {
+    headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=86400' },
+  });
+}
+
+// ── Pollinations (fallback) ───────────────────────────────────────────────────
+
+async function handlePollinations(prompt: string): Promise<Response> {
+  const encoded = encodeURIComponent(prompt);
   const seed    = Math.floor(Math.random() * 999999);
   const url     = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=512&model=flux-realism&nologo=true&seed=${seed}`;
   const JPEG_MAGIC = [0xff, 0xd8, 0xff];
