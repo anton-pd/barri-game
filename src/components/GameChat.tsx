@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { GameSession, Message, Player } from '@/types';
+import type { GameSession, Message, Player, ScenarioBriefing } from '@/types';
 import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
 
 interface GameChatProps {
   session: GameSession;
   initialMessages: Message[];
+  briefing?: ScenarioBriefing | null;
 }
 
 // msgId → { prompt, type }
@@ -59,54 +60,151 @@ function DynamicImage({ prompt, type }: { prompt: string; type: string }) {
   );
 }
 
-// Case files drawer (static scenario images)
+// Case files drawer — tabs: briefing / players / images
 function CaseFilesDrawer({
   scenarioId,
+  players,
+  briefing,
+  defaultTab,
   onClose,
 }: {
   scenarioId: string;
+  players: Player[];
+  briefing?: ScenarioBriefing | null;
+  defaultTab?: 'briefing' | 'players' | 'images';
   onClose: () => void;
 }) {
-  const [images, setImages] = useState<{ id: string; url: string; label: string }[]>([]);
+  type Tab = 'briefing' | 'players' | 'images';
+  const [tab, setTab]           = useState<Tab>(defaultTab ?? 'briefing');
+  const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
   const [fullscreen, setFullscreen] = useState<string | null>(null);
-  const [loading, setLoading]       = useState(true);
+  const [loadingImgs, setLoadingImgs] = useState(false);
 
   useEffect(() => {
+    if (tab !== 'images') return;
+    setLoadingImgs(true);
     fetch(`/api/scenarios/${scenarioId}/images`)
       .then((r) => r.json())
-      .then((d) => { setImages(d.images ?? []); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, [scenarioId]);
+      .then((d) => { setImages(d.images ?? []); })
+      .catch(() => {})
+      .finally(() => setLoadingImgs(false));
+  }, [tab, scenarioId]);
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: 'briefing', label: 'Опис' },
+    { id: 'players',  label: 'Гравці' },
+    { id: 'images',   label: 'Матеріали' },
+  ];
 
   return (
     <div className="fixed inset-0 z-40 flex">
-      {/* Backdrop */}
       <div className="flex-1 bg-black/60" onClick={onClose} />
-      {/* Panel */}
-      <div className="w-72 bg-stone-900 border-l border-stone-700 flex flex-col overflow-hidden">
+      <div className="w-80 bg-stone-900 border-l border-stone-700 flex flex-col overflow-hidden">
+        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
           <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300">✕</button>
+          <button onClick={onClose} className="text-stone-500 hover:text-stone-300 text-lg leading-none">✕</button>
         </div>
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {loading && (
-            <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
-          )}
-          {!loading && images.length === 0 && (
-            <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
-          )}
-          {images.map((img) => (
-            <div key={img.id}>
-              <img
-                src={img.url}
-                alt={img.label}
-                onClick={() => setFullscreen(img.url)}
-                className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
-                style={{ maxHeight: 160 }}
-              />
-              <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
-            </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-stone-700">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 text-xs py-2 transition-colors ${
+                tab === t.id
+                  ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── Briefing ── */}
+          {tab === 'briefing' && (
+            <div className="p-4 space-y-4">
+              {!briefing ? (
+                <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
+                  </div>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
+                    <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
+                  </div>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Players ── */}
+          {tab === 'players' && (
+            <div className="p-3 space-y-4">
+              {players.map((p, i) => (
+                <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-semibold text-stone-100">{p.name}</span>
+                    <span className="text-xs text-amber-600">{p.role}</span>
+                  </div>
+                  {p.background && (
+                    <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
+                  )}
+                  <div className="flex gap-3 text-xs pt-1">
+                    <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
+                    <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
+                    <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
+                  </div>
+                  {Object.keys(p.skills).length > 0 && (
+                    <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      {Object.entries(p.skills).map(([skill, val]) => (
+                        <div key={skill} className="flex justify-between">
+                          <span className="text-xs text-stone-500 truncate">{skill}</span>
+                          <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Images ── */}
+          {tab === 'images' && (
+            <div className="p-3 space-y-3">
+              {loadingImgs && (
+                <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
+              )}
+              {!loadingImgs && images.length === 0 && (
+                <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
+              )}
+              {images.map((img) => (
+                <div key={img.id}>
+                  <img
+                    src={img.url}
+                    alt={img.label}
+                    onClick={() => setFullscreen(img.url)}
+                    className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
+                    style={{ maxHeight: 160 }}
+                  />
+                  <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -122,7 +220,7 @@ function CaseFilesDrawer({
   );
 }
 
-export default function GameChat({ session: initialSession, initialMessages }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [voiceStyles, setVoiceStyles]         = useState<Record<string, string>>({});
@@ -132,7 +230,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const [speakingId, setSpeakingId]           = useState<string | null>(null);
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
-  const [showCaseFiles, setShowCaseFiles]     = useState(false);
+  const [showCaseFiles, setShowCaseFiles]     = useState(() => initialMessages.length === 0);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
@@ -647,7 +745,13 @@ export default function GameChat({ session: initialSession, initialMessages }: G
 
       {/* Case files drawer */}
       {showCaseFiles && (
-        <CaseFilesDrawer scenarioId={session.scenario_id} onClose={() => setShowCaseFiles(false)} />
+        <CaseFilesDrawer
+          scenarioId={session.scenario_id}
+          players={session.players}
+          briefing={briefing}
+          defaultTab={initialMessages.length === 0 ? 'briefing' : 'images'}
+          onClose={() => setShowCaseFiles(false)}
+        />
       )}
     </div>
   );

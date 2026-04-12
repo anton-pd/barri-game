@@ -85,6 +85,12 @@ export interface StaticImage {
   label: string;
 }
 
+export interface ScenarioBriefing {
+  setting: string;    // time/place
+  premise: string;    // what's happening, why players are here
+  objective: string;  // what needs to be achieved
+}
+
 export interface Scenario {
   id: string;
   title: string;
@@ -92,6 +98,7 @@ export interface Scenario {
   era: string;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   description: string;
+  briefing?: ScenarioBriefing;
   systemPrompt: string;
   railguards: Railguard[];
   criticalSuccessRules: CriticalSuccessRules;
