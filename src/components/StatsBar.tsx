@@ -6,9 +6,10 @@ import type { Player } from '@/types';
 interface StatsBarProps {
   players: Player[];
   onUpdatePlayers: (players: Player[]) => void;
+  onUseItem?: (playerIdx: number, itemId: string, itemName: string) => void;
 }
 
-export default function StatsBar({ players, onUpdatePlayers }: StatsBarProps) {
+export default function StatsBar({ players, onUpdatePlayers, onUseItem }: StatsBarProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   function updateStat(idx: number, stat: 'hp' | 'sanity', delta: number) {
@@ -27,6 +28,7 @@ export default function StatsBar({ players, onUpdatePlayers }: StatsBarProps) {
           const hpPct  = p.maxHp     > 0 ? p.hp     / p.maxHp     : 0;
           const sanPct = p.maxSanity > 0 ? p.sanity / p.maxSanity : 0;
           const isOpen = expanded === idx;
+          const inventory = p.inventory ?? [];
 
           return (
             <div
@@ -42,7 +44,14 @@ export default function StatsBar({ players, onUpdatePlayers }: StatsBarProps) {
                   <span className="text-xs font-medium text-stone-200">{p.name}</span>
                   <span className="text-xs text-stone-500 ml-1">· {p.role}</span>
                 </div>
-                <span className="text-stone-600 text-xs">{isOpen ? '▲' : '▼'}</span>
+                <div className="flex items-center gap-1.5">
+                  {inventory.length > 0 && (
+                    <span className="text-xs text-amber-700" title="Предмети">
+                      🎒{inventory.length}
+                    </span>
+                  )}
+                  <span className="text-stone-600 text-xs">{isOpen ? '▲' : '▼'}</span>
+                </div>
               </button>
 
               {/* HP + Sanity bars */}
@@ -98,18 +107,64 @@ export default function StatsBar({ players, onUpdatePlayers }: StatsBarProps) {
                 </div>
               </div>
 
-              {/* Skills (expandable) */}
-              {isOpen && p.skills && Object.keys(p.skills).length > 0 && (
-                <div className="border-t border-stone-700 px-3 py-2">
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-                    {Object.entries(p.skills).map(([skill, val]) => (
-                      <div key={skill} className="flex items-center justify-between">
-                        <span className="text-xs text-stone-500 truncate">{skill}</span>
-                        <span className="text-xs text-amber-600 font-mono ml-1 shrink-0">{val}</span>
+              {/* Expanded: skills + inventory */}
+              {isOpen && (
+                <>
+                  {/* Skills */}
+                  {p.skills && Object.keys(p.skills).length > 0 && (
+                    <div className="border-t border-stone-700 px-3 py-2">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {Object.entries(p.skills).map(([skill, val]) => (
+                          <div key={skill} className="flex items-center justify-between">
+                            <span className="text-xs text-stone-500 truncate">{skill}</span>
+                            <span className="text-xs text-amber-600 font-mono ml-1 shrink-0">{val}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  )}
+
+                  {/* Inventory */}
+                  {inventory.length > 0 && (
+                    <div className="border-t border-stone-700 px-3 py-2">
+                      <p className="text-xs text-stone-500 mb-1.5 font-medium">Інвентар</p>
+                      <div className="space-y-1.5">
+                        {inventory.map((item) => {
+                          const exhausted = item.uses === 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-start justify-between gap-2 rounded px-2 py-1.5 ${exhausted ? 'bg-stone-800 opacity-50' : 'bg-stone-750'}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-xs font-medium ${exhausted ? 'text-stone-500' : 'text-stone-200'}`}>
+                                    {item.name}
+                                  </span>
+                                  <span className="text-xs text-stone-600 shrink-0">
+                                    {item.uses === -1 ? '∞' : `×${item.uses}`}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-stone-500 mt-0.5 leading-tight">{item.description}</p>
+                              </div>
+                              {!exhausted && onUseItem && (
+                                <button
+                                  onClick={() => {
+                                    onUseItem(idx, item.id, item.name);
+                                    setExpanded(null);
+                                  }}
+                                  className="text-xs px-1.5 py-0.5 bg-amber-900 hover:bg-amber-800 text-amber-300 rounded shrink-0 transition-colors"
+                                >
+                                  вжити
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           );

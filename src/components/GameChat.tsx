@@ -134,6 +134,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showCaseFiles, setShowCaseFiles]     = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
+  const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const [ttsProvider, setTtsProvider]         = useState<'openai' | 'elevenlabs'>(() => {
     if (typeof window !== 'undefined') {
       return (localStorage.getItem('ttsProvider') as 'openai' | 'elevenlabs') ?? 'openai';
@@ -253,6 +254,35 @@ export default function GameChat({ session: initialSession, initialMessages }: G
     speakMsg(msgId, text, voiceStyles[msgId]);
   }
 
+  // ── Item use ─────────────────────────────────────────────────────────────────
+
+  function handleUseItem(playerIdx: number, itemId: string, itemName: string) {
+    // Track for post-send decrement
+    pendingItemUsesRef.current = [...pendingItemUsesRef.current, { playerIdx, itemId }];
+    // Switch to that player and insert text into input
+    setActivePlayer(playerIdx);
+    setInput((prev) => prev ? `${prev} (використовує: ${itemName})` : `(використовує: ${itemName}) `);
+    textareaRef.current?.focus();
+  }
+
+  function consumePendingItems(players: Player[]): Player[] {
+    const uses = pendingItemUsesRef.current;
+    if (uses.length === 0) return players;
+    pendingItemUsesRef.current = [];
+    return players.map((p, pIdx) => {
+      const itemsToConsume = uses.filter((u) => u.playerIdx === pIdx);
+      if (itemsToConsume.length === 0) return p;
+      const updatedInventory = (p.inventory ?? []).reduce<typeof p.inventory>((acc, item) => {
+        const consumed = itemsToConsume.some((u) => u.itemId === item.id);
+        if (!consumed) return [...acc, item];
+        if (item.uses === -1) return [...acc, item]; // infinite — don't decrement
+        if (item.uses <= 1) return acc;              // 1 use left — remove
+        return [...acc, { ...item, uses: item.uses - 1 }];
+      }, []);
+      return { ...p, inventory: updatedInventory };
+    });
+  }
+
   // ── Players ──────────────────────────────────────────────────────────────────
 
   async function updatePlayers(players: Player[]) {
@@ -342,7 +372,20 @@ export default function GameChat({ session: initialSession, initialMessages }: G
 
       if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [msgId]: data.voiceStyle }));
       if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state }));
-      if (data.players)     setSession((s) => ({ ...s, players: data.players }));
+
+      // Apply AI-granted items, then consume used items
+      const playersAfterAI = data.players ?? session.players;
+      const playersAfterConsume = consumePendingItems(playersAfterAI);
+      if (playersAfterConsume !== session.players) {
+        setSession((s) => ({ ...s, players: playersAfterConsume }));
+        await fetch(`/api/sessions/${session.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ players: playersAfterConsume }),
+        });
+      } else if (data.players) {
+        setSession((s) => ({ ...s, players: data.players }));
+      }
       if (data.imagePrompt) setDynamicImages((prev) => ({
         ...prev, [msgId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' },
       }));
@@ -403,7 +446,7 @@ export default function GameChat({ session: initialSession, initialMessages }: G
         </div>
       </div>
 
-      <StatsBar players={session.players} onUpdatePlayers={updatePlayers} />
+      <StatsBar players={session.players} onUpdatePlayers={updatePlayers} onUseItem={handleUseItem} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

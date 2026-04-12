@@ -129,31 +129,55 @@ export async function POST(request: Request) {
 
     const updatedSession = await getSession(sessionId);
 
-    // Parse and strip [DELTA:...] and [IMAGE:...] from response
+    // Parse and strip [DELTA:...], [IMAGE:...], [ITEM:...] from response
     const deltaMatch = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
     const imageMatch = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+    const itemMatches = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
     const cleanText  = assistantText
-      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/, '')
-      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/, '')
+      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
+      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
+      .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
       .trim();
 
     let updatedPlayers = session.players;
+
+    // Apply DELTA (HP/sanity changes)
     if (deltaMatch) {
       try {
         const delta = JSON.parse(deltaMatch[1]) as Record<string, { hp?: number; sanity?: number }>;
-        updatedPlayers = session.players.map((p, i) => {
+        updatedPlayers = updatedPlayers.map((p, i) => {
           const d = delta[String(i)];
           if (!d) return p;
           return {
             ...p,
-            hp:     Math.max(0, Math.min(p.maxHp,     p.hp     + (d.hp     ?? 0))),
-            sanity: Math.max(0, Math.min(p.maxSanity,  p.sanity + (d.sanity ?? 0))),
+            hp:     Math.max(0, Math.min(p.maxHp,    p.hp     + (d.hp     ?? 0))),
+            sanity: Math.max(0, Math.min(p.maxSanity, p.sanity + (d.sanity ?? 0))),
           };
         });
-        await updateSession(session.id, { players: updatedPlayers });
-      } catch {
-        // malformed delta — ignore
+      } catch { /* malformed — ignore */ }
+    }
+
+    // Apply ITEM grants
+    if (itemMatches.length > 0) {
+      for (const m of itemMatches) {
+        const pIdx = parseInt(m[1]);
+        if (pIdx < 0 || pIdx >= updatedPlayers.length) continue;
+        const newItem = {
+          id: `item_${Date.now()}_${pIdx}`,
+          name: m[2].trim(),
+          description: m[3].trim(),
+          uses: parseInt(m[4]),
+        };
+        updatedPlayers = updatedPlayers.map((p, i) =>
+          i === pIdx
+            ? { ...p, inventory: [...(p.inventory ?? []), newItem] }
+            : p
+        );
       }
+    }
+
+    if (deltaMatch || itemMatches.length > 0) {
+      await updateSession(session.id, { players: updatedPlayers });
     }
 
     const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);

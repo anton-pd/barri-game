@@ -8,6 +8,13 @@ export interface WorldState {
   playerNotes: string[];
 }
 
+export interface InventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  uses: number; // -1 = infinite
+}
+
 export interface Player {
   name: string;
   role: string;
@@ -17,6 +24,7 @@ export interface Player {
   sanity: number;
   maxSanity: number;
   skills: Record<string, number>;
+  inventory: InventoryItem[];
 }
 
 export interface GameSession {
