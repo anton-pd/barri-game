@@ -1,20 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getSessions, createSession, initializeSchema } from '@/lib/queries';
+import { cookies } from 'next/headers';
+import { getSessions, getSessionsByUserId, createSession, ensureSchema } from '@/lib/queries';
+import { verifyJwt } from '@/lib/auth';
 import type { Player } from '@/types';
 
-let schemaInitialized = false;
-
-async function ensureSchema() {
-  if (!schemaInitialized) {
-    await initializeSchema();
-    schemaInitialized = true;
-  }
+async function getPayload() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  return token ? verifyJwt(token) : null;
 }
 
 export async function GET() {
   try {
     await ensureSchema();
-    const sessions = await getSessions();
+
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const sessions = await getSessionsByUserId(payload.sub);
+
     return NextResponse.json(sessions);
   } catch (error) {
     console.error('Error fetching sessions:', error);
@@ -25,6 +31,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     await ensureSchema();
+
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { scenarioId, name, players } = body as {
       scenarioId: string;
@@ -36,7 +48,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const session = await createSession(scenarioId, name, players);
+    const session = await createSession(scenarioId, name, players, payload.sub);
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
     console.error('Error creating session:', error);

@@ -1,3 +1,12 @@
+export interface User {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WorldState {
   act: number;
   visitedLocations: string[];
@@ -38,6 +47,7 @@ export interface GameSession {
   status: string;
   world_state: WorldState;
   players: Player[];
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 }

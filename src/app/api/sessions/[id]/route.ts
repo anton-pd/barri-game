@@ -1,16 +1,39 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { getSession, updateSession, deleteSession, getMessages } from '@/lib/queries';
+import { verifyJwt } from '@/lib/auth';
 import type { WorldState, Player } from '@/types';
 
+async function getPayload() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  return token ? verifyJwt(token) : null;
+}
+
+function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
+  if (role === 'admin') return true;
+  if (sessionUserId === null) return true; // legacy anonymous session
+  return sessionUserId === payloadSub;
+}
+
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
     const session = await getSession(id);
     if (!session) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (!canAccess(session.user_id, payload.sub, payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const messages = await getMessages(id, 30);
@@ -26,7 +49,21 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
+    const session = await getSession(id);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (!canAccess(session.user_id, payload.sub, payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const updates: { world_state?: WorldState; act?: number; players?: Player[]; status?: string } = {};
 
@@ -35,8 +72,8 @@ export async function PATCH(
     if (body.players !== undefined) updates.players = body.players;
     if (body.status !== undefined) updates.status = body.status;
 
-    const session = await updateSession(id, updates);
-    return NextResponse.json(session);
+    const updated = await updateSession(id, updates);
+    return NextResponse.json(updated);
   } catch (error) {
     console.error('Error updating session:', error);
     return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
@@ -44,11 +81,25 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id } = await params;
+    const session = await getSession(id);
+    if (!session) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (!canAccess(session.user_id, payload.sub, payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     await deleteSession(id);
     return NextResponse.json({ success: true });
   } catch (error) {

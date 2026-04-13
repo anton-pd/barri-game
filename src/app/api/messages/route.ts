@@ -1,14 +1,38 @@
 import { NextResponse } from 'next/server';
-import { getMessages, saveMessage } from '@/lib/queries';
+import { cookies } from 'next/headers';
+import { getMessages, saveMessage, getSession } from '@/lib/queries';
+import { verifyJwt } from '@/lib/auth';
+
+async function getPayload() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  return token ? verifyJwt(token) : null;
+}
+
+function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
+  if (role === 'admin') return true;
+  if (sessionUserId === null) return true;
+  return sessionUserId === payloadSub;
+}
 
 export async function GET(request: Request) {
   try {
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('sessionId');
     const limit = parseInt(searchParams.get('limit') || '30');
 
     if (!sessionId) {
       return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+    }
+
+    const session = await getSession(sessionId);
+    if (!session || !canAccess(session.user_id, payload.sub, payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const messages = await getMessages(sessionId, limit);
@@ -21,11 +45,21 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const payload = await getPayload();
+    if (!payload) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { sessionId, role, content, playerIdx } = body;
 
     if (!sessionId || !role || !content) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    }
+
+    const session = await getSession(sessionId);
+    if (!session || !canAccess(session.user_id, payload.sub, payload.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const message = await saveMessage(sessionId, role, content, playerIdx);

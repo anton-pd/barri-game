@@ -1,6 +1,33 @@
 @import "tailwindcss";
 
-body {
-  background: #0c0a09;
-  color: #e7e5e4;
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: #0c0a09;
+    color: #e7e5e4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Thin scrollbar */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #57534e; border-radius: 9999px; }
+
+  /* Remove 300ms tap delay + blue flash on mobile */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent iOS Safari auto-zoom on inputs (triggers when font-size < 16px) */
+  @media (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px;
+    }
+  }
 }

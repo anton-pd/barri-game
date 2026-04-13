@@ -2,8 +2,17 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { GameSession, Message, Player, ScenarioBriefing } from '@/types';
+import type { Segment } from '@/lib/segments';
+import { hasNpcSpeech } from '@/lib/segments';
+import type { AiProvider } from '@/app/api/ai/route';
 import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
+
+const AI_PROVIDERS: { id: AiProvider; label: string; short: string }[] = [
+  { id: 'claude-sonnet', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
+  { id: 'gemini-flash',  label: 'Gemini 2.5 Flash',  short: 'Flash'  },
+  { id: 'gemini-pro',    label: 'Gemini 2.5 Pro',     short: 'Pro'    },
+];
 
 interface GameChatProps {
   session: GameSession;
@@ -224,6 +233,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [voiceStyles, setVoiceStyles]         = useState<Record<string, string>>({});
+  const [msgSegments, setMsgSegments]         = useState<Record<string, Segment[]>>({});
   const [dynamicImages, setDynamicImages]     = useState<Record<string, DynamicImageMeta>>({});
   const [input, setInput]       = useState('');
   const [isLoading, setIsLoading]             = useState(false);
@@ -231,6 +241,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showCaseFiles, setShowCaseFiles]     = useState(() => initialMessages.length === 0);
+  const [showSettings, setShowSettings]       = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
@@ -259,6 +270,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     return 'gemini';
   });
+  const [aiProvider, setAiProvider] = useState<AiProvider>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('aiProvider') as AiProvider) ?? 'claude-sonnet';
+    }
+    return 'claude-sonnet';
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -279,7 +296,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, message: '__intro__', playerIdx: 0 }),
+        body: JSON.stringify({ sessionId: session.id, message: '__intro__', playerIdx: 0, aiProvider }),
       })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((data) => {
@@ -293,10 +310,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             created_at: new Date().toISOString(),
           }]);
           if (data.voiceStyle)   setVoiceStyles({ [introId]: data.voiceStyle });
+          if (data.segments)     setMsgSegments({ [introId]: data.segments });
           if (data.world_state)  setSession((s) => ({ ...s, world_state: data.world_state }));
           if (data.imagePrompt)  setDynamicImages({ [introId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' } });
           if (data.location)     { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
-          speakMsg(introId, data.response, data.voiceStyle);
+          speakMsg(introId, data.response, data.voiceStyle, data.segments);
         })
         .catch(() => {/* silent */})
         .finally(() => setIsLoading(false));
@@ -367,7 +385,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     });
   }
 
-  async function speakMsg(msgId: string, text: string, voiceStyle?: string) {
+  function changeAiProvider(p: AiProvider) {
+    localStorage.setItem('aiProvider', p);
+    setAiProvider(p);
+  }
+
+  async function speakMsg(msgId: string, text: string, voiceStyle?: string, segments?: Segment[]) {
     stopAudio();
     const cached = audioCacheRef.current.get(msgId);
     if (cached) { playUrl(msgId, cached); return; }
@@ -377,7 +400,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceStyle: voiceStyle ?? 'keeper', provider: ttsProvider }),
+        body: JSON.stringify({
+          text,
+          voiceStyle: voiceStyle ?? 'keeper',
+          provider: ttsProvider,
+          segments: ttsProvider === 'gemini' ? segments : undefined,
+        }),
       });
       if (!res.ok) throw new Error();
       const blob = await res.blob();
@@ -411,7 +439,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   function handleReplay(msgId: string, text: string) {
     if (speakingId === msgId) { stopAudio(); return; }
     if (loadingAudioIds.has(msgId)) return;
-    speakMsg(msgId, text, voiceStyles[msgId]);
+    speakMsg(msgId, text, voiceStyles[msgId], msgSegments[msgId]);
   }
 
   // ── Item use ─────────────────────────────────────────────────────────────────
@@ -514,6 +542,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           message: combinedMessage,
           playerIdx: allActions[0].playerIdx,
           allActions: allActions.length > 1 ? allActions : undefined,
+          aiProvider,
         }),
       });
       if (!res.ok) throw new Error('AI request failed');
@@ -531,6 +560,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       }]);
 
       if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [msgId]: data.voiceStyle }));
+      if (data.segments)    setMsgSegments((prev) => ({ ...prev, [msgId]: data.segments }));
       if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state }));
       if (data.location)    { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
 
@@ -551,7 +581,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         ...prev, [msgId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' },
       }));
 
-      speakMsg(msgId, data.response, data.voiceStyle);
+      speakMsg(msgId, data.response, data.voiceStyle, data.segments);
     } catch {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 2).toString(),
@@ -576,54 +606,92 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   return (
     <div className="flex flex-col h-dvh bg-stone-950 text-stone-100">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 bg-stone-900 border-b border-stone-700">
-        <div>
-          <h1 className="text-sm font-semibold text-stone-200">{session.name}</h1>
-          <p className="text-xs text-stone-500">{currentLocationName ?? `Акт ${session.world_state?.act || 1}`}</p>
+      <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
+        <div className="flex items-center gap-2 min-w-0">
+          <a
+            href="/"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors shrink-0"
+            title="Назад"
+          >←</a>
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
+            <p className="text-[11px] text-stone-500 truncate leading-tight">{currentLocationName ?? `Акт ${session.world_state?.act || 1}`}</p>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
           {speakingId && (
-            <button onClick={stopAudio} className="text-xs px-2 py-1 bg-stone-700 hover:bg-stone-600 rounded text-stone-300">
-              ⏹ Стоп
-            </button>
+            <button
+              onClick={stopAudio}
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 active:bg-stone-500 text-stone-300 transition-colors text-sm"
+              title="Зупинити"
+            >⏹</button>
           )}
           <button
+            onClick={() => setShowCaseFiles(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-amber-600 transition-colors"
+            title="Матеріали справи"
+          >📁</button>
+          <button
+            onClick={() => setShowSettings((v) => !v)}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${showSettings ? 'bg-stone-700 text-stone-200' : 'bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400'}`}
+            title="Налаштування звуку"
+          >⚙️</button>
+        </div>
+      </div>
+
+      {/* Collapsible settings panel */}
+      {showSettings && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 bg-stone-900/95 border-b border-stone-800 text-xs">
+          {/* AI provider */}
+          <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
+            {AI_PROVIDERS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => changeAiProvider(p.id)}
+                title={p.label}
+                className={`px-2.5 py-1.5 transition-colors ${
+                  aiProvider === p.id
+                    ? 'bg-amber-800 text-amber-100 font-medium'
+                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
+                }`}
+              >
+                {p.short}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-4 bg-stone-700" />
+
+          {/* TTS provider */}
+          <button
             onClick={toggleTtsProvider}
-            title={ttsProvider === 'gemini' ? 'Gemini TTS (перемкнути на OpenAI)' : 'OpenAI TTS (перемкнути на Gemini)'}
-            className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
+            title={ttsProvider === 'gemini' ? 'TTS: Gemini (перемкнути на OpenAI)' : 'TTS: OpenAI (перемкнути на Gemini)'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
           >
-            {ttsProvider === 'gemini' ? '🔊 Gemini' : '🔊 GPT'}
+            🔊 <span>{ttsProvider === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
           </button>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setAmbientEnabled((v) => !v)}
-              title={ambientEnabled ? 'Вимкнути ambient' : 'Увімкнути ambient'}
-              className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400"
-            >
-              {ambientEnabled ? '🎵' : '🔇'}
-            </button>
-            {ambientEnabled && (
+          <button
+            onClick={() => setAmbientEnabled((v) => !v)}
+            title={ambientEnabled ? 'Вимкнути ambient' : 'Увімкнути ambient'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
+          >
+            {ambientEnabled ? '🎵' : '🔇'} <span>Ambient</span>
+          </button>
+          {ambientEnabled && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
+              <span className="text-stone-500">🔈</span>
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={ambientVolume}
                 onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                className="w-14 accent-amber-600"
+                className="w-20 accent-amber-600"
                 title="Гучність ambient"
               />
-            )}
-          </div>
-          <button
-            onClick={() => setShowCaseFiles(true)}
-            className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-amber-600"
-            title="Матеріали справи"
-          >
-            📁 Справа
-          </button>
-          <a href="/" className="text-xs px-2 py-1 bg-stone-800 hover:bg-stone-700 rounded text-stone-400">
-            ← Назад
-          </a>
+              <span className="text-stone-500">🔊</span>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       <StatsBar players={session.players} onUpdatePlayers={updatePlayers} onUseItem={handleUseItem} />
 
@@ -641,7 +709,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           const player     = isUser && msg.player_idx !== null ? session.players[msg.player_idx] : null;
           const isPlaying  = speakingId === msg.id;
           const isLoadingA = loadingAudioIds.has(msg.id);
-          // Parse [IMAGE:type:prompt] from message content (persisted in DB for reconstruction)
+
+          // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
           const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
           const displayContent = imageTagMatch
             ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
@@ -650,34 +719,88 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
             : (!isUser ? dynamicImages[msg.id] : undefined);
 
+          // Replay button — shared across all bubbles of the same message
+          const replayBtn = (
+            <button
+              onClick={() => handleReplay(msg.id, displayContent)}
+              disabled={isLoadingA}
+              className={`text-xs mt-1 ml-1 transition-colors ${
+                isPlaying   ? 'text-amber-500 animate-pulse' :
+                isLoadingA  ? 'text-stone-600 cursor-wait'   :
+                              'text-stone-600 hover:text-stone-400'
+              }`}
+            >
+              {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
+            </button>
+          );
+
+          // ── User message ────────────────────────────────────────────────────
+          if (isUser) {
+            return (
+              <div key={msg.id} className="flex justify-end">
+                <div className="max-w-[85%]">
+                  {player && <p className="text-xs text-stone-500 mb-1 text-right">{player.name}</p>}
+                  <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-700 text-stone-100 rounded-tr-sm">
+                    {displayContent}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ── Assistant message with NPC bubbles ──────────────────────────────
+          const segs = msgSegments[msg.id];
+          const splitBubbles = segs && hasNpcSpeech(segs);
+
+          if (splitBubbles) {
+            // Render each segment as its own bubble; replay button on last
+            return (
+              <div key={msg.id} className="space-y-2">
+                {segs.map((seg, si) => {
+                  const isLast = si === segs.length - 1;
+                  if (seg.type === 'narration') {
+                    return (
+                      <div key={si} className="flex justify-start">
+                        <div className="max-w-[85%]">
+                          {si === 0 && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
+                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
+                            {seg.text}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
+                          </div>
+                          {isLast && replayBtn}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // NPC bubble
+                    return (
+                      <div key={si} className="flex justify-start pl-4">
+                        <div className="max-w-[85%]">
+                          <p className="text-xs text-amber-500 mb-1">{seg.name}</p>
+                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed italic bg-stone-800/60 text-stone-200 rounded-tl-sm border border-amber-900/40">
+                            {seg.text}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
+                          </div>
+                          {isLast && replayBtn}
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            );
+          }
+
+          // ── Standard single-bubble assistant message ─────────────────────────
           return (
-            <div key={msg.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] ${isUser ? 'order-2' : 'order-1'}`}>
-                {isUser && player && (
-                  <p className="text-xs text-stone-500 mb-1 text-right">{player.name}</p>
-                )}
-                {!isUser && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
-                <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  isUser
-                    ? 'bg-stone-700 text-stone-100 rounded-tr-sm'
-                    : 'bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700'
-                }`}>
+            <div key={msg.id} className="flex justify-start">
+              <div className="max-w-[85%]">
+                <p className="text-xs text-amber-700 mb-1">Кіпер</p>
+                <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
                   {displayContent}
                   {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
                 </div>
-                {!isUser && (
-                  <button
-                    onClick={() => handleReplay(msg.id, displayContent)}
-                    disabled={isLoadingA}
-                    className={`text-xs mt-1 ml-1 transition-colors ${
-                      isPlaying   ? 'text-amber-500 animate-pulse' :
-                      isLoadingA  ? 'text-stone-600 cursor-wait'   :
-                                    'text-stone-600 hover:text-stone-400'
-                    }`}
-                  >
-                    {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
-                  </button>
-                )}
+                {replayBtn}
               </div>
             </div>
           );
@@ -700,13 +823,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       {/* Player selector */}
       {session.players.length > 1 && (
-        <div className="flex gap-1 px-3 py-2 bg-stone-900 border-t border-stone-800">
+        <div className="flex gap-1.5 px-3 py-2 bg-stone-900 border-t border-stone-800">
           {session.players.map((p, i) => (
             <button
               key={i}
               onClick={() => setActivePlayer(i)}
-              className={`text-xs px-2 py-1 rounded transition-colors ${
-                activePlayer === i ? 'bg-amber-800 text-amber-100' : 'bg-stone-800 text-stone-400 hover:bg-stone-700'
+              className={`text-xs px-3 py-2 rounded-xl transition-colors min-h-[36px] ${
+                activePlayer === i
+                  ? 'bg-amber-800 text-amber-100 font-medium'
+                  : 'bg-stone-800 text-stone-400 hover:bg-stone-700 active:bg-stone-600'
               }`}
             >
               {p.name}
@@ -735,9 +860,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {/* Input */}
-      <div className="px-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+      <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
         <div className="flex gap-2 items-end">
-          <div className="flex-1 bg-stone-800 rounded-xl border border-stone-700 overflow-hidden">
+          <div className="flex-1 bg-stone-800 rounded-2xl border border-stone-700 focus-within:border-stone-600 overflow-hidden transition-colors">
             <textarea
               ref={textareaRef}
               value={input}
@@ -745,29 +870,26 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               onKeyDown={handleKeyDown}
               placeholder={`${playerName}: дія або слова...`}
               rows={2}
-              className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3 py-2 resize-none focus:outline-none"
+              className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3.5 py-2.5 resize-none focus:outline-none leading-relaxed"
+              style={{ fontSize: 16 }}
               disabled={isLoading}
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} />
             {session.players.length > 1 && (
               <button
                 onClick={queueAction}
                 disabled={isLoading || !input.trim()}
-                title="Додати дію в чергу (наступний гравець)"
-                className="p-2 bg-stone-700 hover:bg-stone-600 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-lg text-stone-300 transition-colors text-sm font-bold"
-              >
-                +
-              </button>
+                title="Додати в чергу (наступний гравець)"
+                className="w-9 h-9 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-xl text-stone-300 transition-colors text-base font-bold flex items-center justify-center"
+              >+</button>
             )}
             <button
               onClick={() => sendMessage()}
               disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-              className="p-2 bg-amber-800 hover:bg-amber-700 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-lg text-white transition-colors"
-            >
-              ➤
-            </button>
+              className="w-9 h-9 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
+            >➤</button>
           </div>
         </div>
       </div>
