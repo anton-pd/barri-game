@@ -1,26 +1,99 @@
-import type { Scenario, WorldState, Player } from '@/types';
+// CHANGED: Split static block into ruleset + scenario parts for better caching.
+// Added location/NPC filtering to reduce tokens per request.
+// Added Keeper activity and event instruction injection.
+import type { Scenario, WorldState, Player, InventoryItem } from '@/types';
+import { buildRulesetPromptBlock } from './rulesets';
 
 export interface SystemPromptBlocks {
-  static: string;   // scenario lore, NPCs, locations, rules — never changes
-  dynamic: string;  // world state + players — changes every few messages
+  ruleset: string;   // RPG system rules — cached long-term
+  static: string;   // scenario content — cached while scenario unchanged
+  dynamic: string;  // world state + players — changes every request
 }
 
+// CHANGED: Filter locations to current + visited only (reduces tokens)
+function getRelevantLocations(
+  scenario: Scenario,
+  currentLocationId: string | undefined,
+  visitedLocations: string[]
+) {
+  if (!scenario.locations) return [];
+  return scenario.locations.filter(
+    (loc) => loc.id === currentLocationId || visitedLocations.includes(loc.id)
+  );
+}
+
+// CHANGED: Filter NPCs to met-only (reduces tokens)
+function getRelevantNPCs(scenario: Scenario, metNPCs: string[]) {
+  if (!scenario.npcs) return [];
+  if (!metNPCs || metNPCs.length === 0) return [];
+  return scenario.npcs.filter((npc) => metNPCs.includes(npc.id));
+}
+
+// CHANGED: Compact skill format to reduce tokens
+function formatSkillsCompact(skills: Record<string, number>): string {
+  return Object.entries(skills)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(', ');
+}
+
+// CHANGED: Detailed inventory format with IDs to prevent LLM hallucinations
+function formatInventory(inventory: InventoryItem[]): string {
+  if (!inventory.length) return 'порожній';
+  return inventory
+    .map((it) => {
+      const status = it.broken
+        ? 'зламаний'
+        : it.uses === 0
+          ? 'витрачений'
+          : it.uses === -1
+            ? '∞'
+            : `×${it.uses}`;
+      const equipped = it.equipped ? ' [В РУКАХ]' : '';
+      return `${it.name}[id:${it.id}](${status})${equipped}: ${it.description}`;
+    })
+    .join('\n    ');
+}
+
+// CHANGED: Accept optional campaign context and event/activity instructions
 export function buildSystemPromptBlocks(
   scenario: Scenario,
   worldState: WorldState,
-  players: Player[]
+  players: Player[],
+  options?: {
+    campaignContext?: { recentSummaries: string };
+    eventInstruction?: string;
+    keeperActivitySection?: string;
+  }
 ): SystemPromptBlocks {
-  // ── STATIC ──────────────────────────────────────────────────────────────────
-  const npcSection = scenario.npcs?.length
-    ? `## NPC\n${scenario.npcs.map((npc) =>
-        `### ${npc.name} [voice: ${npc.voiceStyle}]\n${npc.description}\nСекрети: ${npc.secrets.join('; ')}`
-      ).join('\n\n')}`
-    : '';
 
-  const locationSection = scenario.locations?.length
-    ? `## ЛОКАЦІЇ\n${scenario.locations.map((loc) =>
-        `### ${loc.name} [id: ${loc.id}]\n${loc.description}\nПідказки: ${loc.clues.join('; ')}`
-      ).join('\n\n')}`
+  // ── RULESET BLOCK (separate cache) ──────────────────────────────────────────
+  const rulesetBlock = buildRulesetPromptBlock(scenario.rulesetId ?? 'coc_7e');
+
+  // ── STATIC SCENARIO BLOCK ───────────────────────────────────────────────────
+  const metNPCs = worldState.npcRelations ? Object.keys(worldState.npcRelations) : [];
+  const relevantNPCs = getRelevantNPCs(scenario, metNPCs);
+  const relevantLocations = getRelevantLocations(
+    scenario,
+    worldState.currentLocation,
+    worldState.visitedLocations
+  );
+
+  const npcSection = relevantNPCs.length
+    ? `## NPC\n${relevantNPCs
+        .map(
+          (npc) =>
+            `### ${npc.name} [voice: ${npc.voiceStyle}]\n${npc.description}\nСекрети: ${npc.secrets.join('; ')}`
+        )
+        .join('\n\n')}`
+    : '## NPC\n(жодного не зустрічали)';
+
+  const locationSection = relevantLocations.length
+    ? `## ЛОКАЦІЇ\n${relevantLocations
+        .map(
+          (loc) =>
+            `### ${loc.name} [id: ${loc.id}]\n${loc.description}\nПідказки: ${loc.clues.join('; ')}`
+        )
+        .join('\n\n')}`
     : '';
 
   const staticBlock = `
@@ -35,134 +108,98 @@ ${scenario.railguards.map((r) => `Якщо ${r.trigger} → ${r.response}`).join
 
 Обов'язкові події: ${scenario.mustHappenEvents.join(', ')}
 
-## КРИТИЧНІ УСПІХИ ТА ФУМБЛИ
+## КРИТИЧНІ УСПІХИ
 Розслідування: ${scenario.criticalSuccessRules.investigation}
 Бій: ${scenario.criticalSuccessRules.combat}
 Переконання: ${scenario.criticalSuccessRules.persuasion}
 
-## ПРАВИЛА КУБИКІВ
+## ІНВЕНТАР ТА ПРЕДМЕТИ
 
-### Коли питати кидок — ПИТАЙ завжди коли гравець:
-- Шукає щось приховане — Spot Hidden (навіть якщо каже "оглядаю кімнату" — якщо є що знайти)
-- Прислуховується до звуків — Listen
-- Переконує, залякує, обманює NPC — Persuade / Intimidate / Fast Talk / Charm
-- Аналізує поведінку або мотиви NPC — Psychology
-- Шукає інформацію в документах, архівах — Library Use
-- Застосовує спеціальні знання (Occult, History, Medicine, Law, Electrical Repair...)
-- Діє непомічено — Stealth
-- Виламує замок, зламує механізм — Locksmith / Mechanical Repair
-- Надає першу допомогу — First Aid
-- Б'ється або стріляє — Fighting / Firearms (ЗАВЖДИ)
+### Правило джерела правди
+Інвентар кожного гравця вказаний нижче в секції ГРАВЦІ — це єдина правда.
+Ніколи не вигадуй предмети яких там немає.
 
-НЕ ПИТАЙ за: звичайна розмова без переконування, ходьба без перешкод, тривіальні дії.
+### Коли гравець активно використовує предмет
+Якщо uses > 0 і предмет логічно допомагає — обов'язково згадай його в описі:
+"Ти дістаєш медичну сумку..." → [USE_ITEM:0:medkit]
 
-### Формат запиту кидка
-"Кинь [Навичка] (1к100, треба X або менше)"
-де X = точне значення навички цього гравця зі списку ГРАВЦІ.
+### Теги мутацій інвентаря (додавай в кінці відповіді)
+Додати предмет: [ITEM:idx:Назва:Короткий опис:кількість] (кількість=-1 для нескінченних)
+Використати (зменшує uses на 1): [USE_ITEM:idx:itemId]
+Видалити повністю: [REMOVE_ITEM:idx:itemId]
+Взяти в руки: [EQUIP:idx:itemId]
+Зламати предмет: [BREAK_ITEM:idx:itemId]
 
-### Трактування результату — коли гравець повідомляє число після кидка:
-- ≤ X/5 → **Extreme success**: виняткове відкриття — розкриває NPC секрет, прихований зв'язок, максимум деталей
-- ≤ X/2 → **Hard success**: підвищений результат — додаткова деталь, нюанс, перевага в ситуації
-- ≤ X   → **Regular success**: стандартний результат
-- > X   → **Fail**: нічого, або хибна інтерпретація (яку гравець вважає правдою)
-- 96-100 → **Fumble**: ускладнення, нова небезпека, або компрометація персонажа
+broken=true → зламаний, не пропонуй використовувати
+uses=0 → витрачений, ігноруй при пропозиціях
 
-### Pushed roll (перекидання при провалі)
-При провалі (не фумблі) можна запропонувати: "Ти можеш спробувати ще раз — але якщо провалиш знову, [конкретні наслідки]."
-Якщо pushed кидок теж провалений — наслідки настають негайно.
-Pushed roll НЕМОЖЛИВИЙ у бою.
-
-### Перевірки Стійкості (SAN checks) — автоматично, без дії гравця
-Тригери і формати:
-- Труп / жорстоке насилля: "Кинь 1к100 проти Стійкості [X]. Успіх — 0 SAN, провал — 1к3 SAN."
-- Надприродне явище (порушення законів природи): "Кинь Стійкість [X]. Успіх — 0, провал — 1к6 SAN."
-- Прямий контакт з сутністю Mythos: "Кинь Стійкість [X]. Успіх — 1к3, провал — 1к10 SAN."
-Після того як гравець повідомить результат — додай [DELTA:] з реальною втратою.
-Якщо втрата ≥ 5 за один кидок: "Твій персонаж може отримати тимчасове безумство (INT roll)."
-
-### Luck roll
-Коли результат залежить від зовнішніх обставин, не від вмінь гравця:
-"Кинь Удачу (1к100, треба X або менше)."
-При провалі — обставини несприятливі. Витрати Luck: [DELTA:{"idx":{"luck":-5}}]
-
-## ПРЕДМЕТИ
-Якщо гравець використовує предмет — врахуй його ефект і опиши результат. Предмет зі ×0 вже витрачений, ігноруй його використання.
-Коли за сюжетом гравці знаходять фізичний предмет — видай його через тег в кінці відповіді:
-[ITEM:playerIdx:Назва предмету:Короткий опис ефекту:кількість_використань]
-де playerIdx — індекс гравця (0, 1, 2...), кількість=-1 для нескінченних.
-Приклад: [ITEM:0:Ключ від підвалу:Відкриває замок підвальних дверей:1]
-Якщо предмет для всіх — видай окремий тег для кожного гравця.
-Не давай предмети без причини — тільки якщо це логічно за сюжетом.
-
-## ОНОВЛЕННЯ СТАТУ ГРАВЦІВ
-Якщо в результаті дії або події HP, Стійкість або Удача гравця змінюється — в самому кінці відповіді (після тексту) додай ОДИН рядок у форматі:
-[DELTA:{"<індекс гравця>":{"hp":<дельта>,"sanity":<дельта>,"luck":<дельта>}}]
-Де дельта — число зі знаком (від'ємне = втрата). Вказуй тільки ті параметри що змінились.
-Приклади: [DELTA:{"0":{"hp":-3,"sanity":-5}}] або [DELTA:{"0":{"hp":-2},"1":{"sanity":-8,"luck":-5}}]
-Удача витрачається при Luck rolls — коли результат залежить від зовнішніх обставин поза контролем персонажа.
-Якщо статус не змінився — нічого не додавай.
+## ОНОВЛЕННЯ СТАТІВ
+[DELTA:{"<idx>":{"hp":<±N>,"sanity":<±N>,"luck":<±N>}}]
+Тільки якщо стат змінився.
 
 ## СИТУАТИВНІ ЗОБРАЖЕННЯ
-Коли відбувається зміна сцени або гравці знаходять фізичний об'єкт (документ, улюка, місце) — додай в кінці відповіді:
 [IMAGE:type:short English description]
-Типи: newspaper, map, letter, photo, artifact, scene
-Приклад: [IMAGE:letter:torn handwritten note warning about the basement signed W.C.]
-Використовуй РІДКО — лише коли зображення реально підсилює момент. Не більше одного на відповідь. Якщо зображення не потрібне — нічого не додавай.
+Типи: newspaper, map, letter, photo, artifact, scene. РІДКО — лише ключові моменти.
 
 ## ПЕРЕХОДИ МІЖ ЛОКАЦІЯМИ
-Коли гравці фізично переходять до нової локації — додай в кінці відповіді:
-[LOCATION:location_id]
-де location_id — точний id локації з переліку вище (секція ЛОКАЦІЇ). Тільки при реальному фізичному переході, не при згадці.
+[LOCATION:location_id] — тільки при реальному фізичному переході.
 
-## ОЗВУЧКА ПЕРСОНАЖІВ
-Коли NPC вимовляє репліку ВГОЛОС — обгорни ТІЛЬКИ пряму мову в тег:
-[NPC:Ім'я]текст репліки[/NPC]
-де Ім'я — точно як у переліку NPC вище. Нарацію, описи та авторські ремарки НЕ обгортай — лише слова що персонаж дійсно вимовляє.
-Приклад: Господиня торкнулась стіни тремтячою рукою. [NPC:Місіс Кейн]Він помер тут двадцять років тому.[/NPC] — голос її зірвався.
+## ОЗВУЧКА NPC
+[NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
 
-Відповідай ТІЛЬКИ українською. Максимум 4-5 речень — текст озвучується.
+Відповідай ТІЛЬКИ українською. Максимум 4-5 речень.
 `.trim();
 
-  // ── DYNAMIC ─────────────────────────────────────────────────────────────────
+  // ── DYNAMIC BLOCK ───────────────────────────────────────────────────────────
+  const campaignSection = options?.campaignContext?.recentSummaries
+    ? `\n## ПОПЕРЕДНІ СЕСІЇ\n${options.campaignContext.recentSummaries}\n`
+    : '';
+
+  const activitySection = options?.keeperActivitySection ?? '';
+  const eventSection = options?.eventInstruction ?? '';
+
   const dynamicBlock = `
-## ПОТОЧНИЙ СТАН СВІТУ
+## ПОТОЧНИЙ СТАН
 Акт: ${worldState.act}
-Відвідані локації: ${worldState.visitedLocations.length ? worldState.visitedLocations.join(', ') : 'жодної'}
-Знайдені підказки: ${worldState.discoveredClues.length ? worldState.discoveredClues.join(', ') : 'жодної'}
-Стислий переказ: ${worldState.summary || 'Гра тільки починається'}
-Незакриті питання: ${worldState.openThreads.length ? worldState.openThreads.join(', ') : 'жодного'}
-Нотатки про гравців: ${worldState.playerNotes.length ? worldState.playerNotes.join('; ') : 'відсутні'}
-
+Локація: ${worldState.currentLocation ?? 'невідома'}
+Відвідані: ${worldState.visitedLocations.join(', ') || 'жодної'}
+Підказки: ${worldState.discoveredClues.join(', ') || 'жодної'}
+Summary: ${worldState.summary || 'Гра починається'}
+Відкриті питання: ${worldState.openThreads.join(', ') || 'жодного'}
+${campaignSection}
 ## ГРАВЦІ
-${players.map((p) => {
-  const skillList = Object.entries(p.skills).map(([k, v]) => `${k} ${v}`).join(', ');
-  const inventory = (p.inventory ?? []);
-  const invList = inventory.length
-    ? inventory.map((it) => `${it.name} (${it.uses === -1 ? '∞' : `×${it.uses}`}): ${it.description}`).join('; ')
-    : 'порожній';
-  const bgLine = p.background ? `\n  Передісторія: ${p.background}` : '';
-  return `- ${p.name} (${p.role}): HP ${p.hp}/${p.maxHp}, Стійкість ${p.sanity}/${p.maxSanity}, Удача ${p.luck ?? '?'}/${p.maxLuck ?? 99}\n  Навички: ${skillList}\n  Інвентар: ${invList}${bgLine}`;
-}).join('\n')}
+${players
+  .map((p, i) => {
+    const skills = formatSkillsCompact(p.skills);
+    const inv = formatInventory(p.inventory ?? []);
+    return `[${i}] ${p.name} (${p.role}): HP ${p.hp}/${p.maxHp} SAN ${p.sanity}/${p.maxSanity} LCK ${p.luck}/${p.maxLuck ?? 99}
+  Навички: ${skills}
+  Інвентар: ${inv}
+  Передісторія: ${p.background ?? ''}`;
+  })
+  .join('\n\n')}
 
-Кожне повідомлення гравця має префікс [Ім'я]: — це окремі незалежні гравці, не NPC. Реагуй на кожного персонально. Ніколи не дій і не говори від імені гравців.
-При перевірці навички використовуй ТОЧНЕ значення навички ЦЬОГО гравця зі списку вище. Якщо гравець не має потрібної навички — використовуй базове значення 20.
+Префікс [Ім'я]: — окремі гравці. Ніколи не дій від їх імені.
+При перевірці навички використовуй ТОЧНЕ значення зі списку вище.${activitySection}${eventSection}
 `.trim();
 
-  return { static: staticBlock, dynamic: dynamicBlock };
+  return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };
 }
 
-// Legacy single-string version for scenarios that don't use the split yet
+// DEPRECATED: use buildSystemPromptBlocks instead
 export function buildSystemPrompt(
   scenario: Scenario,
   worldState: WorldState,
   players: Player[]
 ): string {
-  const { static: s, dynamic: d } = buildSystemPromptBlocks(scenario, worldState, players);
-  return `${s}\n\n${d}`;
+  const { ruleset, static: s, dynamic: d } = buildSystemPromptBlocks(scenario, worldState, players);
+  return `${ruleset}\n\n${s}\n\n${d}`;
 }
 
 export function buildSummarizePrompt(messages: { role: string; content: string }[]): string {
-  const transcript = messages.map((m) => `${m.role === 'user' ? 'ГРАВЕЦЬ' : 'КІПЕР'}: ${m.content}`).join('\n\n');
+  const transcript = messages
+    .map((m) => `${m.role === 'user' ? 'ГРАВЕЦЬ' : 'КІПЕР'}: ${m.content}`)
+    .join('\n\n');
 
   return `Проаналізуй цю RPG сесію і поверни JSON об'єкт WorldState.
 Відповідай ТІЛЬКИ валідним JSON без пояснень.
@@ -173,6 +210,7 @@ ${transcript}
 Поверни JSON у форматі:
 {
   "act": <поточний акт (число)>,
+  "currentLocation": "<id поточної локації або null>",
   "visitedLocations": [<список відвіданих локацій>],
   "discoveredClues": [<список знайдених підказок>],
   "npcRelations": {<id_npc>: "friendly"|"neutral"|"hostile"|"unknown"},
