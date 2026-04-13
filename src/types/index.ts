@@ -108,6 +108,7 @@ export interface NPC {
   name: string;
   description: string;
   voiceStyle: string;
+  gender?: 'male' | 'female';
   secrets: string[];
 }
 

@@ -2,7 +2,7 @@ import type { NPC } from '@/types';
 
 export type Segment =
   | { type: 'narration'; text: string }
-  | { type: 'npc'; name: string; voiceStyle: string; text: string };
+  | { type: 'npc'; name: string; voiceStyle: string; gender?: 'male' | 'female'; text: string };
 
 /**
  * Parse NPC voice tags from raw AI response text.
@@ -25,7 +25,8 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
       // Look up voice by name (case-insensitive fallback)
       const npc = npcMap.get(name.toLowerCase());
       const voiceStyle = npc?.voiceStyle ?? 'keeper';
-      segments.push({ type: 'npc', name, voiceStyle, text });
+      const gender = npc?.gender;
+      segments.push({ type: 'npc', name, voiceStyle, gender, text });
     } else {
       // Strip other action tags from narration parts before storing
       const text = part

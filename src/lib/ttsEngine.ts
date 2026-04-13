@@ -2,7 +2,7 @@
  * Shared Gemini TTS fetch logic used by both the TTS route and the AI route prefetch.
  * Returns raw PCM Buffer (24 kHz, mono, 16-bit LE) or null on failure.
  */
-import { getGeminiVoice } from '@/lib/voices';
+import { getGeminiKeeperVoice, getGeminiNpcVoice } from '@/lib/voices';
 import type { Segment } from '@/lib/segments';
 
 export async function fetchGeminiPcm(
@@ -31,7 +31,7 @@ export async function fetchGeminiPcm(
     seen.add('Keeper');
     speakerVoiceConfigs.push({
       speaker: 'Keeper',
-      voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiVoice('keeper') } },
+      voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiKeeperVoice() } },
     });
 
     for (const seg of segments) {
@@ -39,7 +39,7 @@ export async function fetchGeminiPcm(
         seen.add(seg.name);
         speakerVoiceConfigs.push({
           speaker: seg.name,
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiVoice(seg.voiceStyle) } },
+          voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiNpcVoice(seg.voiceStyle, seg.gender) } },
         });
       }
     }
@@ -57,7 +57,7 @@ export async function fetchGeminiPcm(
       contents: [{ parts: [{ text }] }],
       generationConfig: {
         responseModalities: ['AUDIO'],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiVoice(voiceStyle) } } },
+        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiKeeperVoice() } } },
       },
     };
   }
@@ -68,7 +68,12 @@ export async function fetchGeminiPcm(
   );
 
   if (!res.ok) {
-    console.error('Gemini TTS error:', res.status);
+    const errText = await res.text();
+    if (res.status === 429) {
+      console.warn('Gemini TTS quota exceeded (429) — falling back to OpenAI');
+    } else {
+      console.error('Gemini TTS error:', res.status, errText.slice(0, 300));
+    }
     return null;
   }
 

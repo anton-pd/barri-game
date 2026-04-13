@@ -21,11 +21,9 @@ const GEMINI_MODELS: Record<string, string> = {
   'gemini-pro':   'gemini-2.0-flash',
 };
 
-function detectVoiceStyle(text: string, npcs: NPC[]): string {
-  const lower = text.toLowerCase();
-  for (const npc of npcs) {
-    if (lower.includes(npc.name.toLowerCase())) return npc.voiceStyle;
-  }
+function detectVoiceStyle(_text: string, _npcs: NPC[]): string {
+  // Keeper narrator always uses the same voice. NPC voices are handled
+  // per-segment in multi-speaker Gemini TTS, not via the message-level voiceStyle.
   return 'keeper';
 }
 
