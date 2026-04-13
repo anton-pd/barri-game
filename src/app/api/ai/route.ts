@@ -18,7 +18,7 @@ export type AiProvider = 'claude-sonnet' | 'gemini-flash' | 'gemini-pro';
 
 const GEMINI_MODELS: Record<string, string> = {
   'gemini-flash': 'gemini-2.5-flash',
-  'gemini-pro':   'gemini-2.5-pro',
+  'gemini-pro':   'gemini-2.0-flash',
 };
 
 function detectVoiceStyle(text: string, npcs: NPC[]): string {
@@ -94,21 +94,19 @@ async function callGeminiChat(
   modelId: string,
   systemPrompt: string,
   history: GeminiMessage[]
-): Promise<string> {
+): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
+  const body: Record<string, unknown> = {
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: history,
+    generationConfig: { maxOutputTokens: 900, temperature: 1.0 },
+  };
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: history,
-        generationConfig: { maxOutputTokens: 600, temperature: 1.0 },
-      }),
-    }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
   );
 
   if (!res.ok) {
@@ -118,9 +116,22 @@ async function callGeminiChat(
   }
 
   const data = await res.json() as {
-    candidates: { content: { parts: { text: string }[] } }[]
+    candidates?: { content?: { parts?: { text: string }[] }; finishReason?: string }[];
+    promptFeedback?: { blockReason?: string };
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
   };
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    const reason = data.candidates?.[0]?.finishReason ?? data.promptFeedback?.blockReason ?? 'unknown';
+    console.error(`Gemini ${modelId} empty response. finishReason=${reason}`, JSON.stringify(data).slice(0, 300));
+    throw new Error(`Gemini returned no text (${reason})`);
+  }
+  return {
+    text,
+    inputTokens:  data.usageMetadata?.promptTokenCount     ?? 0,
+    outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+  };
 }
 
 async function callGeminiText(modelId: string, prompt: string, _system: string): Promise<string> {
@@ -275,347 +286,357 @@ function parseInventoryTags(
 // ── Main POST handler ─────────────────────────────────────────────────────────
 
 export async function POST(request: Request) {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    const payload = token ? await verifyJwt(token) : null;
-    if (!payload) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const {
-      sessionId,
-      message,
-      playerIdx,
-      allActions,
-      aiProvider = 'claude-sonnet',
-      autoVoiceEnabled = false,
-    } = body as {
-      sessionId: string;
-      message: string;
-      playerIdx: number;
-      allActions?: { playerIdx: number; text: string }[];
-      aiProvider?: AiProvider;
-      autoVoiceEnabled?: boolean;
-    };
-
-    if (!sessionId || !message) {
-      return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
-    }
-
-    const session = await getSession(sessionId);
-    if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-    }
-
-    const isOwner =
-      session.user_id === null ||
-      session.user_id === payload.sub ||
-      payload.role === 'admin';
-    if (!isOwner) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const scenario = loadScenario(session.scenario_id);
-    const recentMessages = await getLastNMessages(sessionId, 30);
-    const isIntro = message === '__intro__';
-
-    const userContent = isIntro
-      ? 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.'
-      : (() => {
-          const player = session.players[playerIdx];
-          return player ? `[${player.name}]: ${message}` : message;
-        })();
-
-    // ── Activity tracking ─────────────────────────────────────────────────────
-
-    let worldState: WorldState = session.world_state;
-    const passive = isIntro ? false : isPassiveMessage(message);
-
-    worldState = {
-      ...worldState,
-      passiveMessageCount: passive
-        ? (worldState.passiveMessageCount ?? 0) + 1
-        : 0,
-      totalMessageCount: (worldState.totalMessageCount ?? 0) + 1,
-      locationRisk: worldState.locationRisk ?? {},
-    };
-
-    // ── Random event evaluation ───────────────────────────────────────────────
-
-    const newLocationFromPrev = recentMessages.length > 0
-      ? extractLocationFromMessages(recentMessages.slice(-3).map((m) => m.content))
-      : undefined;
-
-    const eventDecision = evaluateRandomEvent(
-      worldState,
-      scenario,
-      newLocationFromPrev,
-      !!worldState.pendingRollResult
-    );
-
-    worldState = applyEventDecision(worldState, eventDecision, newLocationFromPrev, scenario);
-
-    // ── Build prompt blocks ───────────────────────────────────────────────────
-
-    const keeperStyle = (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
-    const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
-    const eventInstruction =
-      eventDecision.shouldFire && eventDecision.eventType
-        ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
-        : '';
-
-    const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
-      keeperActivitySection: activitySection,
-      eventInstruction,
-    });
-
-    // ── Call AI ───────────────────────────────────────────────────────────────
-
-    let assistantText = '';
-    let inputTokens = 0;
-    let outputTokens = 0;
-
-    if (aiProvider === 'claude-sonnet') {
-      const conversationHistory = recentMessages.map((m) => {
-        if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-          const name = session.players[m.player_idx].name;
-          return { role: 'user' as const, content: `[${name}]: ${m.content}` };
-        }
-        return { role: m.role as 'user' | 'assistant', content: m.content };
-      });
-      conversationHistory.push({ role: 'user', content: userContent });
-
-      // CHANGED: Three-part caching — ruleset + static cached, dynamic not
-      const systemBlocks = [
-        {
-          type: 'text' as const,
-          text: blocks.ruleset,
-          cache_control: { type: 'ephemeral' as const },
-        },
-        {
-          type: 'text' as const,
-          text: blocks.static,
-          cache_control: { type: 'ephemeral' as const },
-        },
-        {
-          type: 'text' as const,
-          text: blocks.dynamic,
-        },
-      ];
-
-      const aiResponse = await anthropic.messages.create(
-        {
-          model: 'claude-sonnet-4-6',
-          max_tokens: 600,
-          system: systemBlocks,
-          messages: conversationHistory,
-        },
-        { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } }
-      );
-      assistantText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
-      inputTokens = aiResponse.usage?.input_tokens ?? 0;
-      outputTokens = aiResponse.usage?.output_tokens ?? 0;
-
-      // Track cost (non-blocking)
-      trackAPICall({
-        sessionId,
-        userId: payload.sub,
-        provider: 'anthropic',
-        type: 'llm',
-        model: 'claude-sonnet-4-6',
-        inputTokens,
-        outputTokens,
-      }).catch(console.error);
-
-    } else {
-      const modelId = GEMINI_MODELS[aiProvider];
-      const systemPrompt = `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
-
-      const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
-        if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-          const name = session.players[m.player_idx].name;
-          return { role: 'user', parts: [{ text: `[${name}]: ${m.content}` }] };
-        }
-        return {
-          role: m.role === 'assistant' ? 'model' : 'user',
-          parts: [{ text: m.content }],
-        };
-      });
-      geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
-
-      assistantText = await callGeminiChat(modelId, systemPrompt, geminiHistory);
-    }
-
-    // ── Parse tags ────────────────────────────────────────────────────────────
-
-    const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
-    const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
-    const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
-
-    // Parse inventory mutations (phases 11+)
-    const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
-      assistantText,
-      session.players
-    );
-
-    // Parse pending roll tags (phase 12)
-    let updatedWorldState = { ...worldState };
-    let textAfterRollTags = textAfterInventory;
-
-    textAfterRollTags = textAfterRollTags.replace(
-      /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+):([^\]]+)\]/g,
-      (_, idx, skillName, skillValue, threshold, context) => {
-        updatedWorldState.pendingRollResult = {
-          characterIdx: Number(idx),
-          skillName,
-          skillValue: Number(skillValue),
-          goodThreshold: Number(threshold),
-          context,
-        };
-        return '';
-      }
-    );
-
-    textAfterRollTags = textAfterRollTags.replace(/\[CLEAR_PENDING_ROLL\]/g, () => {
-      updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
-      return '';
-    });
-
-    // Parse random event tag (phase 13)
-    textAfterRollTags = textAfterRollTags.replace(
-      /\[RANDOM_EVENT:([^:]+):([^\]]+)\]/g,
-      (_, type, description) => {
-        updatedWorldState = resolveActiveEvent(updatedWorldState, description);
-        return '';
-      }
-    );
-
-    // If active event is not a roll_event, clear it immediately
-    if (updatedWorldState.activeRandomEvent && updatedWorldState.activeRandomEvent.type !== 'roll_event') {
-      updatedWorldState = clearActiveEvent(updatedWorldState);
-    }
-    if (!updatedWorldState.pendingRollResult && updatedWorldState.activeRandomEvent?.type === 'roll_event') {
-      updatedWorldState = clearActiveEvent(updatedWorldState);
-    }
-
-    const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
-
-    const cleanText = stripNpcTags(textAfterRollTags)
-      .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
-      .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
-      .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
-      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
-      .trim();
-
-    // ── Apply DELTA ───────────────────────────────────────────────────────────
-
-    let updatedPlayers = mutatedPlayers;
-
-    if (deltaMatch) {
-      try {
-        const delta = JSON.parse(deltaMatch[1]) as Record<string, {
-          hp?: number; sanity?: number; luck?: number
-        }>;
-        updatedPlayers = updatedPlayers.map((p, i) => {
-          const d = delta[String(i)];
-          if (!d) return p;
-          return {
-            ...p,
-            hp:     Math.max(0, Math.min(p.maxHp,         p.hp          + (d.hp     ?? 0))),
-            sanity: Math.max(0, Math.min(p.maxSanity,      p.sanity      + (d.sanity ?? 0))),
-            luck:   Math.max(0, Math.min(p.maxLuck ?? 99, (p.luck ?? 0) + (d.luck   ?? 0))),
-          };
-        });
-      } catch { /* malformed — ignore */ }
-    }
-
-    // ── Apply LOCATION to world state ─────────────────────────────────────────
-
-    if (locationMatch) {
-      const locId = locationMatch[1];
-      updatedWorldState = {
-        ...updatedWorldState,
-        currentLocation: locId,
-        visitedLocations: updatedWorldState.visitedLocations.includes(locId)
-          ? updatedWorldState.visitedLocations
-          : [...updatedWorldState.visitedLocations, locId],
-      };
-    }
-
-    // ── Persist messages ──────────────────────────────────────────────────────
-
-    if (!isIntro) {
-      if (allActions && allActions.length > 1) {
-        for (const action of allActions) {
-          await saveMessage(sessionId, 'user', action.text, action.playerIdx);
-        }
-      } else {
-        await saveMessage(sessionId, 'user', message, playerIdx);
-      }
-    }
-    await saveMessage(sessionId, 'assistant', cleanText);
-
-    // ── Persist state ─────────────────────────────────────────────────────────
-
-    const needsPlayerUpdate =
-      deltaMatch !== null ||
-      JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
-    if (needsPlayerUpdate) {
-      await updateSession(session.id, { players: updatedPlayers });
-    }
-    await updateSession(session.id, { world_state: updatedWorldState });
-
-    // ── Summarize periodically ────────────────────────────────────────────────
-
-    const msgCount = await countMessages(sessionId);
-    if (msgCount % 20 === 0) {
-      summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState);
-    }
-
-    const updatedSession = await getSession(sessionId);
-
-    // ── Ambient: detect location group change ─────────────────────────────────
-
-    const prevGroup = session.world_state.currentLocationGroup;
-    const newGroup = updatedWorldState.currentLocationGroup;
-    const groupChanged = newGroup && newGroup !== prevGroup;
-    const ambientFile = groupChanged
-      ? (scenario.locationGroups?.find((g) => g.id === newGroup)?.ambientFile ?? null)
-      : null;
-
-    // ── TTS prefetch + response ───────────────────────────────────────────────
-
-    const voiceStyle = detectVoiceStyle(cleanText, scenario.npcs ?? []);
-    if (autoVoiceEnabled) {
-      prefetchGemini(cleanText, voiceStyle, segments);
-    }
-
-    const imageType   = imageMatch?.[1] ?? null;
-    const imagePrompt = imageMatch?.[2]?.trim() ?? null;
-    const location    = locationMatch?.[1] ?? null;
-    const locationName = location
-      ? (scenario.locations.find((l) => l.id === location)?.name ?? null)
-      : null;
-
-    return NextResponse.json({
-      response: cleanText,
-      voiceStyle,
-      segments,
-      aiProvider,
-      players: updatedPlayers,
-      world_state: updatedSession?.world_state ?? updatedWorldState,
-      imageType,
-      imagePrompt,
-      location,
-      locationName,
-      ambientFile,
-    });
-  } catch (error) {
-    console.error('Error in AI route:', error);
-    return NextResponse.json({ error: 'Failed to get AI response' }, { status: 500 });
+  // ── Auth & early validation (before stream) ───────────────────────────────
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  const payload = token ? await verifyJwt(token) : null;
+  if (!payload) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const body = await request.json();
+  const {
+    sessionId,
+    message,
+    playerIdx,
+    allActions,
+    aiProvider = 'claude-sonnet',
+    autoVoiceEnabled = false,
+    keeperStyle: keeperStyleFromBody,
+  } = body as {
+    sessionId: string;
+    message: string;
+    playerIdx: number;
+    allActions?: { playerIdx: number; text: string }[];
+    aiProvider?: AiProvider;
+    autoVoiceEnabled?: boolean;
+    keeperStyle?: 'passive' | 'balanced' | 'active';
+  };
+
+  if (!sessionId || !message) {
+    return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
+  }
+
+  const session = await getSession(sessionId);
+  if (!session) {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  }
+
+  const isOwner =
+    session.user_id === null ||
+    session.user_id === payload.sub ||
+    payload.role === 'admin';
+  if (!isOwner) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  // ── Prompt preparation (before stream — fast, no AI call) ─────────────────
+
+  const scenario = loadScenario(session.scenario_id);
+  const recentMessages = await getLastNMessages(sessionId, 30);
+  const isIntro = message === '__intro__';
+
+  const userContent = isIntro
+    ? 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.'
+    : (() => {
+        const player = session.players[playerIdx];
+        return player ? `[${player.name}]: ${message}` : message;
+      })();
+
+  let worldState: WorldState = session.world_state;
+  const passive = isIntro ? false : isPassiveMessage(message);
+  worldState = {
+    ...worldState,
+    passiveMessageCount: passive ? (worldState.passiveMessageCount ?? 0) + 1 : 0,
+    totalMessageCount: (worldState.totalMessageCount ?? 0) + 1,
+    locationRisk: worldState.locationRisk ?? {},
+  };
+
+  const newLocationFromPrev = recentMessages.length > 0
+    ? extractLocationFromMessages(recentMessages.slice(-3).map((m) => m.content))
+    : undefined;
+  const eventDecision = evaluateRandomEvent(worldState, scenario, newLocationFromPrev, !!worldState.pendingRollResult);
+  worldState = applyEventDecision(worldState, eventDecision, newLocationFromPrev, scenario);
+
+  const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
+  const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
+  const eventInstruction =
+    eventDecision.shouldFire && eventDecision.eventType
+      ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
+      : '';
+  const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
+    keeperActivitySection: activitySection,
+    eventInstruction,
+  });
+
+  // Claude conversation history
+  const conversationHistory = recentMessages.map((m) => {
+    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+      const name = session.players[m.player_idx].name;
+      return { role: 'user' as const, content: `[${name}]: ${m.content}` };
+    }
+    return { role: m.role as 'user' | 'assistant', content: m.content };
+  });
+  conversationHistory.push({ role: 'user', content: userContent });
+
+  const systemBlocks = [
+    { type: 'text' as const, text: blocks.ruleset, cache_control: { type: 'ephemeral' as const } },
+    { type: 'text' as const, text: blocks.static,  cache_control: { type: 'ephemeral' as const } },
+    { type: 'text' as const, text: blocks.dynamic },
+  ];
+
+  // Gemini history
+  const modelId = GEMINI_MODELS[aiProvider] ?? '';
+  const systemPrompt = `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
+  const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
+    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+      const name = session.players[m.player_idx].name;
+      return { role: 'user', parts: [{ text: `[${name}]: ${m.content}` }] };
+    }
+    return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] };
+  });
+  geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
+
+  // ── SSE stream ────────────────────────────────────────────────────────────
+
+  const encoder = new TextEncoder();
+
+  const readableStream = new ReadableStream({
+    async start(controller) {
+      const send = (event: string, data: unknown) =>
+        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+
+      try {
+        let assistantText = '';
+        let inputTokens = 0;
+        let outputTokens = 0;
+
+        if (aiProvider === 'claude-sonnet') {
+          // CHANGED: Stream response so client sees text as it arrives
+          const claudeStream = anthropic.messages.stream(
+            {
+              model: 'claude-sonnet-4-6',
+              max_tokens: 900,
+              system: systemBlocks,
+              messages: conversationHistory,
+            },
+            { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } }
+          );
+
+          for await (const ev of claudeStream) {
+            if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+              send('chunk', { text: ev.delta.text });
+            }
+          }
+
+          const finalMsg = await claudeStream.finalMessage();
+          assistantText = finalMsg.content[0].type === 'text' ? finalMsg.content[0].text : '';
+          inputTokens = finalMsg.usage?.input_tokens ?? 0;
+          outputTokens = finalMsg.usage?.output_tokens ?? 0;
+
+          trackAPICall({
+            sessionId,
+            userId: payload.sub,
+            provider: 'anthropic',
+            type: 'llm',
+            model: 'claude-sonnet-4-6',
+            inputTokens,
+            outputTokens,
+          }).catch(console.error);
+
+        } else {
+          const geminiResult = await callGeminiChat(modelId, systemPrompt, geminiHistory);
+          assistantText = geminiResult.text;
+          inputTokens   = geminiResult.inputTokens;
+          outputTokens  = geminiResult.outputTokens;
+
+          trackAPICall({
+            sessionId,
+            userId: payload.sub,
+            provider: 'gemini',
+            type: 'llm',
+            model: modelId,
+            inputTokens,
+            outputTokens,
+          }).catch(console.error);
+        }
+
+        // ── Parse tags ──────────────────────────────────────────────────────
+
+        const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
+        const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+        const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
+
+        const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
+          assistantText,
+          session.players
+        );
+
+        let updatedWorldState = { ...worldState };
+        let textAfterRollTags = textAfterInventory;
+
+        textAfterRollTags = textAfterRollTags.replace(
+          /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+):([^\]]+)\]/g,
+          (_, idx, skillName, skillValue, threshold, context) => {
+            updatedWorldState.pendingRollResult = {
+              characterIdx: Number(idx),
+              skillName,
+              skillValue: Number(skillValue),
+              goodThreshold: Number(threshold),
+              context,
+            };
+            return '';
+          }
+        );
+
+        textAfterRollTags = textAfterRollTags.replace(/\[CLEAR_PENDING_ROLL\]/g, () => {
+          updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
+          return '';
+        });
+
+        textAfterRollTags = textAfterRollTags.replace(
+          /\[RANDOM_EVENT:([^:]+):([^\]]+)\]/g,
+          (_, _type, description) => {
+            updatedWorldState = resolveActiveEvent(updatedWorldState, description);
+            return '';
+          }
+        );
+
+        if (updatedWorldState.activeRandomEvent && updatedWorldState.activeRandomEvent.type !== 'roll_event') {
+          updatedWorldState = clearActiveEvent(updatedWorldState);
+        }
+        if (!updatedWorldState.pendingRollResult && updatedWorldState.activeRandomEvent?.type === 'roll_event') {
+          updatedWorldState = clearActiveEvent(updatedWorldState);
+        }
+
+        const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
+
+        const cleanText = stripNpcTags(textAfterRollTags)
+          .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
+          .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
+          .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+          .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
+          .trim();
+
+        // ── Apply DELTA ─────────────────────────────────────────────────────
+
+        let updatedPlayers = mutatedPlayers;
+        if (deltaMatch) {
+          try {
+            const delta = JSON.parse(deltaMatch[1]) as Record<string, {
+              hp?: number; sanity?: number; luck?: number
+            }>;
+            updatedPlayers = updatedPlayers.map((p, i) => {
+              const d = delta[String(i)];
+              if (!d) return p;
+              return {
+                ...p,
+                hp:     Math.max(0, Math.min(p.maxHp,         p.hp          + (d.hp     ?? 0))),
+                sanity: Math.max(0, Math.min(p.maxSanity,      p.sanity      + (d.sanity ?? 0))),
+                luck:   Math.max(0, Math.min(p.maxLuck ?? 99, (p.luck ?? 0) + (d.luck   ?? 0))),
+              };
+            });
+          } catch { /* malformed — ignore */ }
+        }
+
+        // ── Apply LOCATION ──────────────────────────────────────────────────
+
+        if (locationMatch) {
+          const locId = locationMatch[1];
+          updatedWorldState = {
+            ...updatedWorldState,
+            currentLocation: locId,
+            visitedLocations: updatedWorldState.visitedLocations.includes(locId)
+              ? updatedWorldState.visitedLocations
+              : [...updatedWorldState.visitedLocations, locId],
+          };
+        }
+
+        // ── Persist messages ────────────────────────────────────────────────
+
+        if (!isIntro) {
+          if (allActions && allActions.length > 1) {
+            for (const action of allActions) {
+              await saveMessage(sessionId, 'user', action.text, action.playerIdx);
+            }
+          } else {
+            await saveMessage(sessionId, 'user', message, playerIdx);
+          }
+        }
+        await saveMessage(sessionId, 'assistant', cleanText);
+
+        // ── Persist state ───────────────────────────────────────────────────
+
+        const needsPlayerUpdate =
+          deltaMatch !== null ||
+          JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
+        if (needsPlayerUpdate) {
+          await updateSession(session.id, { players: updatedPlayers });
+        }
+        await updateSession(session.id, { world_state: updatedWorldState });
+
+        // ── Summarize periodically ──────────────────────────────────────────
+
+        const msgCount = await countMessages(sessionId);
+        if (msgCount % 20 === 0) {
+          summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState);
+        }
+
+        const updatedSession = await getSession(sessionId);
+
+        // ── Ambient ─────────────────────────────────────────────────────────
+
+        const prevGroup = session.world_state.currentLocationGroup;
+        const newGroup = updatedWorldState.currentLocationGroup;
+        const groupChanged = newGroup && newGroup !== prevGroup;
+        const ambientFile = groupChanged
+          ? (scenario.locationGroups?.find((g) => g.id === newGroup)?.ambientFile ?? null)
+          : null;
+
+        // ── TTS prefetch ────────────────────────────────────────────────────
+
+        const voiceStyle = detectVoiceStyle(cleanText, scenario.npcs ?? []);
+        if (autoVoiceEnabled) {
+          prefetchGemini(cleanText, voiceStyle, segments);
+        }
+
+        const imageType    = imageMatch?.[1] ?? null;
+        const imagePrompt  = imageMatch?.[2]?.trim() ?? null;
+        const location     = locationMatch?.[1] ?? null;
+        const locationName = location
+          ? (scenario.locations.find((l) => l.id === location)?.name ?? null)
+          : null;
+
+        send('done', {
+          response: cleanText,
+          voiceStyle,
+          segments,
+          aiProvider,
+          players: updatedPlayers,
+          world_state: updatedSession?.world_state ?? updatedWorldState,
+          imageType,
+          imagePrompt,
+          location,
+          locationName,
+          ambientFile,
+        });
+
+      } catch (error) {
+        console.error('Error in AI route:', error);
+        send('error', { message: 'Failed to get AI response' });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readableStream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
