@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import type { GameSession, Scenario, Player } from '@/types';
-import { ROLE_PRESETS, makePlayer, type RolePreset } from '@/lib/roles';
+// CHANGED: Use getRolesForScenario to get scenario-specific roles
+import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import AuthBar from './AuthBar';
 
 interface DraftPlayer {
@@ -211,8 +212,9 @@ export default function SessionList() {
                       Клас для {drafts[pickingRoleFor].name || `Гравця ${pickingRoleFor + 1}`}
                     </span>
                   </div>
+                  {/* CHANGED: Show roles scoped to selected scenario */}
                   <div className="space-y-2">
-                    {ROLE_PRESETS.map((preset) => (
+                    {(selectedScenario ? getRolesForScenario(selectedScenario) : []).map((preset) => (
                       <button
                         key={preset.id}
                         onClick={() => setDraftPreset(pickingRoleFor, preset)}
@@ -256,9 +258,18 @@ export default function SessionList() {
                               <h3 className="font-semibold text-stone-200 text-sm">{sc.titleUk}</h3>
                               <p className="text-xs text-stone-500">{sc.era}</p>
                             </div>
-                            <span className={`text-xs border rounded-full px-2 py-0.5 shrink-0 ${diff.color} ${diff.bg}`}>
-                              {diff.text}
-                            </span>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className={`text-xs border rounded-full px-2 py-0.5 ${diff.color} ${diff.bg}`}>
+                                {diff.text}
+                              </span>
+                              {/* CHANGED: Show campaign/one-shot badge and player limits */}
+                              {sc.sessionConfig && (
+                                <span className="text-xs text-stone-600">
+                                  {sc.sessionConfig.isCampaign ? '📖 кампанія' : '⚡ one-shot'}
+                                  {' · '}{sc.sessionConfig.minPlayers}–{sc.sessionConfig.maxPlayers} гравці
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-stone-500 leading-relaxed">{sc.description}</p>
                         </button>
