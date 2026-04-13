@@ -1,14 +1,18 @@
+// CHANGED: Three-part prompt caching (ruleset/static/dynamic), SSE streaming,
+// cost tracking, inventory mutation tags, keeper activity, random event injection.
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import fs from 'fs';
 import path from 'path';
 import { cookies } from 'next/headers';
 import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
-import { buildSystemPrompt, buildSystemPromptBlocks, buildSummarizePrompt } from '@/lib/prompts';
+import { buildSystemPromptBlocks, buildSummarizePrompt } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
-import type { Scenario, WorldState, NPC } from '@/types';
+import { trackAPICall } from '@/lib/costTracker';
+import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
+import type { Scenario, WorldState, NPC, Player, InventoryItem } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash' | 'gemini-pro';
 
@@ -37,8 +41,8 @@ function loadScenario(scenarioId: string): Scenario {
 
 async function summarizeAndUpdateWorldState(
   sessionId: string,
-  scenarioId: string,
-  aiProvider: AiProvider
+  aiProvider: AiProvider,
+  currentWorldState: WorldState
 ): Promise<void> {
   try {
     const { getAllMessages } = await import('@/lib/queries');
@@ -50,7 +54,7 @@ async function summarizeAndUpdateWorldState(
     if (aiProvider === 'claude-sonnet') {
       const response = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
+        max_tokens: 500,
         messages: [{ role: 'user', content: summarizePrompt }],
       });
       text = response.content[0].type === 'text' ? response.content[0].text : '';
@@ -60,15 +64,26 @@ async function summarizeAndUpdateWorldState(
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const worldState = JSON.parse(jsonMatch[0]) as WorldState;
-      await updateSession(sessionId, { world_state: worldState });
+      const parsed = JSON.parse(jsonMatch[0]) as Partial<WorldState>;
+      // Merge — preserve activity tracking fields not in the summary
+      const merged: WorldState = {
+        ...currentWorldState,
+        ...parsed,
+        passiveMessageCount: currentWorldState.passiveMessageCount ?? 0,
+        totalMessageCount: currentWorldState.totalMessageCount ?? 0,
+        locationRisk: currentWorldState.locationRisk ?? {},
+        pendingRollResult: currentWorldState.pendingRollResult,
+        activeRandomEvent: currentWorldState.activeRandomEvent,
+        currentLocationGroup: currentWorldState.currentLocationGroup,
+      };
+      await updateSession(sessionId, { world_state: merged });
     }
   } catch (error) {
     console.error('Error summarizing world state:', error);
   }
 }
 
-// ── Gemini REST helper ────────────────────────────────────────────────────────
+// ── Gemini REST helpers ───────────────────────────────────────────────────────
 
 interface GeminiMessage {
   role: 'user' | 'model';
@@ -91,7 +106,7 @@ async function callGeminiChat(
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: history,
-        generationConfig: { maxOutputTokens: 1024, temperature: 1.0 },
+        generationConfig: { maxOutputTokens: 600, temperature: 1.0 },
       }),
     }
   );
@@ -119,7 +134,7 @@ async function callGeminiText(modelId: string, prompt: string, _system: string):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1024 },
+        generationConfig: { maxOutputTokens: 500 },
       }),
     }
   );
@@ -129,6 +144,132 @@ async function callGeminiText(modelId: string, prompt: string, _system: string):
     candidates: { content: { parts: { text: string }[] } }[]
   };
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+}
+
+// ── Keeper activity helpers ───────────────────────────────────────────────────
+
+function isPassiveMessage(message: string): boolean {
+  const activePatterns = [
+    /оглядаю|шукаю|іду|беру|кажу|питаю|відкриваю|перевіряю|досліджую/i,
+    /використовую|дістаю|показую|читаю|слухаю|торкаюсь|намагаюсь/i,
+  ];
+  const passivePatterns = [
+    /^(так|ні|добре|окей|гаразд|зрозуміло|продовжуй|далі)$/i,
+  ];
+  const isActive = activePatterns.some((p) => p.test(message));
+  const isPassive = !isActive && (passivePatterns.some((p) => p.test(message)) || message.length < 20);
+  return isPassive;
+}
+
+function buildKeeperActivitySection(
+  keeperStyle: 'passive' | 'balanced' | 'active',
+  worldState: WorldState
+): string {
+  const passive = worldState.passiveMessageCount ?? 0;
+  const hasPendingRoll = !!worldState.pendingRollResult;
+
+  if (hasPendingRoll) {
+    const pending = worldState.pendingRollResult!;
+    return `\n\n## ОЧІКУВАНИЙ КИДОК
+Гравець ${pending.characterIdx} ще не повідомив результат кидка "${pending.skillName}".
+Якщо повідомлення містить число — це результат кидка.
+Порів з порогом ${pending.goodThreshold}: ≤ поріг → успіх, > поріг → провал.
+Після результату — очисти через [CLEAR_PENDING_ROLL].`;
+  }
+
+  if (keeperStyle === 'active' || (keeperStyle === 'balanced' && passive >= 3)) {
+    return `\n\n## ПІДКАЗКА ДІЙ (пасивних ходів: ${passive})
+Гравці затихли. Вплітай нову деталь що провокує реакцію:
+- Нова сенсорна деталь, поведінка NPC, нагадування про загрозу
+НЕ перелічуй варіанти списком — опиши ситуацію що сама вимагає відповіді.`;
+  }
+
+  if (keeperStyle === 'passive') {
+    return `\n\n## СТИЛЬ KEEPER: ПАСИВНИЙ\nЧекай дій гравців. Описуй лише поточний момент.`;
+  }
+
+  return '';
+}
+
+// ── Inventory mutation parser ─────────────────────────────────────────────────
+
+function parseInventoryTags(
+  text: string,
+  players: Player[]
+): { cleanText: string; mutatedPlayers: Player[] } {
+  // CHANGED: Full inventory lifecycle — USE, REMOVE, EQUIP, BREAK tags
+  let mutated = players.map((p) => ({
+    ...p,
+    inventory: (p.inventory ?? []).map((it) => ({ ...it })),
+  }));
+
+  // [ITEM:idx:name:desc:uses] — add item (existing behavior)
+  text = text.replace(
+    /\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g,
+    (_, idx, name, desc, uses) => {
+      const i = Number(idx);
+      if (!mutated[i]) return '';
+      const existing = mutated[i].inventory.find((it) => it.name === name);
+      if (!existing) {
+        mutated[i].inventory.push({
+          id: `item_${Date.now()}_${i}_${Math.random().toString(36).slice(2,6)}`,
+          name: name.trim(),
+          description: desc.trim(),
+          uses: Number(uses),
+        });
+      }
+      return '';
+    }
+  );
+
+  // [USE_ITEM:idx:itemId] — decrement uses by 1
+  text = text.replace(/\[USE_ITEM:(\d+):([^\]]+)\]/g, (_, idx, itemId) => {
+    const i = Number(idx);
+    if (!mutated[i]) return '';
+    const item = mutated[i].inventory.find((it) => it.id === itemId);
+    if (item && item.uses !== -1) {
+      item.uses = Math.max(0, item.uses - 1);
+    }
+    return '';
+  });
+
+  // [REMOVE_ITEM:idx:itemId] — fully remove from inventory
+  text = text.replace(/\[REMOVE_ITEM:(\d+):([^\]]+)\]/g, (_, idx, itemId) => {
+    const i = Number(idx);
+    if (!mutated[i]) return '';
+    mutated[i].inventory = mutated[i].inventory.filter((it) => it.id !== itemId);
+    if (mutated[i].equippedItemId === itemId) {
+      mutated[i] = { ...mutated[i], equippedItemId: undefined };
+    }
+    return '';
+  });
+
+  // [EQUIP:idx:itemId] — mark as in-hand
+  text = text.replace(/\[EQUIP:(\d+):([^\]]+)\]/g, (_, idx, itemId) => {
+    const i = Number(idx);
+    if (!mutated[i]) return '';
+    mutated[i].inventory.forEach((it) => { it.equipped = false; });
+    const item = mutated[i].inventory.find((it) => it.id === itemId);
+    if (item) {
+      item.equipped = true;
+      mutated[i] = { ...mutated[i], equippedItemId: itemId };
+    }
+    return '';
+  });
+
+  // [BREAK_ITEM:idx:itemId] — mark as broken
+  text = text.replace(/\[BREAK_ITEM:(\d+):([^\]]+)\]/g, (_, idx, itemId) => {
+    const i = Number(idx);
+    if (!mutated[i]) return '';
+    const item = mutated[i].inventory.find((it) => it.id === itemId);
+    if (item) {
+      item.broken = true;
+      item.uses = 0;
+    }
+    return '';
+  });
+
+  return { cleanText: text, mutatedPlayers: mutated };
 }
 
 // ── Main POST handler ─────────────────────────────────────────────────────────
@@ -143,7 +284,14 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { sessionId, message, playerIdx, allActions, aiProvider = 'claude-sonnet', autoVoiceEnabled = false } = body as {
+    const {
+      sessionId,
+      message,
+      playerIdx,
+      allActions,
+      aiProvider = 'claude-sonnet',
+      autoVoiceEnabled = false,
+    } = body as {
       sessionId: string;
       message: string;
       playerIdx: number;
@@ -161,8 +309,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Ownership check
-    const isOwner = session.user_id === null || session.user_id === payload.sub || payload.role === 'admin';
+    const isOwner =
+      session.user_id === null ||
+      session.user_id === payload.sub ||
+      payload.role === 'admin';
     if (!isOwner) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
@@ -178,12 +328,56 @@ export async function POST(request: Request) {
           return player ? `[${player.name}]: ${message}` : message;
         })();
 
+    // ── Activity tracking ─────────────────────────────────────────────────────
+
+    let worldState: WorldState = session.world_state;
+    const passive = isIntro ? false : isPassiveMessage(message);
+
+    worldState = {
+      ...worldState,
+      passiveMessageCount: passive
+        ? (worldState.passiveMessageCount ?? 0) + 1
+        : 0,
+      totalMessageCount: (worldState.totalMessageCount ?? 0) + 1,
+      locationRisk: worldState.locationRisk ?? {},
+    };
+
+    // ── Random event evaluation ───────────────────────────────────────────────
+
+    const newLocationFromPrev = recentMessages.length > 0
+      ? extractLocationFromMessages(recentMessages.slice(-3).map((m) => m.content))
+      : undefined;
+
+    const eventDecision = evaluateRandomEvent(
+      worldState,
+      scenario,
+      newLocationFromPrev,
+      !!worldState.pendingRollResult
+    );
+
+    worldState = applyEventDecision(worldState, eventDecision, newLocationFromPrev, scenario);
+
+    // ── Build prompt blocks ───────────────────────────────────────────────────
+
+    const keeperStyle = (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
+    const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
+    const eventInstruction =
+      eventDecision.shouldFire && eventDecision.eventType
+        ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
+        : '';
+
+    const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
+      keeperActivitySection: activitySection,
+      eventInstruction,
+    });
+
     // ── Call AI ───────────────────────────────────────────────────────────────
 
     let assistantText = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
 
     if (aiProvider === 'claude-sonnet') {
-      // Anthropic with prompt caching
       const conversationHistory = recentMessages.map((m) => {
         if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
           const name = session.players[m.player_idx].name;
@@ -193,29 +387,51 @@ export async function POST(request: Request) {
       });
       conversationHistory.push({ role: 'user', content: userContent });
 
-      const USE_SPLIT_PROMPT = scenario.id === 'the-last-telegram';
-      const systemBlocks = USE_SPLIT_PROMPT
-        ? (() => {
-            const { static: staticText, dynamic: dynamicText } = buildSystemPromptBlocks(
-              scenario, session.world_state, session.players
-            );
-            return [
-              { type: 'text' as const, text: staticText,  cache_control: { type: 'ephemeral' as const } },
-              { type: 'text' as const, text: dynamicText },
-            ];
-          })()
-        : [{ type: 'text' as const, text: buildSystemPrompt(scenario, session.world_state, session.players), cache_control: { type: 'ephemeral' as const } }];
+      // CHANGED: Three-part caching — ruleset + static cached, dynamic not
+      const systemBlocks = [
+        {
+          type: 'text' as const,
+          text: blocks.ruleset,
+          cache_control: { type: 'ephemeral' as const },
+        },
+        {
+          type: 'text' as const,
+          text: blocks.static,
+          cache_control: { type: 'ephemeral' as const },
+        },
+        {
+          type: 'text' as const,
+          text: blocks.dynamic,
+        },
+      ];
 
       const aiResponse = await anthropic.messages.create(
-        { model: 'claude-sonnet-4-6', max_tokens: 1024, system: systemBlocks, messages: conversationHistory },
+        {
+          model: 'claude-sonnet-4-6',
+          max_tokens: 600,
+          system: systemBlocks,
+          messages: conversationHistory,
+        },
         { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } }
       );
       assistantText = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : '';
+      inputTokens = aiResponse.usage?.input_tokens ?? 0;
+      outputTokens = aiResponse.usage?.output_tokens ?? 0;
+
+      // Track cost (non-blocking)
+      trackAPICall({
+        sessionId,
+        userId: payload.sub,
+        provider: 'anthropic',
+        type: 'llm',
+        model: 'claude-sonnet-4-6',
+        inputTokens,
+        outputTokens,
+      }).catch(console.error);
 
     } else {
-      // Gemini (flash or pro) via REST
       const modelId = GEMINI_MODELS[aiProvider];
-      const systemPrompt = buildSystemPrompt(scenario, session.world_state, session.players);
+      const systemPrompt = `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
 
       const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
         if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
@@ -237,15 +453,96 @@ export async function POST(request: Request) {
     const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
     const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
     const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
-    const itemMatches   = [...assistantText.matchAll(/\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g)];
 
-    const segments = parseSegments(assistantText, scenario.npcs ?? []);
+    // Parse inventory mutations (phases 11+)
+    const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
+      assistantText,
+      session.players
+    );
 
-    const cleanText = stripNpcTags(assistantText)
+    // Parse pending roll tags (phase 12)
+    let updatedWorldState = { ...worldState };
+    let textAfterRollTags = textAfterInventory;
+
+    textAfterRollTags = textAfterRollTags.replace(
+      /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+):([^\]]+)\]/g,
+      (_, idx, skillName, skillValue, threshold, context) => {
+        updatedWorldState.pendingRollResult = {
+          characterIdx: Number(idx),
+          skillName,
+          skillValue: Number(skillValue),
+          goodThreshold: Number(threshold),
+          context,
+        };
+        return '';
+      }
+    );
+
+    textAfterRollTags = textAfterRollTags.replace(/\[CLEAR_PENDING_ROLL\]/g, () => {
+      updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
+      return '';
+    });
+
+    // Parse random event tag (phase 13)
+    textAfterRollTags = textAfterRollTags.replace(
+      /\[RANDOM_EVENT:([^:]+):([^\]]+)\]/g,
+      (_, type, description) => {
+        updatedWorldState = resolveActiveEvent(updatedWorldState, description);
+        return '';
+      }
+    );
+
+    // If active event is not a roll_event, clear it immediately
+    if (updatedWorldState.activeRandomEvent && updatedWorldState.activeRandomEvent.type !== 'roll_event') {
+      updatedWorldState = clearActiveEvent(updatedWorldState);
+    }
+    if (!updatedWorldState.pendingRollResult && updatedWorldState.activeRandomEvent?.type === 'roll_event') {
+      updatedWorldState = clearActiveEvent(updatedWorldState);
+    }
+
+    const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
+
+    const cleanText = stripNpcTags(textAfterRollTags)
       .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
       .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
       .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+      .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
       .trim();
+
+    // ── Apply DELTA ───────────────────────────────────────────────────────────
+
+    let updatedPlayers = mutatedPlayers;
+
+    if (deltaMatch) {
+      try {
+        const delta = JSON.parse(deltaMatch[1]) as Record<string, {
+          hp?: number; sanity?: number; luck?: number
+        }>;
+        updatedPlayers = updatedPlayers.map((p, i) => {
+          const d = delta[String(i)];
+          if (!d) return p;
+          return {
+            ...p,
+            hp:     Math.max(0, Math.min(p.maxHp,         p.hp          + (d.hp     ?? 0))),
+            sanity: Math.max(0, Math.min(p.maxSanity,      p.sanity      + (d.sanity ?? 0))),
+            luck:   Math.max(0, Math.min(p.maxLuck ?? 99, (p.luck ?? 0) + (d.luck   ?? 0))),
+          };
+        });
+      } catch { /* malformed — ignore */ }
+    }
+
+    // ── Apply LOCATION to world state ─────────────────────────────────────────
+
+    if (locationMatch) {
+      const locId = locationMatch[1];
+      updatedWorldState = {
+        ...updatedWorldState,
+        currentLocation: locId,
+        visitedLocations: updatedWorldState.visitedLocations.includes(locId)
+          ? updatedWorldState.visitedLocations
+          : [...updatedWorldState.visitedLocations, locId],
+      };
+    }
 
     // ── Persist messages ──────────────────────────────────────────────────────
 
@@ -260,58 +557,37 @@ export async function POST(request: Request) {
     }
     await saveMessage(sessionId, 'assistant', cleanText);
 
+    // ── Persist state ─────────────────────────────────────────────────────────
+
+    const needsPlayerUpdate =
+      deltaMatch !== null ||
+      JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
+    if (needsPlayerUpdate) {
+      await updateSession(session.id, { players: updatedPlayers });
+    }
+    await updateSession(session.id, { world_state: updatedWorldState });
+
+    // ── Summarize periodically ────────────────────────────────────────────────
+
     const msgCount = await countMessages(sessionId);
     if (msgCount % 20 === 0) {
-      summarizeAndUpdateWorldState(sessionId, session.scenario_id, aiProvider);
+      summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState);
     }
 
     const updatedSession = await getSession(sessionId);
 
-    // ── Apply DELTA ───────────────────────────────────────────────────────────
+    // ── Ambient: detect location group change ─────────────────────────────────
 
-    let updatedPlayers = session.players;
-
-    if (deltaMatch) {
-      try {
-        const delta = JSON.parse(deltaMatch[1]) as Record<string, { hp?: number; sanity?: number; luck?: number }>;
-        updatedPlayers = updatedPlayers.map((p, i) => {
-          const d = delta[String(i)];
-          if (!d) return p;
-          return {
-            ...p,
-            hp:     Math.max(0, Math.min(p.maxHp,         p.hp          + (d.hp     ?? 0))),
-            sanity: Math.max(0, Math.min(p.maxSanity,      p.sanity      + (d.sanity ?? 0))),
-            luck:   Math.max(0, Math.min(p.maxLuck ?? 99, (p.luck ?? 0) + (d.luck   ?? 0))),
-          };
-        });
-      } catch { /* malformed — ignore */ }
-    }
-
-    // ── Apply ITEM grants ─────────────────────────────────────────────────────
-
-    if (itemMatches.length > 0) {
-      for (const m of itemMatches) {
-        const pIdx = parseInt(m[1]);
-        if (pIdx < 0 || pIdx >= updatedPlayers.length) continue;
-        const newItem = {
-          id: `item_${Date.now()}_${pIdx}`,
-          name: m[2].trim(),
-          description: m[3].trim(),
-          uses: parseInt(m[4]),
-        };
-        updatedPlayers = updatedPlayers.map((p, i) =>
-          i === pIdx ? { ...p, inventory: [...(p.inventory ?? []), newItem] } : p
-        );
-      }
-    }
-
-    if (deltaMatch || itemMatches.length > 0) {
-      await updateSession(session.id, { players: updatedPlayers });
-    }
+    const prevGroup = session.world_state.currentLocationGroup;
+    const newGroup = updatedWorldState.currentLocationGroup;
+    const groupChanged = newGroup && newGroup !== prevGroup;
+    const ambientFile = groupChanged
+      ? (scenario.locationGroups?.find((g) => g.id === newGroup)?.ambientFile ?? null)
+      : null;
 
     // ── TTS prefetch + response ───────────────────────────────────────────────
 
-    const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);
+    const voiceStyle = detectVoiceStyle(cleanText, scenario.npcs ?? []);
     if (autoVoiceEnabled) {
       prefetchGemini(cleanText, voiceStyle, segments);
     }
@@ -329,14 +605,25 @@ export async function POST(request: Request) {
       segments,
       aiProvider,
       players: updatedPlayers,
-      world_state: updatedSession?.world_state,
+      world_state: updatedSession?.world_state ?? updatedWorldState,
       imageType,
       imagePrompt,
       location,
       locationName,
+      ambientFile,
     });
   } catch (error) {
     console.error('Error in AI route:', error);
     return NextResponse.json({ error: 'Failed to get AI response' }, { status: 500 });
   }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function extractLocationFromMessages(recentContents: string[]): string | undefined {
+  for (const content of [...recentContents].reverse()) {
+    const match = content.match(/\[LOCATION:([\w-]+)\]/);
+    if (match) return match[1];
+  }
+  return undefined;
 }
