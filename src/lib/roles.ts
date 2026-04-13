@@ -1,9 +1,13 @@
-import type { Player, InventoryItem } from '@/types';
+// CHANGED: Added rulesetId to all presets. Scenario-specific roles
+// (private_investigator, telegraph_reporter) kept here for backward compat.
+// Use getRolesForScenario() to get roles scoped to a scenario.
+import type { Player, InventoryItem, Scenario } from '@/types';
 
 export interface RolePreset {
   id: string;
   name: string;
   description: string;
+  rulesetId?: string;
   hp: number;
   sanity: number;
   luck: number;
@@ -16,6 +20,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   // ── Стандартні ролі ───────────────────────────────────────────────────────
   {
     id: 'detective',
+    rulesetId: 'coc_7e',
     name: 'Детектив',
     description: 'Колишній поліцейський. Слідчий з бездоганним нюхом на брехню.',
     hp: 12,
@@ -35,6 +40,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   },
   {
     id: 'journalist',
+    rulesetId: 'coc_7e',
     name: 'Журналіст',
     description: 'Репортер-слідчий. Відкриває двері через слова та архіви.',
     hp: 8,
@@ -54,6 +60,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   },
   {
     id: 'doctor',
+    rulesetId: 'coc_7e',
     name: 'Лікар',
     description: 'Медик з психіатричним нахилом. Тримає команду живою.',
     hp: 10,
@@ -73,6 +80,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   },
   {
     id: 'antiquarian',
+    rulesetId: 'coc_7e',
     name: 'Антиквар',
     description: 'Знавець старовини й окультизму. Бачить те, що інші ігнорують.',
     hp: 8,
@@ -92,6 +100,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   },
   {
     id: 'soldier',
+    rulesetId: 'coc_7e',
     name: 'Ветеран',
     description: 'Солдат Першої світової. Міцний тілом, але надприродне його зламає.',
     hp: 14,
@@ -113,6 +122,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   // ── Детальні ролі для "Остання Телеграма" ────────────────────────────────
   {
     id: 'private_investigator',
+    rulesetId: 'coc_7e',
     name: 'Приватний детектив',
     description: 'Колишній агент Пінкертона. Бачив надто багато, щоб дивуватися. П\'є забагато, щоб забути.',
     hp: 13,
@@ -148,6 +158,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   },
   {
     id: 'telegraph_reporter',
+    rulesetId: 'coc_7e',
     name: 'Репортер-телеграфістка',
     description: 'Колишня телеграфістка, тепер репортер Boston Evening Courier. Знає мову дротів. Отримала ту саму телеграму.',
     hp: 9,
@@ -182,6 +193,20 @@ export const ROLE_PRESETS: RolePreset[] = [
     ],
   },
 ];
+
+// CHANGED: Load roles from scenario if present, otherwise fallback to global presets
+export function getRolesForScenario(scenario: Scenario): RolePreset[] {
+  if (scenario.rolePresets && scenario.rolePresets.length > 0) {
+    const supported = scenario.supportedRoles ?? [];
+    return scenario.rolePresets.filter((r) =>
+      supported.length === 0 || supported.includes(r.id)
+    ) as RolePreset[];
+  }
+  // Fallback to global role presets
+  const supported = scenario.supportedRoles;
+  if (!supported || supported.length === 0) return ROLE_PRESETS;
+  return ROLE_PRESETS.filter((r) => supported.includes(r.id));
+}
 
 export function makePlayer(name: string, preset: RolePreset): Player {
   return {
