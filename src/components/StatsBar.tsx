@@ -107,24 +107,38 @@ export default function StatsBar({ players, onUpdatePlayers, onUseItem }: StatsB
                       <p className="text-xs text-stone-500 mb-2 font-medium uppercase tracking-wide">Інвентар</p>
                       <div className="space-y-1.5">
                         {inventory.map((item) => {
+                          // CHANGED: Show broken/equipped/exhausted states
                           const exhausted = item.uses === 0;
+                          const broken = item.broken;
+                          const equipped = item.equipped;
+                          const dimmed = exhausted || broken;
                           return (
                             <div
                               key={item.id}
-                              className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${exhausted ? 'bg-stone-800/50 opacity-50' : 'bg-stone-700/40'}`}
+                              className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${
+                                broken
+                                  ? 'bg-red-950/30 opacity-60'
+                                  : exhausted
+                                    ? 'bg-stone-800/50 opacity-50'
+                                    : equipped
+                                      ? 'bg-amber-950/40 border border-amber-800/40'
+                                      : 'bg-stone-700/40'
+                              }`}
                             >
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <span className={`text-xs font-medium ${exhausted ? 'text-stone-500' : 'text-stone-200'}`}>
+                                  {equipped && <span className="text-amber-500 text-xs shrink-0">⚔</span>}
+                                  {broken && <span className="text-red-600 text-xs shrink-0">✕</span>}
+                                  <span className={`text-xs font-medium ${dimmed ? 'text-stone-500' : 'text-stone-200'}`}>
                                     {item.name}
                                   </span>
                                   <span className="text-xs text-stone-600 shrink-0">
-                                    {item.uses === -1 ? '∞' : `×${item.uses}`}
+                                    {broken ? 'зламаний' : item.uses === -1 ? '∞' : `×${item.uses}`}
                                   </span>
                                 </div>
                                 <p className="text-xs text-stone-500 mt-0.5 leading-tight">{item.description}</p>
                               </div>
-                              {!exhausted && onUseItem && (
+                              {!dimmed && onUseItem && (
                                 <button
                                   onClick={() => {
                                     onUseItem(idx, item.id, item.name);
