@@ -1,5 +1,5 @@
 import sql from './db';
-import type { GameSession, Message, WorldState, Player, User } from '@/types';
+import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary } from '@/types';
 import crypto from 'crypto';
 
 let schemaInitialized = false;
@@ -84,6 +84,102 @@ export async function initializeSchema() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON game_sessions(user_id)
   `;
+
+  // CHANGED: Add campaign_id, session_number, turn_queue, keeper_style to game_sessions
+  await sql`
+    ALTER TABLE game_sessions
+      ADD COLUMN IF NOT EXISTS campaign_id UUID,
+      ADD COLUMN IF NOT EXISTS session_number INTEGER DEFAULT 1,
+      ADD COLUMN IF NOT EXISTS current_turn_idx INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS turn_queue JSONB DEFAULT '[]',
+      ADD COLUMN IF NOT EXISTS keeper_style VARCHAR(20) DEFAULT 'balanced'
+  `;
+
+  // CHANGED: New tables for campaign layer (phase 5)
+  await sql`
+    CREATE TABLE IF NOT EXISTS campaigns (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+      scenario_id VARCHAR(100) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      world_state JSONB NOT NULL DEFAULT '{}',
+      npc_states JSONB NOT NULL DEFAULT '{}',
+      session_count INTEGER DEFAULT 0,
+      status VARCHAR(20) DEFAULT 'active',
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS session_summaries (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
+      session_id UUID REFERENCES game_sessions(id) ON DELETE CASCADE,
+      session_number INTEGER NOT NULL,
+      summary TEXT NOT NULL,
+      key_events JSONB DEFAULT '[]',
+      npc_changes JSONB DEFAULT '{}',
+      character_snapshots JSONB DEFAULT '[]',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  // CHANGED: New tables for asset management (phase 7)
+  await sql`
+    CREATE TABLE IF NOT EXISTS scenario_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      scenario_id VARCHAR(100) NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      location_id VARCHAR(100),
+      npc_id VARCHAR(100),
+      tags TEXT[] DEFAULT '{}',
+      url TEXT NOT NULL,
+      prompt TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS campaign_assets (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      campaign_id UUID REFERENCES campaigns(id) ON DELETE CASCADE,
+      scenario_id VARCHAR(100) NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      tags TEXT[] DEFAULT '{}',
+      url TEXT NOT NULL,
+      prompt TEXT,
+      scene_id UUID,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  // CHANGED: New table for API cost tracking (phase 8)
+  await sql`
+    CREATE TABLE IF NOT EXISTS api_usage (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      session_id UUID REFERENCES game_sessions(id) ON DELETE SET NULL,
+      campaign_id UUID REFERENCES campaigns(id) ON DELETE SET NULL,
+      user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      provider VARCHAR(30) NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      model VARCHAR(100) NOT NULL,
+      input_tokens INTEGER,
+      output_tokens INTEGER,
+      characters INTEGER,
+      image_count INTEGER,
+      cost_usd DECIMAL(10,8) DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  // Indexes for performance
+  await sql`CREATE INDEX IF NOT EXISTS idx_campaigns_user_id ON campaigns(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_session_id ON api_usage(session_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_user_id ON api_usage(user_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_scenario_assets_scenario_id ON scenario_assets(scenario_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_campaign_assets_campaign_id ON campaign_assets(campaign_id)`;
 }
 
 // ── Session queries ────────────────────────────────────────────────────────────
@@ -134,12 +230,16 @@ export async function createSession(
 ): Promise<GameSession> {
   const initialWorldState: WorldState = {
     act: 1,
+    currentLocation: undefined,
     visitedLocations: [],
     discoveredClues: [],
     npcRelations: {},
     summary: '',
     openThreads: [],
     playerNotes: [],
+    passiveMessageCount: 0,
+    totalMessageCount: 0,
+    locationRisk: {},
   };
 
   const rows = await sql`
@@ -361,4 +461,78 @@ export async function updateUserRole(userId: string, role: 'user' | 'admin'): Pr
     RETURNING id, email, role, email_verified, created_at, updated_at
   `;
   return rows[0] as unknown as User;
+}
+
+// ── Campaign queries ───────────────────────────────────────────────────────────
+
+export async function createCampaignRecord(
+  userId: string,
+  scenarioId: string,
+  name: string,
+  worldState: WorldState
+): Promise<Campaign> {
+  const rows = await sql`
+    INSERT INTO campaigns (user_id, scenario_id, name, world_state, npc_states)
+    VALUES (
+      ${userId},
+      ${scenarioId},
+      ${name},
+      ${sql.json(jsonOf(worldState))},
+      ${sql.json({})}
+    )
+    RETURNING *
+  `;
+  return rows[0] as unknown as Campaign;
+}
+
+export async function getCampaignRecord(
+  campaignId: string,
+  userId: string
+): Promise<Campaign | null> {
+  const rows = await sql`
+    SELECT * FROM campaigns WHERE id = ${campaignId} AND user_id = ${userId}
+  `;
+  return (rows[0] as unknown as Campaign) || null;
+}
+
+export async function getRecentSessionSummaries(
+  campaignId: string,
+  limit = 3
+): Promise<SessionSummary[]> {
+  const rows = await sql`
+    SELECT * FROM session_summaries
+    WHERE campaign_id = ${campaignId}
+    ORDER BY session_number DESC
+    LIMIT ${limit}
+  `;
+  return rows as unknown as SessionSummary[];
+}
+
+export async function saveSessionSummary(
+  campaignId: string,
+  sessionId: string,
+  sessionNumber: number,
+  summary: string,
+  keyEvents: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  npcChanges: Record<string, any>,
+  characterSnapshots: Player[]
+): Promise<void> {
+  await sql`
+    INSERT INTO session_summaries
+      (campaign_id, session_id, session_number, summary, key_events, npc_changes, character_snapshots)
+    VALUES (
+      ${campaignId},
+      ${sessionId},
+      ${sessionNumber},
+      ${summary},
+      ${sql.json(keyEvents)},
+      ${sql.json(npcChanges)},
+      ${sql.json(jsonOf(characterSnapshots))}
+    )
+  `;
+  await sql`
+    UPDATE campaigns SET session_count = session_count + 1, updated_at = NOW()
+    WHERE id = ${campaignId}
+  `;
 }
