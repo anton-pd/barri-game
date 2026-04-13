@@ -143,12 +143,13 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { sessionId, message, playerIdx, allActions, aiProvider = 'claude-sonnet' } = body as {
+    const { sessionId, message, playerIdx, allActions, aiProvider = 'claude-sonnet', autoVoiceEnabled = false } = body as {
       sessionId: string;
       message: string;
       playerIdx: number;
       allActions?: { playerIdx: number; text: string }[];
       aiProvider?: AiProvider;
+      autoVoiceEnabled?: boolean;
     };
 
     if (!sessionId || !message) {
@@ -311,7 +312,9 @@ export async function POST(request: Request) {
     // ── TTS prefetch + response ───────────────────────────────────────────────
 
     const voiceStyle  = detectVoiceStyle(cleanText, scenario.npcs ?? []);
-    prefetchGemini(cleanText, voiceStyle, segments);
+    if (autoVoiceEnabled) {
+      prefetchGemini(cleanText, voiceStyle, segments);
+    }
 
     const imageType   = imageMatch?.[1] ?? null;
     const imagePrompt = imageMatch?.[2]?.trim() ?? null;

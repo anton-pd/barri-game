@@ -250,6 +250,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     return true;
   });
+  const [autoVoiceEnabled, setAutoVoiceEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('autoVoiceEnabled') === 'true';
+    }
+    return false;
+  });
   const [ambientVolume, setAmbientVolume]     = useState<number>(() => {
     if (typeof window !== 'undefined') {
       return parseFloat(localStorage.getItem('ambientVolume') ?? '0.35');
@@ -296,7 +302,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessionId: session.id, message: '__intro__', playerIdx: 0, aiProvider }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          message: '__intro__',
+          playerIdx: 0,
+          aiProvider,
+          autoVoiceEnabled,
+        }),
       })
         .then((r) => (r.ok ? r.json() : Promise.reject()))
         .then((data) => {
@@ -314,13 +326,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           if (data.world_state)  setSession((s) => ({ ...s, world_state: data.world_state }));
           if (data.imagePrompt)  setDynamicImages({ [introId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' } });
           if (data.location)     { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
-          speakMsg(introId, data.response, data.voiceStyle, data.segments);
+          if (autoVoiceEnabled) {
+            speakMsg(introId, data.response, data.voiceStyle, data.segments);
+          }
         })
         .catch(() => {/* silent */})
         .finally(() => setIsLoading(false));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [aiProvider, autoVoiceEnabled, initialMessages.length, session.id]);
 
   // ── TTS ─────────────────────────────────────────────────────────────────────
 
@@ -375,6 +389,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     localStorage.setItem('ambientEnabled', String(ambientEnabled));
     localStorage.setItem('ambientVolume', String(ambientVolume));
   }, [ambientEnabled, ambientVolume, currentLocation]);
+
+  useEffect(() => {
+    localStorage.setItem('autoVoiceEnabled', String(autoVoiceEnabled));
+  }, [autoVoiceEnabled]);
 
   function toggleTtsProvider() {
     setTtsProvider((prev) => {
@@ -543,6 +561,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           playerIdx: allActions[0].playerIdx,
           allActions: allActions.length > 1 ? allActions : undefined,
           aiProvider,
+          autoVoiceEnabled,
         }),
       });
       if (!res.ok) throw new Error('AI request failed');
@@ -581,7 +600,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         ...prev, [msgId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' },
       }));
 
-      speakMsg(msgId, data.response, data.voiceStyle, data.segments);
+      if (autoVoiceEnabled) {
+        speakMsg(msgId, data.response, data.voiceStyle, data.segments);
+      }
     } catch {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 2).toString(),
@@ -669,6 +690,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
           >
             🔊 <span>{ttsProvider === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
+          </button>
+          <button
+            onClick={() => setAutoVoiceEnabled((v) => !v)}
+            title={autoVoiceEnabled ? 'Вимкнути автоозвучення' : 'Увімкнути автоозвучення'}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
+          >
+            {autoVoiceEnabled ? '🗣️' : '🔈'} <span>Автоозвучення</span>
           </button>
           <button
             onClick={() => setAmbientEnabled((v) => !v)}
