@@ -15,6 +15,7 @@
 - [x] Фаза 11: Інвентар як джерело правди
 - [x] Фаза 12: Keeper Activity System
 - [x] Фаза 13: Random Event Engine
+- [x] Фаза 14: Dice Roller (ANT-13)
 
 ---
 
