@@ -171,6 +171,16 @@
 
 ---
 
+## ANT-7: Mobile Sidebar (2026-04-14)
+### Що змінено
+- `src/components/GameChat.tsx`: `showSidebar` state + кнопка 📋 `md:hidden` в хедері
+- `CaseFilesPanel`: новий пропс `onClose?` → кнопка × в хедері панелі
+- Wrapper div з `translate-x-full md:translate-x-0` + `fixed inset-y-0 right-0 z-50` для mobile overlay
+- Backdrop `md:hidden fixed inset-0 bg-black/60 z-40` закривається по кліку
+- Desktop: поведінка без змін (`md:relative md:flex md:w-64`)
+
+---
+
 ## TTS Bugfixes (2026-04-14) — ANT-10, ANT-11
 
 ### ANT-11: Голос НПС (segments.ts)
