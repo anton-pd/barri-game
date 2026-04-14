@@ -12,9 +12,10 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const boxRef       = useRef<any>(null);
-  const [ready,  setReady]  = useState(false);
-  const [result, setResult] = useState<number | null>(null);
-  const [rolling, setRolling] = useState(false);
+  const [ready,    setReady]   = useState(false);
+  const [failed,   setFailed]  = useState(false);
+  const [result,   setResult]  = useState<number | null>(null);
+  const [rolling,  setRolling] = useState(false);
 
   // Reset state when a new roll is requested
   useEffect(() => {
@@ -37,27 +38,34 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
         mass: 1,
         friction: 0.8,
         restitution: 0.5,
-        offscreen: true,
+        offscreen: false,
         enableShadows: true,
         lightIntensity: 1,
         theme: 'default',
         themeColor: '#b45309', // amber-700 tint for CoC mood
       });
 
-      box.init().then(() => {
-        boxRef.current = box;
-        setReady(true);
+      const timeout = setTimeout(() => {
+        console.warn('[DiceBox] init timeout — library may be incompatible');
+        setFailed(true);
+      }, 8000);
 
-        // Result callback — fires after all dice settle
+      box.init().then(() => {
+        clearTimeout(timeout);
+        boxRef.current = box;
         box.onRollComplete = (results: any) => {
-          // results.rolls[0].rolls = array of individual die values (1-10 each)
           const [d1, d2] = results.rolls[0].rolls as number[];
-          const tens  = (d1 % 10) * 10;   // 1→10, ..., 9→90, 10→00
-          const units = d2 % 10;           // 1→1,  ..., 9→9,  10→0
+          const tens  = (d1 % 10) * 10;
+          const units = d2 % 10;
           const total = tens === 0 && units === 0 ? 100 : tens + units;
           setResult(total);
           setRolling(false);
         };
+        setReady(true);
+      }).catch((err: unknown) => {
+        clearTimeout(timeout);
+        console.error('[DiceBox] init error:', err);
+        setFailed(true);
       });
     });
 
@@ -97,11 +105,15 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
 
       {/* Action row */}
       <div className="flex items-center justify-center gap-3 px-4 pb-3">
-        {!ready && (
+        {!ready && !failed && (
           <span className="text-xs text-stone-600 animate-pulse">завантаження...</span>
         )}
 
-        {ready && result === null && (
+        {failed && (
+          <span className="text-xs text-red-500">⚠ 3D не завантажилось — введи результат вручну</span>
+        )}
+
+        {ready && !failed && result === null && (
           <button
             onClick={roll}
             disabled={rolling}
