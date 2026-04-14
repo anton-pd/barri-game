@@ -509,12 +509,30 @@ export async function POST(request: Request) {
 
         const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
 
-        const cleanText = stripNpcTags(textAfterRollTags)
+        // textForDB keeps NPC speech tags and IMAGE tags so the client can reconstruct
+        // bubbles and dynamic images after session reload.  Only data-only tags are stripped.
+        const textForDB = textAfterRollTags
           .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
-          .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+          .trim();
+
+        // cleanText is used only for SSE streaming (already rendered in client) and TTS
+        const cleanText = stripNpcTags(textForDB)
           .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
           .trim();
+
+        // ── Auto-register NPCs into npcRelations ────────────────────────────
+        // Any NPC who speaks in this message is added as 'unknown' if not yet tracked.
+        for (const m of textAfterRollTags.matchAll(/\[NPC:([^\]]+)\]/g)) {
+          const npcName = m[1].trim().toLowerCase();
+          const npc = scenario.npcs?.find((n) => n.name.toLowerCase() === npcName);
+          if (npc && !(npc.id in updatedWorldState.npcRelations)) {
+            updatedWorldState = {
+              ...updatedWorldState,
+              npcRelations: { ...updatedWorldState.npcRelations, [npc.id]: 'unknown' },
+            };
+          }
+        }
 
         // ── Apply DELTA ─────────────────────────────────────────────────────
 
@@ -561,7 +579,7 @@ export async function POST(request: Request) {
             await saveMessage(sessionId, 'user', message, playerIdx);
           }
         }
-        await saveMessage(sessionId, 'assistant', cleanText);
+        await saveMessage(sessionId, 'assistant', textForDB);
 
         // ── Persist state ───────────────────────────────────────────────────
 

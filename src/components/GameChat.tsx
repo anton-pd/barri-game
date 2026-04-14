@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
-import { hasNpcSpeech } from '@/lib/segments';
+import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
 import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
@@ -406,6 +406,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Parse NPC segments from initial messages so speech bubbles survive reload
+  useEffect(() => {
+    const initial: Record<string, Segment[]> = {};
+    for (const msg of initialMessages) {
+      if (msg.role === 'assistant') {
+        const segs = parseSegments(msg.content, scenarioNpcs);
+        if (hasNpcSpeech(segs)) initial[msg.id] = segs;
+      }
+    }
+    if (Object.keys(initial).length > 0) setMsgSegments(initial);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Trigger static image generation in background when session starts
   useEffect(() => {
@@ -921,9 +934,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
           const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
-          const displayContent = imageTagMatch
-            ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
-            : msg.content;
+          const displayContent = stripNpcTags(
+            imageTagMatch
+              ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
+              : msg.content
+          );
           const imgMeta = imageTagMatch
             ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
             : (!isUser ? dynamicImages[msg.id] : undefined);

@@ -171,6 +171,19 @@
 
 ---
 
+## TTS Bugfixes (2026-04-14) — ANT-10, ANT-11
+
+### ANT-11: Голос НПС (segments.ts)
+- **Баг**: AI іноді пише `[NPC:Ковальська]` замість `[NPC:Місіс Гаррієт Ковальська]` → lookup по `npcMap` не знаходить NPC → fallback `voiceStyle:'keeper'`, немає gender → Gemini призначає Fenrir замість Aoede
+- **Фікс**: partial name matching — якщо точний match не знайдено, шукаємо NPC де повне ім'я містить слово з тегу (довше 2 символів)
+
+### ANT-10: Кубики у TTS (segments.ts + ttsEngine.ts)
+- **Баг**: TTS озвучує `(1к100, треба 65 або менше)`, `[65]`, `Успіх 0, провал 1к3 SAN` — деталі які не потрібні в аудіо
+- **Фікс**: `stripDiceForTts()` — стрипить dice notation перед відправкою в Gemini TTS; у чаті текст залишається повним
+- Застосовується і в single-speaker і в multi-speaker режимах (per-segment)
+
+---
+
 ## Наступні кроки
 - Фаза 10: ElevenLabs ambient audio generation (після стабілізації)
 - SSE streaming: реалізувати client-side reader в GameChat.tsx

@@ -3,6 +3,7 @@
  * Returns raw PCM Buffer (24 kHz, mono, 16-bit LE) or null on failure.
  */
 import { getGeminiKeeperVoice, getGeminiNpcVoice } from '@/lib/voices';
+import { stripDiceForTts } from '@/lib/segments';
 import type { Segment } from '@/lib/segments';
 
 export async function fetchGeminiPcm(
@@ -19,11 +20,12 @@ export async function fetchGeminiPcm(
 
   if (hasNpc && segments) {
     // ── Multi-speaker ───────────────────────────────────────────────────────
-    const lines = segments.map((s) =>
-      s.type === 'narration'
-        ? `Keeper: ${s.text}`
-        : `${(s as Extract<Segment, { type: 'npc' }>).name}: ${s.text}`
-    );
+    const lines = segments.map((s) => {
+      const clean = stripDiceForTts(s.text);
+      return s.type === 'narration'
+        ? `Keeper: ${clean}`
+        : `${(s as Extract<Segment, { type: 'npc' }>).name}: ${clean}`;
+    });
 
     const seen = new Set<string>();
     const speakerVoiceConfigs: object[] = [];
@@ -54,7 +56,7 @@ export async function fetchGeminiPcm(
   } else {
     // ── Single speaker ──────────────────────────────────────────────────────
     body = {
-      contents: [{ parts: [{ text }] }],
+      contents: [{ parts: [{ text: stripDiceForTts(text) }] }],
       generationConfig: {
         responseModalities: ['AUDIO'],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiKeeperVoice() } } },
