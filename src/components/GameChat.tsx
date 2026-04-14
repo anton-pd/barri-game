@@ -81,7 +81,7 @@ function renderText(text: string) {
   );
 }
 
-// Case files panel — always-visible sidebar: briefing / players / images / npcs
+// Case files panel — sidebar: always-visible on desktop, overlay on mobile
 function CaseFilesPanel({
   scenarioId,
   players,
@@ -90,6 +90,7 @@ function CaseFilesPanel({
   npcRelations,
   dynamicImages,
   sessionId,
+  onClose,
 }: {
   scenarioId: string;
   players: Player[];
@@ -98,6 +99,7 @@ function CaseFilesPanel({
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
   dynamicImages: Record<string, DynamicImageMeta>;
   sessionId: string;
+  onClose?: () => void;
 }) {
   type Tab = 'briefing' | 'players' | 'images' | 'npcs';
   const [tab, setTab]           = useState<Tab>('briefing');
@@ -127,8 +129,15 @@ function CaseFilesPanel({
   return (
     <div className="w-64 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden shrink-0">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-stone-700">
+      <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-400 transition-colors text-sm"
+            title="Закрити"
+          >✕</button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -350,6 +359,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showSettings, setShowSettings]       = useState(false);
+  const [showSidebar, setShowSidebar]         = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
@@ -823,6 +833,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             >⏹</button>
           )}
           <button
+            onClick={() => setShowSidebar((v) => !v)}
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors text-sm"
+            title="Матеріали справи"
+          >📋</button>
+          <button
             onClick={() => setShowSettings((v) => !v)}
             className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${showSettings ? 'bg-stone-700 text-stone-200' : 'bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400'}`}
             title="Налаштування звуку"
@@ -1140,16 +1155,31 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       </div>{/* end game column */}
 
-      {/* Right: always-visible case files panel */}
-      <CaseFilesPanel
-        scenarioId={session.scenario_id}
-        players={session.players}
-        briefing={briefing}
-        npcs={scenarioNpcs}
-        npcRelations={session.world_state?.npcRelations ?? {}}
-        dynamicImages={dynamicImages}
-        sessionId={session.id}
-      />
+      {/* Right: case files panel — always visible on desktop, overlay on mobile */}
+      {/* Mobile backdrop */}
+      {showSidebar && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={() => setShowSidebar(false)}
+        />
+      )}
+      <div className={`
+        md:relative md:flex md:w-64 md:shrink-0
+        fixed inset-y-0 right-0 w-72 z-50
+        transition-transform duration-200
+        ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+      `}>
+        <CaseFilesPanel
+          scenarioId={session.scenario_id}
+          players={session.players}
+          briefing={briefing}
+          npcs={scenarioNpcs}
+          npcRelations={session.world_state?.npcRelations ?? {}}
+          dynamicImages={dynamicImages}
+          sessionId={session.id}
+          onClose={() => setShowSidebar(false)}
+        />
+      </div>
     </div>
   );
 }
