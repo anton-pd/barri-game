@@ -1148,8 +1148,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {/* Dice roller — virtual mode */}
       {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
         <DiceRoller
+          key={`${session.world_state.pendingRollResult.skillName}-${session.world_state.pendingRollResult.goodThreshold}-${session.world_state.pendingRollResult.characterIdx}`}
           pendingRoll={session.world_state.pendingRollResult}
-          onResult={(result) => sendMessage(result.toString())}
+          onResult={(result) => {
+            // Optimistically hide dice before LLM responds with [CLEAR_PENDING_ROLL]
+            setSession((s) => ({
+              ...s,
+              world_state: { ...s.world_state, pendingRollResult: undefined },
+            }));
+            sendMessage(result.toString());
+          }}
         />
       )}
 
