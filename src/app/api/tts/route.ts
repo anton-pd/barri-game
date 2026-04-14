@@ -1,38 +1,73 @@
+// CHANGED: Added cost tracking per TTS call. Auth token read to get userId.
+import { cookies } from 'next/headers';
 import { getOpenAIVoice } from '@/lib/voices';
 import { fetchGeminiPcm, pcmToWav } from '@/lib/ttsEngine';
 import { getPrefetch } from '@/lib/ttsPrefetch';
+import { verifyJwt } from '@/lib/auth';
+import { trackAPICall } from '@/lib/costTracker';
 import type { Segment } from '@/lib/segments';
 
 export async function POST(request: Request) {
-  const { text, voiceStyle, provider = 'openai', segments } = (await request.json()) as {
+  const { text, voiceStyle, provider = 'openai', segments, sessionId } = (await request.json()) as {
     text: string;
     voiceStyle?: string;
     provider?: 'openai' | 'gemini';
     segments?: Segment[];
+    sessionId?: string;
   };
 
   if (!text?.trim()) {
     return new Response('text is required', { status: 400 });
   }
 
+  // Get userId for cost tracking (optional — tracking is best-effort)
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  const payload = token ? await verifyJwt(token) : null;
+  const userId = payload?.sub;
+
   if (provider === 'gemini') {
-    return handleGemini(text, voiceStyle ?? 'keeper', segments);
+    const res = await handleGemini(text, voiceStyle ?? 'keeper', segments, sessionId, userId);
+    // Auto-fallback to OpenAI if Gemini quota exceeded or unavailable
+    if (res.status === 502) {
+      console.warn('Gemini TTS failed, falling back to OpenAI');
+      return handleOpenAI(text, voiceStyle ?? 'keeper', sessionId, userId);
+    }
+    return res;
   }
-  return handleOpenAI(text, voiceStyle ?? 'keeper');
+  return handleOpenAI(text, voiceStyle ?? 'keeper', sessionId, userId);
 }
 
 // ── Gemini (with prefetch cache) ─────────────────────────────────────────────
 
-async function handleGemini(text: string, voiceStyle: string, segments?: Segment[]): Promise<Response> {
-  // Check prefetch cache first — AI route may have started this already
+async function handleGemini(
+  text: string,
+  voiceStyle: string,
+  segments?: Segment[],
+  sessionId?: string,
+  userId?: string
+): Promise<Response> {
+  // Check prefetch cache first
   const cached = await getPrefetch(text);
   if (cached) {
+    // Cached — no API cost
     return wavResponse(cached);
   }
 
-  // Cache miss: fetch now (happens when prefetch hasn't finished or wasn't started)
   const pcm = await fetchGeminiPcm(text, voiceStyle, segments);
   if (!pcm) return new Response('TTS failed', { status: 502 });
+
+  // CHANGED: Track Gemini TTS cost (non-blocking)
+  if (userId) {
+    trackAPICall({
+      sessionId,
+      userId,
+      provider: 'gemini',
+      type: 'tts',
+      model: 'gemini-2.5-flash-preview-tts',
+      characters: text.length,
+    }).catch(console.error);
+  }
 
   return wavResponse(pcmToWav(pcm));
 }
@@ -45,7 +80,12 @@ function wavResponse(wav: Buffer): Response {
 
 // ── OpenAI ───────────────────────────────────────────────────────────────────
 
-async function handleOpenAI(text: string, voiceStyle: string): Promise<Response> {
+async function handleOpenAI(
+  text: string,
+  voiceStyle: string,
+  sessionId?: string,
+  userId?: string
+): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI API key not configured', { status: 503 });
 
@@ -63,6 +103,18 @@ async function handleOpenAI(text: string, voiceStyle: string): Promise<Response>
   if (!res.ok) {
     console.error('OpenAI TTS error:', res.status, await res.text());
     return new Response('TTS failed', { status: 502 });
+  }
+
+  // CHANGED: Track OpenAI TTS cost (non-blocking)
+  if (userId) {
+    trackAPICall({
+      sessionId,
+      userId,
+      provider: 'openai',
+      type: 'tts',
+      model: 'tts-1',
+      characters: text.length,
+    }).catch(console.error);
   }
 
   return new Response(await res.arrayBuffer(), {

@@ -172,10 +172,10 @@ export default function SessionList() {
                 <div className="flex flex-col items-center gap-2 shrink-0">
                   <button
                     onClick={(e) => deleteSession(s.id, e)}
-                    className="text-stone-800 hover:text-red-500 active:text-red-400 text-xs p-1 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Видалити"
+                    className="text-stone-700 hover:text-red-500 active:text-red-400 text-sm p-1.5 transition-colors"
+                    title="Видалити сесію"
                   >
-                    ✕
+                    🗑
                   </button>
                   <span className="text-amber-700 group-hover:text-amber-500 transition-colors">→</span>
                 </div>

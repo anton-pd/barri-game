@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
-import { getAdminOverview, getUserCosts, getSessionCosts } from '@/lib/costTracker';
+import { getAdminOverview, getUserCosts, getSessionCosts, getModelBreakdown, getSessionBreakdown } from '@/lib/costTracker';
 
 export async function GET(request: Request) {
   try {
@@ -15,8 +15,12 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const breakdown = searchParams.get('breakdown');
+    const userId    = searchParams.get('userId');
     const sessionId = searchParams.get('sessionId');
+
+    if (breakdown === 'model')   return NextResponse.json(await getModelBreakdown());
+    if (breakdown === 'session') return NextResponse.json(await getSessionBreakdown());
 
     if (sessionId) {
       const costs = await getSessionCosts(sessionId);

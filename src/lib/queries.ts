@@ -226,12 +226,13 @@ export async function createSession(
   scenarioId: string,
   name: string,
   players: Player[],
-  userId: string
+  userId: string,
+  startingLocation?: string
 ): Promise<GameSession> {
   const initialWorldState: WorldState = {
     act: 1,
-    currentLocation: undefined,
-    visitedLocations: [],
+    currentLocation: startingLocation,
+    visitedLocations: startingLocation ? [startingLocation] : [],
     discoveredClues: [],
     npcRelations: {},
     summary: '',

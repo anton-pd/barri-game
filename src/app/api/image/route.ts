@@ -1,6 +1,10 @@
+// CHANGED: Added cost tracking per image generation call.
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { cookies } from 'next/headers';
+import { verifyJwt } from '@/lib/auth';
+import { trackAPICall } from '@/lib/costTracker';
 
 const CACHE_DIR = path.join(process.cwd(), 'public', 'scenarios', 'dynamic');
 
@@ -38,14 +42,15 @@ function buildPrompt(prompt: string, type: string): string {
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const prompt = searchParams.get('prompt')?.trim();
-  const type   = searchParams.get('type') ?? 'scene';
+  const prompt    = searchParams.get('prompt')?.trim();
+  const type      = searchParams.get('type') ?? 'scene';
+  const sessionId = searchParams.get('sessionId') ?? undefined;
 
   if (!prompt) return new Response('prompt is required', { status: 400 });
 
   const cacheKey = getCacheKey(prompt, type);
 
-  // Serve from disk cache if available
+  // Serve from disk cache if available — no API cost
   const cached = getCachedImage(cacheKey);
   if (cached) {
     return new Response(cached.buffer as ArrayBuffer, {
@@ -53,14 +58,20 @@ export async function GET(request: Request) {
     });
   }
 
+  // Get userId for cost tracking (best-effort)
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  const payload = token ? await verifyJwt(token) : null;
+  const userId = payload?.sub;
+
   const fullPrompt = buildPrompt(prompt, type);
   const provider   = process.env.IMAGE_PROVIDER ?? 'gemini';
 
   let response: Response;
   if (provider === 'gemini') {
-    response = await handleGemini(fullPrompt, cacheKey);
+    response = await handleGemini(fullPrompt, cacheKey, sessionId, userId);
   } else if (provider === 'openai') {
-    response = await handleOpenAI(fullPrompt, cacheKey);
+    response = await handleOpenAI(fullPrompt, cacheKey, sessionId, userId);
   } else {
     response = await handlePollinations(fullPrompt, cacheKey);
   }
@@ -69,7 +80,12 @@ export async function GET(request: Request) {
 
 // ── Gemini ───────────────────────────────────────────────────────────────────
 
-async function handleGemini(prompt: string, cacheKey?: string): Promise<Response> {
+async function handleGemini(
+  prompt: string,
+  cacheKey?: string,
+  sessionId?: string,
+  userId?: string
+): Promise<Response> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return new Response('Gemini API key not configured', { status: 503 });
 
@@ -109,6 +125,19 @@ async function handleGemini(prompt: string, cacheKey?: string): Promise<Response
     const { mimeType, data: b64 } = imagePart.inlineData;
     const buf = Buffer.from(b64, 'base64');
     if (cacheKey) saveImageToCache(cacheKey, buf);
+
+    // CHANGED: Track Gemini image cost (non-blocking)
+    if (userId) {
+      trackAPICall({
+        sessionId,
+        userId,
+        provider: 'gemini',
+        type: 'image',
+        model: 'gemini-2.5-flash-image',
+        imageCount: 1,
+      }).catch(console.error);
+    }
+
     return new Response(buf, {
       headers: { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=604800' },
     });
@@ -120,7 +149,12 @@ async function handleGemini(prompt: string, cacheKey?: string): Promise<Response
 
 // ── OpenAI DALL-E ─────────────────────────────────────────────────────────────
 
-async function handleOpenAI(prompt: string, cacheKey?: string): Promise<Response> {
+async function handleOpenAI(
+  prompt: string,
+  cacheKey?: string,
+  sessionId?: string,
+  userId?: string
+): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
 
@@ -139,12 +173,25 @@ async function handleOpenAI(prompt: string, cacheKey?: string): Promise<Response
   const imgRes = await fetch(data.data[0].url);
   const imgBuf = Buffer.from(await imgRes.arrayBuffer());
   if (cacheKey) saveImageToCache(cacheKey, imgBuf);
+
+  // CHANGED: Track OpenAI image cost (non-blocking)
+  if (userId) {
+    trackAPICall({
+      sessionId,
+      userId,
+      provider: 'openai',
+      type: 'image',
+      model: 'dall-e-2',
+      imageCount: 1,
+    }).catch(console.error);
+  }
+
   return new Response(imgBuf, {
     headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
   });
 }
 
-// ── Pollinations (fallback) ───────────────────────────────────────────────────
+// ── Pollinations (fallback, free) ─────────────────────────────────────────────
 
 async function handlePollinations(prompt: string, cacheKey?: string): Promise<Response> {
   const encoded = encodeURIComponent(prompt);

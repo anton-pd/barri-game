@@ -1,8 +1,20 @@
+import fs from 'fs';
+import path from 'path';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSessions, getSessionsByUserId, createSession, ensureSchema } from '@/lib/queries';
 import { verifyJwt } from '@/lib/auth';
 import type { Player } from '@/types';
+
+function getStartingLocation(scenarioId: string): string | undefined {
+  try {
+    const file = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
+    const scenario = JSON.parse(fs.readFileSync(file, 'utf-8')) as { startingLocation?: string };
+    return scenario.startingLocation;
+  } catch {
+    return undefined;
+  }
+}
 
 async function getPayload() {
   const cookieStore = await cookies();
@@ -48,7 +60,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const session = await createSession(scenarioId, name, players, payload.sub);
+    const startingLocation = getStartingLocation(scenarioId);
+    const session = await createSession(scenarioId, name, players, payload.sub, startingLocation);
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
     console.error('Error creating session:', error);

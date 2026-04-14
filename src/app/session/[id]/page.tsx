@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import GameChat from '@/components/GameChat';
 import { verifyJwt } from '@/lib/auth';
 import { getUserById } from '@/lib/queries';
-import type { GameSession, Message, ScenarioBriefing } from '@/types';
+import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -23,13 +23,25 @@ async function getSessionData(id: string): Promise<{ session: GameSession; messa
   }
 }
 
-function getScenarioBriefing(scenarioId: string): ScenarioBriefing | null {
+function loadScenarioMeta(scenarioId: string): {
+  briefing: ScenarioBriefing | null;
+  locationNames: Record<string, string>;
+  npcs: NPC[];
+} {
   try {
     const filePath = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
-    const scenario = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    return scenario.briefing ?? null;
+    const scenario = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as {
+      briefing?: ScenarioBriefing;
+      locations?: { id: string; name: string }[];
+      npcs?: NPC[];
+    };
+    const locationNames: Record<string, string> = {};
+    for (const loc of scenario.locations ?? []) {
+      locationNames[loc.id] = loc.name;
+    }
+    return { briefing: scenario.briefing ?? null, locationNames, npcs: scenario.npcs ?? [] };
   } catch {
-    return null;
+    return { briefing: null, locationNames: {}, npcs: [] };
   }
 }
 
@@ -60,7 +72,7 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  const briefing = getScenarioBriefing(data.session.scenario_id);
+  const { briefing, locationNames, npcs } = loadScenarioMeta(data.session.scenario_id);
 
-  return <GameChat session={data.session} initialMessages={data.messages} briefing={briefing} />;
+  return <GameChat session={data.session} initialMessages={data.messages} briefing={briefing} locationNames={locationNames} scenarioNpcs={npcs} />;
 }

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { verifyJwt } from '@/lib/auth';
 import { getAllUsers, getAllSessionsWithOwner } from '@/lib/queries';
 import RoleToggle from './RoleToggle';
+import CostsTables from './CostsTables';
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
@@ -90,33 +91,8 @@ export default async function AdminPage() {
           </div>
         </section>
 
-        {/* API Costs Section */}
-        {/* CHANGED: Added API cost overview link (data fetched client-side from /api/admin/costs) */}
-        <section>
-          <h2 className="text-stone-300 text-sm tracking-widest uppercase mb-4">
-            API Costs (30 days)
-          </h2>
-          <div className="bg-stone-900 border border-stone-800 rounded-xl p-4">
-            <p className="text-stone-500 text-xs mb-3">
-              Detailed cost breakdown available at{' '}
-              <code className="text-amber-700 bg-stone-800 px-1 rounded">/api/admin/costs</code>
-              {' '}— supports{' '}
-              <code className="text-amber-700 bg-stone-800 px-1 rounded">?sessionId=</code>
-              {' '}and{' '}
-              <code className="text-amber-700 bg-stone-800 px-1 rounded">?userId=</code>
-              {' '}params.
-            </p>
-            <div className="flex gap-3">
-              <a
-                href="/api/admin/costs"
-                target="_blank"
-                className="text-xs px-3 py-1.5 bg-amber-900/40 hover:bg-amber-900/70 text-amber-400 rounded-lg transition-colors"
-              >
-                Overview →
-              </a>
-            </div>
-          </div>
-        </section>
+        {/* API Costs — live client component, auto-refreshes every 30s */}
+        <CostsTables />
 
         {/* Sessions Section */}
         <section>

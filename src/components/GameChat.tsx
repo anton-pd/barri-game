@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { GameSession, Message, Player, ScenarioBriefing } from '@/types';
+import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
@@ -11,20 +11,22 @@ import VoiceButton from './VoiceButton';
 const AI_PROVIDERS: { id: AiProvider; label: string; short: string }[] = [
   { id: 'claude-sonnet', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
   { id: 'gemini-flash',  label: 'Gemini 2.5 Flash',  short: 'Flash'  },
-  { id: 'gemini-pro',    label: 'Gemini 2.5 Pro',     short: 'Pro'    },
 ];
 
 interface GameChatProps {
   session: GameSession;
   initialMessages: Message[];
   briefing?: ScenarioBriefing | null;
+  locationNames?: Record<string, string>;
+  scenarioNpcs?: NPC[];
 }
 
 // msgId → { prompt, type }
 interface DynamicImageMeta { prompt: string; type: string }
 
 // Inline image component for dynamic images
-function DynamicImage({ prompt, type }: { prompt: string; type: string }) {
+// CHANGED: Added sessionId prop for cost tracking
+function DynamicImage({ prompt, type, sessionId }: { prompt: string; type: string; sessionId: string }) {
   const [src, setSrc]         = useState<string | null>(null);
   const [error, setError]     = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -33,12 +35,12 @@ function DynamicImage({ prompt, type }: { prompt: string; type: string }) {
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
-    const url = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}`;
+    const url = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}`;
     fetch(url)
       .then((r) => (r.ok ? r.blob() : Promise.reject()))
       .then((blob) => setSrc(URL.createObjectURL(blob)))
       .catch(() => setError(true));
-  }, [prompt, type]);
+  }, [prompt, type, sessionId]);
 
   if (error) return null;
 
@@ -69,22 +71,36 @@ function DynamicImage({ prompt, type }: { prompt: string; type: string }) {
   );
 }
 
-// Case files drawer — tabs: briefing / players / images
-function CaseFilesDrawer({
+// Bold-text renderer: **text** → <strong>
+function renderText(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith('**') && p.endsWith('**')
+      ? <strong key={i}>{p.slice(2, -2)}</strong>
+      : p
+  );
+}
+
+// Case files panel — always-visible sidebar: briefing / players / images / npcs
+function CaseFilesPanel({
   scenarioId,
   players,
   briefing,
-  defaultTab,
-  onClose,
+  npcs,
+  npcRelations,
+  dynamicImages,
+  sessionId,
 }: {
   scenarioId: string;
   players: Player[];
   briefing?: ScenarioBriefing | null;
-  defaultTab?: 'briefing' | 'players' | 'images';
-  onClose: () => void;
+  npcs: NPC[];
+  npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
+  dynamicImages: Record<string, DynamicImageMeta>;
+  sessionId: string;
 }) {
-  type Tab = 'briefing' | 'players' | 'images';
-  const [tab, setTab]           = useState<Tab>(defaultTab ?? 'briefing');
+  type Tab = 'briefing' | 'players' | 'images' | 'npcs';
+  const [tab, setTab]           = useState<Tab>('briefing');
   const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
   const [fullscreen, setFullscreen] = useState<string | null>(null);
   const [loadingImgs, setLoadingImgs] = useState(false);
@@ -103,118 +119,170 @@ function CaseFilesDrawer({
     { id: 'briefing', label: 'Опис' },
     { id: 'players',  label: 'Гравці' },
     { id: 'images',   label: 'Матеріали' },
+    { id: 'npcs',     label: 'НПС' },
   ];
 
+  const metNpcs = npcs.filter((n) => n.id in npcRelations);
+
   return (
-    <div className="fixed inset-0 z-40 flex">
-      <div className="flex-1 bg-black/60" onClick={onClose} />
-      <div className="w-80 bg-stone-900 border-l border-stone-700 flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-stone-700">
-          <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
-          <button onClick={onClose} className="text-stone-500 hover:text-stone-300 text-lg leading-none">✕</button>
-        </div>
+    <div className="w-64 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden shrink-0">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-stone-700">
+        <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
+      </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-stone-700">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 text-xs py-2 transition-colors ${
-                tab === t.id
-                  ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
-                  : 'text-stone-500 hover:text-stone-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-stone-700">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 text-xs py-2 transition-colors ${
+              tab === t.id
+                ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
+                : 'text-stone-500 hover:text-stone-300'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
 
-          {/* ── Briefing ── */}
-          {tab === 'briefing' && (
-            <div className="p-4 space-y-4">
-              {!briefing ? (
-                <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
-                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
-                  </div>
-                  <div className="border-t border-stone-700 pt-3">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
-                    <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
-                  </div>
-                  <div className="border-t border-stone-700 pt-3">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
-                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+        {/* ── Briefing ── */}
+        {tab === 'briefing' && (
+          <div className="p-4 space-y-4">
+            {!briefing ? (
+              <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
+            ) : (
+              <>
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
+                  <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
+                </div>
+                <div className="border-t border-stone-700 pt-3">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
+                  <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
+                </div>
+                <div className="border-t border-stone-700 pt-3">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
+                  <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
-          {/* ── Players ── */}
-          {tab === 'players' && (
-            <div className="p-3 space-y-4">
-              {players.map((p, i) => (
-                <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-semibold text-stone-100">{p.name}</span>
-                    <span className="text-xs text-amber-600">{p.role}</span>
+        {/* ── Players ── */}
+        {tab === 'players' && (
+          <div className="p-3 space-y-4">
+            {players.map((p, i) => (
+              <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-semibold text-stone-100">{p.name}</span>
+                  <span className="text-xs text-amber-600">{p.role}</span>
+                </div>
+                {p.background && (
+                  <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
+                )}
+                <div className="flex gap-3 text-xs pt-1">
+                  <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
+                  <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
+                  <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
+                </div>
+                {Object.keys(p.skills).length > 0 && (
+                  <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    {Object.entries(p.skills).map(([skill, val]) => (
+                      <div key={skill} className="flex justify-between">
+                        <span className="text-xs text-stone-500 truncate">{skill}</span>
+                        <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
+                      </div>
+                    ))}
                   </div>
-                  {p.background && (
-                    <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
-                  )}
-                  <div className="flex gap-3 text-xs pt-1">
-                    <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
-                    <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
-                    <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
-                  </div>
-                  {Object.keys(p.skills).length > 0 && (
-                    <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                      {Object.entries(p.skills).map(([skill, val]) => (
-                        <div key={skill} className="flex justify-between">
-                          <span className="text-xs text-stone-500 truncate">{skill}</span>
-                          <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
-                        </div>
-                      ))}
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Images ── */}
+        {tab === 'images' && (
+          <div className="p-3 space-y-3">
+            {/* Session-generated images */}
+            {Object.keys(dynamicImages).length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сесійні матеріали</p>
+                <div className="space-y-2">
+                  {Object.entries(dynamicImages).map(([msgId, meta]) => (
+                    <div key={msgId}>
+                      <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} />
+                      <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
+                        {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
+                      </p>
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+            {/* Static scenario images */}
+            {Object.keys(dynamicImages).length > 0 && (images.length > 0 || loadingImgs) && (
+              <div className="border-t border-stone-800 pt-3">
+                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
+              </div>
+            )}
+            {loadingImgs && (
+              <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
+            )}
+            {!loadingImgs && images.length === 0 && Object.keys(dynamicImages).length === 0 && (
+              <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
+            )}
+            {images.map((img) => (
+              <div key={img.id}>
+                <img
+                  src={img.url}
+                  alt={img.label}
+                  onClick={() => setFullscreen(img.url)}
+                  className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
+                  style={{ maxHeight: 160 }}
+                />
+                <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* ── Images ── */}
-          {tab === 'images' && (
-            <div className="p-3 space-y-3">
-              {loadingImgs && (
-                <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
-              )}
-              {!loadingImgs && images.length === 0 && (
-                <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
-              )}
-              {images.map((img) => (
-                <div key={img.id}>
-                  <img
-                    src={img.url}
-                    alt={img.label}
-                    onClick={() => setFullscreen(img.url)}
-                    className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
-                    style={{ maxHeight: 160 }}
-                  />
-                  <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* ── NPCs ── */}
+        {tab === 'npcs' && (
+          <div className="p-3 space-y-3">
+            {metNpcs.length === 0 ? (
+              <p className="text-xs text-stone-500 text-center py-6">НПС ще не зустрічались</p>
+            ) : (
+              metNpcs.map((npc) => {
+                const relation = npcRelations[npc.id];
+                const relColor =
+                  relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
+                  relation === 'hostile'  ? 'text-red-400 bg-red-900/30'   :
+                  relation === 'neutral'  ? 'text-stone-400 bg-stone-700'  :
+                                           'text-amber-400 bg-amber-900/30';
+                const relLabel =
+                  relation === 'friendly' ? 'Дружній'    :
+                  relation === 'hostile'  ? 'Ворожий'    :
+                  relation === 'neutral'  ? 'Нейтральний': 'Невідомо';
+                return (
+                  <div key={npc.id} className="bg-stone-800 rounded-lg p-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
+                    </div>
+                    <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
       {fullscreen && (
@@ -229,7 +297,48 @@ function CaseFilesDrawer({
   );
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing }: GameChatProps) {
+// ── SSE helper ───────────────────────────────────────────────────────────────
+
+async function readSseStream(
+  res: Response,
+  onChunk: (text: string) => void
+): Promise<Record<string, unknown> | null> {
+  if (!res.body) return null;
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() ?? '';
+
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      const lines = part.split('\n');
+      let eventType = '';
+      let dataStr = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) eventType = line.slice(7).trim();
+        else if (line.startsWith('data: ')) dataStr = line.slice(6);
+      }
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr) as Record<string, unknown>;
+        if (eventType === 'chunk') onChunk((data.text as string) ?? '');
+        else if (eventType === 'done') return data;
+        else if (eventType === 'error') throw new Error((data.message as string) ?? 'AI error');
+      } catch (e) {
+        if (eventType === 'error') throw e;
+      }
+    }
+  }
+  return null;
+}
+
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [] }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [voiceStyles, setVoiceStyles]         = useState<Record<string, string>>({});
@@ -240,7 +349,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [speakingId, setSpeakingId]           = useState<string | null>(null);
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
   const [activePlayer, setActivePlayer]       = useState(0);
-  const [showCaseFiles, setShowCaseFiles]     = useState(() => initialMessages.length === 0);
   const [showSettings, setShowSettings]       = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
@@ -262,8 +370,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     return 0.35;
   });
-  const [currentLocation, setCurrentLocation]     = useState<string | null>(null);
-  const [currentLocationName, setCurrentLocationName] = useState<string | null>(null);
+  const [currentLocation, setCurrentLocation]     = useState<string | null>(
+    initialSession.world_state?.currentLocation ?? null
+  );
+  const [currentLocationName, setCurrentLocationName] = useState<string | null>(() => {
+    const locId = initialSession.world_state?.currentLocation;
+    return locId ? (locationNames[locId] ?? null) : null;
+  });
 
   const messagesEndRef    = useRef<HTMLDivElement>(null);
   const textareaRef       = useRef<HTMLTextAreaElement>(null);
@@ -282,6 +395,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     return 'claude-sonnet';
   });
+  // CHANGED: KeeperStyle — controls Keeper activity level
+  const [keeperStyle, setKeeperStyle] = useState<'passive' | 'balanced' | 'active'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('keeperStyle') as 'passive' | 'balanced' | 'active') ?? 'balanced';
+    }
+    return 'balanced';
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -296,43 +416,62 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // Auto-generate intro if no messages yet
   const introRequested = useRef(false);
   useEffect(() => {
-    if (initialMessages.length === 0 && !introRequested.current) {
-      introRequested.current = true;
-      setIsLoading(true);
-      fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: session.id,
-          message: '__intro__',
-          playerIdx: 0,
-          aiProvider,
-          autoVoiceEnabled,
-        }),
+    if (initialMessages.length !== 0 || introRequested.current) return;
+    introRequested.current = true;
+    setIsLoading(true);
+
+    const introId = Date.now().toString();
+    // Show empty optimistic bubble immediately
+    setMessages([{
+      id: introId,
+      session_id: session.id,
+      role: 'assistant',
+      content: '',
+      player_idx: null,
+      created_at: new Date().toISOString(),
+    }]);
+
+    fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: session.id,
+        message: '__intro__',
+        playerIdx: 0,
+        aiProvider,
+        autoVoiceEnabled,
+        keeperStyle,
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok || !res.body) throw new Error('Intro failed');
+        const data = await readSseStream(res, (chunk) => {
+          setMessages((prev) => prev.map((m) =>
+            m.id === introId ? { ...m, content: m.content + chunk } : m
+          ));
+        });
+        if (!data) return;
+        setMessages((prev) => prev.map((m) =>
+          m.id === introId ? { ...m, content: data.response as string } : m
+        ));
+        if (data.voiceStyle)  setVoiceStyles({ [introId]: data.voiceStyle as string });
+        if (data.segments)    setMsgSegments({ [introId]: data.segments as Segment[] });
+        if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state as typeof s.world_state }));
+        if (data.imagePrompt) setDynamicImages({ [introId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' } });
+        if (data.location)    { setCurrentLocation(data.location as string); setCurrentLocationName((data.locationName as string | null) ?? null); playAmbient(data.location as string); }
+        if (autoVoiceEnabled) speakMsg(introId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       })
-        .then((r) => (r.ok ? r.json() : Promise.reject()))
-        .then((data) => {
-          const introId = Date.now().toString();
-          setMessages([{
-            id: introId,
-            session_id: session.id,
-            role: 'assistant',
-            content: data.response,
-            player_idx: null,
-            created_at: new Date().toISOString(),
-          }]);
-          if (data.voiceStyle)   setVoiceStyles({ [introId]: data.voiceStyle });
-          if (data.segments)     setMsgSegments({ [introId]: data.segments });
-          if (data.world_state)  setSession((s) => ({ ...s, world_state: data.world_state }));
-          if (data.imagePrompt)  setDynamicImages({ [introId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' } });
-          if (data.location)     { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
-          if (autoVoiceEnabled) {
-            speakMsg(introId, data.response, data.voiceStyle, data.segments);
-          }
-        })
-        .catch(() => {/* silent */})
-        .finally(() => setIsLoading(false));
-    }
+      .catch(() => {
+        setMessages([{
+          id: introId,
+          session_id: session.id,
+          role: 'assistant',
+          content: 'Не вдалося запустити гру. Перезавантаж сторінку.',
+          player_idx: null,
+          created_at: new Date().toISOString(),
+        }]);
+      })
+      .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aiProvider, autoVoiceEnabled, initialMessages.length, session.id]);
 
@@ -408,6 +547,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     setAiProvider(p);
   }
 
+  // CHANGED: KeeperStyle toggle — persisted to localStorage
+  function changeKeeperStyle(s: 'passive' | 'balanced' | 'active') {
+    localStorage.setItem('keeperStyle', s);
+    setKeeperStyle(s);
+  }
+
   async function speakMsg(msgId: string, text: string, voiceStyle?: string, segments?: Segment[]) {
     stopAudio();
     const cached = audioCacheRef.current.get(msgId);
@@ -423,6 +568,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           voiceStyle: voiceStyle ?? 'keeper',
           provider: ttsProvider,
           segments: ttsProvider === 'gemini' ? segments : undefined,
+          sessionId: session.id, // CHANGED: pass for cost tracking
         }),
       });
       if (!res.ok) throw new Error();
@@ -551,6 +697,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }));
     setMessages((prev) => [...prev, ...newUserMsgs]);
 
+    // Optimistic assistant bubble — shows streaming text as it arrives
+    const optimisticId = (Date.now() + 1).toString();
+    setMessages((prev) => [...prev, {
+      id: optimisticId,
+      session_id: session.id,
+      role: 'assistant' as const,
+      content: '',
+      player_idx: null,
+      created_at: new Date().toISOString(),
+    }]);
+
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -562,29 +719,34 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           allActions: allActions.length > 1 ? allActions : undefined,
           aiProvider,
           autoVoiceEnabled,
+          keeperStyle,
         }),
       });
-      if (!res.ok) throw new Error('AI request failed');
+      if (!res.ok || !res.body) throw new Error('AI request failed');
 
-      const data = await res.json();
-      const msgId = (Date.now() + 1).toString();
+      const data = await readSseStream(res, (chunk) => {
+        setMessages((prev) => prev.map((m) =>
+          m.id === optimisticId ? { ...m, content: m.content + chunk } : m
+        ));
+      });
+      if (!data) throw new Error('No response from AI');
 
-      setMessages((prev) => [...prev, {
-        id: msgId,
-        session_id: session.id,
-        role: 'assistant',
-        content: data.response,
-        player_idx: null,
-        created_at: new Date().toISOString(),
-      }]);
+      // Replace streaming preview with clean server text + update all state
+      setMessages((prev) => prev.map((m) =>
+        m.id === optimisticId ? { ...m, content: data.response as string } : m
+      ));
 
-      if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [msgId]: data.voiceStyle }));
-      if (data.segments)    setMsgSegments((prev) => ({ ...prev, [msgId]: data.segments }));
-      if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state }));
-      if (data.location)    { setCurrentLocation(data.location); setCurrentLocationName(data.locationName ?? null); playAmbient(data.location); }
+      if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [optimisticId]: data.voiceStyle as string }));
+      if (data.segments)    setMsgSegments((prev) => ({ ...prev, [optimisticId]: data.segments as Segment[] }));
+      if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state as typeof s.world_state }));
+      if (data.location)    {
+        setCurrentLocation(data.location as string);
+        setCurrentLocationName((data.locationName as string | null) ?? null);
+        playAmbient(data.location as string);
+      }
 
       // Apply AI-granted items, then consume used items
-      const playersAfterAI = data.players ?? session.players;
+      const playersAfterAI = (data.players as typeof session.players) ?? session.players;
       const playersAfterConsume = consumePendingItems(playersAfterAI);
       if (playersAfterConsume !== session.players) {
         setSession((s) => ({ ...s, players: playersAfterConsume }));
@@ -594,24 +756,22 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           body: JSON.stringify({ players: playersAfterConsume }),
         });
       } else if (data.players) {
-        setSession((s) => ({ ...s, players: data.players }));
+        setSession((s) => ({ ...s, players: data.players as typeof s.players }));
       }
+
       if (data.imagePrompt) setDynamicImages((prev) => ({
-        ...prev, [msgId]: { prompt: data.imagePrompt, type: data.imageType ?? 'scene' },
+        ...prev, [optimisticId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
       }));
 
       if (autoVoiceEnabled) {
-        speakMsg(msgId, data.response, data.voiceStyle, data.segments);
+        speakMsg(optimisticId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       }
     } catch {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 2).toString(),
-        session_id: session.id,
-        role: 'assistant',
-        content: 'Помилка зв\'язку. Спробуй ще раз.',
-        player_idx: null,
-        created_at: new Date().toISOString(),
-      }]);
+      setMessages((prev) => prev.map((m) =>
+        m.id === optimisticId
+          ? { ...m, content: 'Помилка зв\'язку. Спробуй ще раз.' }
+          : m
+      ));
     } finally {
       setIsLoading(false);
       textareaRef.current?.focus();
@@ -625,7 +785,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const playerName = session.players[activePlayer]?.name || 'Гравець';
 
   return (
-    <div className="flex flex-col h-dvh bg-stone-950 text-stone-100">
+    <div className="flex h-dvh bg-stone-950 text-stone-200 overflow-hidden">
+      {/* Left: game column */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
         <div className="flex items-center gap-2 min-w-0">
@@ -647,11 +809,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               title="Зупинити"
             >⏹</button>
           )}
-          <button
-            onClick={() => setShowCaseFiles(true)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-amber-600 transition-colors"
-            title="Матеріали справи"
-          >📁</button>
           <button
             onClick={() => setShowSettings((v) => !v)}
             className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${showSettings ? 'bg-stone-700 text-stone-200' : 'bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400'}`}
@@ -677,6 +834,30 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 }`}
               >
                 {p.short}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-4 bg-stone-700" />
+
+          {/* CHANGED: KeeperStyle selector */}
+          <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
+            {(['passive', 'balanced', 'active'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => changeKeeperStyle(s)}
+                title={
+                  s === 'passive'  ? 'Кіпер чекає дій гравців' :
+                  s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
+                  'Кіпер активно підштовхує сюжет'
+                }
+                className={`px-2.5 py-1.5 transition-colors text-xs ${
+                  keeperStyle === s
+                    ? 'bg-amber-800 text-amber-100 font-medium'
+                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
+                }`}
+              >
+                {s === 'passive' ? 'Пасив' : s === 'balanced' ? 'Баланс' : 'Актив'}
               </button>
             ))}
           </div>
@@ -792,8 +973,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                         <div className="max-w-[85%]">
                           {si === 0 && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
                           <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
-                            {seg.text}
-                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
+                            {renderText(seg.text)}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
                           </div>
                           {isLast && replayBtn}
                         </div>
@@ -806,8 +987,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                         <div className="max-w-[85%]">
                           <p className="text-xs text-amber-500 mb-1">{seg.name}</p>
                           <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed italic bg-stone-800/60 text-stone-200 rounded-tl-sm border border-amber-900/40">
-                            {seg.text}
-                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
+                            {renderText(seg.text)}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
                           </div>
                           {isLast && replayBtn}
                         </div>
@@ -825,8 +1006,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <div className="max-w-[85%]">
                 <p className="text-xs text-amber-700 mb-1">Кіпер</p>
                 <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
-                  {displayContent}
-                  {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} />}
+                  {renderText(displayContent)}
+                  {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
                 </div>
                 {replayBtn}
               </div>
@@ -887,6 +1068,26 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
       )}
 
+      {/* Inventory strip — active player's usable items */}
+      {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
+        <div className="px-3 py-1.5 bg-stone-900 border-t border-stone-800 flex gap-1.5 overflow-x-auto scrollbar-none">
+          {session.players[activePlayer].inventory
+            .filter(item => !item.broken && item.uses !== 0)
+            .map(item => (
+              <button
+                key={item.id}
+                onClick={() => handleUseItem(activePlayer, item.id, item.name)}
+                title={item.description}
+                className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700 active:bg-stone-600 transition-colors whitespace-nowrap"
+              >
+                {item.equipped ? '⚔' : '📦'} {item.name}
+                {item.uses > 0 && <span className="text-stone-500">×{item.uses}</span>}
+                {item.uses === -1 && <span className="text-stone-500">∞</span>}
+              </button>
+            ))}
+        </div>
+      )}
+
       {/* Input */}
       <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
         <div className="flex gap-2 items-end">
@@ -922,16 +1123,18 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
       </div>
 
-      {/* Case files drawer */}
-      {showCaseFiles && (
-        <CaseFilesDrawer
-          scenarioId={session.scenario_id}
-          players={session.players}
-          briefing={briefing}
-          defaultTab={initialMessages.length === 0 ? 'briefing' : 'images'}
-          onClose={() => setShowCaseFiles(false)}
-        />
-      )}
+      </div>{/* end game column */}
+
+      {/* Right: always-visible case files panel */}
+      <CaseFilesPanel
+        scenarioId={session.scenario_id}
+        players={session.players}
+        briefing={briefing}
+        npcs={scenarioNpcs}
+        npcRelations={session.world_state?.npcRelations ?? {}}
+        dynamicImages={dynamicImages}
+        sessionId={session.id}
+      />
     </div>
   );
 }

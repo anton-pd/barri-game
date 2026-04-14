@@ -8,7 +8,7 @@ const PRICING: Record<string, Record<string, Record<string, number>>> = {
   },
   gemini: {
     'gemini-2.5-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
-    'gemini-2.5-pro':              { inputPer1M: 1.25,  outputPer1M:  5.00 },
+    'gemini-2.0-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
     'gemini-2.5-flash-preview-tts': { perChar: 0.000030 },
     'gemini-2.5-flash-image':      { perImage: 0.04 },
   },
@@ -122,4 +122,51 @@ export async function getAdminOverview() {
     ORDER BY total_cost DESC
   `;
   return result;
+}
+
+export async function getModelBreakdown() {
+  const rows = await sql`
+    SELECT
+      provider,
+      model,
+      type,
+      COUNT(*)::int                  AS calls,
+      SUM(input_tokens)::bigint      AS input_tokens,
+      SUM(output_tokens)::bigint     AS output_tokens,
+      SUM(characters)::bigint        AS characters,
+      SUM(image_count)::int          AS image_count,
+      SUM(cost_usd)::float           AS total_cost
+    FROM api_usage
+    WHERE created_at > NOW() - INTERVAL '30 days'
+    GROUP BY provider, model, type
+    ORDER BY total_cost DESC NULLS LAST
+  `;
+  return rows as unknown as {
+    provider: string; model: string; type: string;
+    calls: number; input_tokens: number | null; output_tokens: number | null;
+    characters: number | null; image_count: number | null; total_cost: number;
+  }[];
+}
+
+export async function getSessionBreakdown() {
+  const rows = await sql`
+    SELECT
+      gs.name                          AS session_name,
+      gs.scenario_id,
+      au.session_id,
+      COUNT(*)::int                    AS calls,
+      SUM(au.cost_usd)::float          AS total_cost,
+      MAX(au.created_at)               AS last_used
+    FROM api_usage au
+    JOIN game_sessions gs ON gs.id = au.session_id
+    WHERE au.created_at > NOW() - INTERVAL '30 days'
+      AND au.session_id IS NOT NULL
+    GROUP BY gs.name, gs.scenario_id, au.session_id
+    ORDER BY total_cost DESC NULLS LAST
+    LIMIT 20
+  `;
+  return rows as unknown as {
+    session_name: string; scenario_id: string; session_id: string;
+    calls: number; total_cost: number; last_used: string;
+  }[];
 }
