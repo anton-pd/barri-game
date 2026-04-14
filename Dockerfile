@@ -10,6 +10,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN mkdir -p public/assets/dice-box && cp -r node_modules/@3d-dice/dice-box/dist/assets/* public/assets/dice-box/
 RUN npm run build
 
 FROM base AS runner
