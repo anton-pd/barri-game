@@ -7,6 +7,7 @@ import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
 import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
+import DiceRoller from './DiceRoller';
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -435,6 +436,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     return 'balanced';
   });
+  const [diceMode, setDiceMode] = useState<'virtual' | 'physical'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('diceMode') as 'virtual' | 'physical') ?? 'virtual';
+    }
+    return 'virtual';
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -597,6 +604,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   function changeKeeperStyle(s: 'passive' | 'balanced' | 'active') {
     localStorage.setItem('keeperStyle', s);
     setKeeperStyle(s);
+  }
+
+  function toggleDiceMode() {
+    setDiceMode((prev) => {
+      const next = prev === 'virtual' ? 'physical' : 'virtual';
+      localStorage.setItem('diceMode', next);
+      return next;
+    });
   }
 
   async function speakMsg(msgId: string, text: string, voiceStyle?: string, segments?: Segment[]) {
@@ -925,6 +940,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           </button>
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
           <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
+          <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
           {ambientEnabled && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
               <span className="text-stone-500">🔈</span>
@@ -1126,6 +1142,27 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 {item.uses === -1 && <span className="text-stone-500">∞</span>}
               </button>
             ))}
+        </div>
+      )}
+
+      {/* Dice roller — virtual mode */}
+      {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
+        <DiceRoller
+          pendingRoll={session.world_state.pendingRollResult}
+          onResult={(result) => sendMessage(result.toString())}
+        />
+      )}
+
+      {/* Physical dice hint */}
+      {session.world_state?.pendingRollResult && diceMode === 'physical' && (
+        <div className="px-3 py-2 bg-stone-900 border-t border-stone-800 flex items-center gap-2">
+          <span className="text-lg">🎲</span>
+          <span className="text-xs text-stone-400">
+            <span className="text-amber-400 font-medium">{session.world_state.pendingRollResult.skillName}</span>
+            {' — кинь ≤ '}
+            <span className="text-amber-300 font-mono">{session.world_state.pendingRollResult.goodThreshold}</span>
+            {' і введи результат'}
+          </span>
         </div>
       )}
 
