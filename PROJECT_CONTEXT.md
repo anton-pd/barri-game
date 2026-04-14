@@ -61,6 +61,7 @@ src/
 │   └── page.tsx                   — session list
 ├── components/
 │   ├── GameChat.tsx     — game UI: chat, TTS playback, ambient, inventory drawer, NPC bubbles
+│   ├── DiceRoller.tsx   — virtual d100 roller (two d10, slot animation, result→LLM)
 │   ├── SessionList.tsx  — session list + new session modal (scenario → roles → settings)
 │   ├── StatsBar.tsx     — HP/SAN/LCK display + inventory (equipped/broken states)
 │   └── VoiceButton.tsx  — STT input trigger
@@ -190,6 +191,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 4. **Non-blocking side effects** — `trackAPICall()` and NPC registration are fire-and-forget; don't await them in the critical path.
 5. **Next.js standalone caches `public/`** — after adding new files to the public volume, `docker compose restart cthulhu` is required.
 6. **KeeperStyle** — stored in localStorage, default `'balanced'`. Values: `'passive'`, `'balanced'`, `'active'`.
+7. **DiceRoller** — shown when `world_state.pendingRollResult` is set + `diceMode === 'virtual'` (localStorage). Result determined by `Math.random()` before animation. On confirm: optimistically clears `pendingRollResult` locally, then sends result as plain message to LLM. Key prop forces remount on each new roll. Physical mode shows inline hint only.
 
 ---
 
@@ -200,6 +202,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 | `generateImageExternal()` in `assets.ts` | Placeholder — throws; not yet needed |
 | Phase 10: ElevenLabs ambient generation | Deferred; `ambientFile` field exists in scenarios but generation pipeline not built |
 | SSE client-side error recovery | Basic retry only |
+| DiceRoller visuals | Currently slot-machine animation. 3D physics (dice-box/Babylon.js) tried but incompatible with Next.js standalone. Revisit with raw Three.js or Babylon.js canvas. |
 
 ---
 
