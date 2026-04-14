@@ -523,14 +523,32 @@ export async function POST(request: Request) {
 
         // ── Auto-register NPCs into npcRelations ────────────────────────────
         // Any NPC who speaks in this message is added as 'unknown' if not yet tracked.
+        // Matching is partial: tag "Ковальська" matches scenario NPC "Місіс Гаррієт Ковальська".
+        // If no scenario NPC matches at all, register as a dynamic NPC.
         for (const m of textAfterRollTags.matchAll(/\[NPC:([^\]]+)\]/g)) {
           const npcName = m[1].trim().toLowerCase();
-          const npc = scenario.npcs?.find((n) => n.name.toLowerCase() === npcName);
-          if (npc && !(npc.id in updatedWorldState.npcRelations)) {
-            updatedWorldState = {
-              ...updatedWorldState,
-              npcRelations: { ...updatedWorldState.npcRelations, [npc.id]: 'unknown' },
-            };
+          const npc = scenario.npcs?.find((n) => {
+            const fullName = n.name.toLowerCase();
+            return fullName === npcName || fullName.includes(npcName) || npcName.includes(fullName);
+          });
+          if (npc) {
+            if (!(npc.id in updatedWorldState.npcRelations)) {
+              updatedWorldState = {
+                ...updatedWorldState,
+                npcRelations: { ...updatedWorldState.npcRelations, [npc.id]: 'unknown' },
+              };
+            }
+          } else {
+            // Improvised NPC — not in scenario, store in dynamicNpcs
+            const dynamicId = `dynamic_${npcName.replace(/\s+/g, '_')}`;
+            const existingDynamic = updatedWorldState.dynamicNpcs ?? [];
+            if (!existingDynamic.some((d) => d.id === dynamicId)) {
+              updatedWorldState = {
+                ...updatedWorldState,
+                dynamicNpcs: [...existingDynamic, { id: dynamicId, name: m[1].trim() }],
+                npcRelations: { ...updatedWorldState.npcRelations, [dynamicId]: 'unknown' },
+              };
+            }
           }
         }
 

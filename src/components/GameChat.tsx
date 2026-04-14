@@ -8,6 +8,21 @@ import type { AiProvider } from '@/app/api/ai/route';
 import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
 
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      onClick={onChange}
+      className="flex items-center gap-2 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
+      title={`${checked ? 'Вимкнути' : 'Увімкнути'} ${label}`}
+    >
+      <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-green-600' : 'bg-stone-600'}`}>
+        <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${checked ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+      </span>
+      <span className="text-xs">{label}</span>
+    </button>
+  );
+}
+
 const AI_PROVIDERS: { id: AiProvider; label: string; short: string }[] = [
   { id: 'claude-sonnet', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
   { id: 'gemini-flash',  label: 'Gemini 2.5 Flash',  short: 'Flash'  },
@@ -88,6 +103,7 @@ function CaseFilesPanel({
   briefing,
   npcs,
   npcRelations,
+  dynamicNpcs,
   dynamicImages,
   sessionId,
   onClose,
@@ -97,6 +113,7 @@ function CaseFilesPanel({
   briefing?: ScenarioBriefing | null;
   npcs: NPC[];
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
+  dynamicNpcs?: { id: string; name: string }[];
   dynamicImages: Record<string, DynamicImageMeta>;
   sessionId: string;
   onClose?: () => void;
@@ -121,10 +138,14 @@ function CaseFilesPanel({
     { id: 'briefing', label: 'Опис' },
     { id: 'players',  label: 'Гравці' },
     { id: 'images',   label: 'Матеріали' },
-    { id: 'npcs',     label: 'НПС' },
+    { id: 'npcs',     label: 'Персонажі' },
   ];
 
   const metNpcs = npcs.filter((n) => n.id in npcRelations);
+  const allNpcs: { id: string; name: string; description?: string; isDynamic?: boolean }[] = [
+    ...metNpcs.map((n) => ({ id: n.id, name: n.name, description: n.description })),
+    ...(dynamicNpcs ?? []).filter((d) => !(metNpcs.some((n) => n.id === d.id))).map((d) => ({ ...d, isDynamic: true })),
+  ];
 
   return (
     <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
@@ -265,10 +286,10 @@ function CaseFilesPanel({
         {/* ── NPCs ── */}
         {tab === 'npcs' && (
           <div className="p-3 space-y-3">
-            {metNpcs.length === 0 ? (
-              <p className="text-xs text-stone-500 text-center py-6">НПС ще не зустрічались</p>
+            {allNpcs.length === 0 ? (
+              <p className="text-xs text-stone-500 text-center py-6">Персонажі ще не зустрічались</p>
             ) : (
-              metNpcs.map((npc) => {
+              allNpcs.map((npc) => {
                 const relation = npcRelations[npc.id];
                 const relColor =
                   relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
@@ -285,7 +306,9 @@ function CaseFilesPanel({
                       <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
                       <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
                     </div>
-                    <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
+                    {npc.description && (
+                      <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
+                    )}
                   </div>
                 );
               })
@@ -900,20 +923,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           >
             🔊 <span>{ttsProvider === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
           </button>
-          <button
-            onClick={() => setAutoVoiceEnabled((v) => !v)}
-            title={autoVoiceEnabled ? 'Вимкнути автоозвучення' : 'Увімкнути автоозвучення'}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
-          >
-            {autoVoiceEnabled ? '🗣️' : '🔈'} <span>Автоозвучення</span>
-          </button>
-          <button
-            onClick={() => setAmbientEnabled((v) => !v)}
-            title={ambientEnabled ? 'Вимкнути ambient' : 'Увімкнути ambient'}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
-          >
-            {ambientEnabled ? '🎵' : '🔇'} <span>Ambient</span>
-          </button>
+          <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
+          <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
           {ambientEnabled && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
               <span className="text-stone-500">🔈</span>
@@ -1168,6 +1179,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           briefing={briefing}
           npcs={scenarioNpcs}
           npcRelations={session.world_state?.npcRelations ?? {}}
+          dynamicNpcs={session.world_state?.dynamicNpcs}
           dynamicImages={dynamicImages}
           sessionId={session.id}
           onClose={() => setShowSidebar(false)}

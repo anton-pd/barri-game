@@ -14,6 +14,7 @@ export interface WorldState {
   visitedLocations: string[];
   discoveredClues: string[];
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
+  dynamicNpcs?: { id: string; name: string }[];
   summary: string;
   openThreads: string[];
   playerNotes: string[];
