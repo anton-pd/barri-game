@@ -127,14 +127,14 @@ function CaseFilesPanel({
   const metNpcs = npcs.filter((n) => n.id in npcRelations);
 
   return (
-    <div className="w-64 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden shrink-0">
+    <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
         {onClose && (
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-400 transition-colors text-sm"
+            className="w-9 h-9 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 transition-colors text-base font-bold"
             title="Закрити"
           >✕</button>
         )}
@@ -1155,17 +1155,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       </div>{/* end game column */}
 
-      {/* Right: case files panel — always visible on desktop, overlay on mobile */}
-      {/* Mobile backdrop */}
-      {showSidebar && (
-        <div
-          className="md:hidden fixed inset-0 bg-black/60 z-40"
-          onClick={() => setShowSidebar(false)}
-        />
-      )}
+      {/* Right: case files panel — always visible on desktop, full-screen overlay on mobile */}
       <div className={`
         md:relative md:flex md:w-64 md:shrink-0
-        fixed inset-y-0 right-0 w-72 z-50
+        fixed inset-0 z-50
         transition-transform duration-200
         ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
       `}>
