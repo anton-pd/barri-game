@@ -603,10 +603,10 @@ export async function POST(request: Request) {
         const needsPlayerUpdate =
           deltaMatch !== null ||
           JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
-        if (needsPlayerUpdate) {
-          await updateSession(session.id, { players: updatedPlayers });
-        }
-        await updateSession(session.id, { world_state: updatedWorldState });
+        await updateSession(session.id, {
+          world_state: updatedWorldState,
+          ...(needsPlayerUpdate ? { players: updatedPlayers } : {}),
+        });
 
         // ── Summarize periodically ──────────────────────────────────────────
 
