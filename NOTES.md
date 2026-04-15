@@ -225,6 +225,16 @@
 
 ---
 
+## Fix: DiceRoller зависає після кидку (2026-04-15)
+
+**Проблема:** `pendingRollResult` зберігається в БД через `[SET_PENDING_ROLL]`, але очищається лише якщо LLM включив `[CLEAR_PENDING_ROLL]` у відповідь. LLM часто забуває цей тег → кубики відкриваються при кожному перезавантаженні сесії.
+
+**Рішення:** В `ai/route.ts`, після обробки всіх тегів: якщо `worldState.pendingRollResult` був встановлений на початку ходу І вхідне повідомлення є чистим числом (`/^\d+$/`) І LLM вже не очистив його — примусово очищаємо.
+
+**Також:** вручну очищено зависший `pendingRollResult` в сесії `ed2535ef` через SQL `(world_state #>> '{}')::jsonb - 'pendingRollResult'`.
+
+---
+
 ## Глобальні налаштування моделі та TTS (2026-04-15)
 
 - `app_settings` таблиця в БД (key/value, PRIMARY KEY на key). Seeds: `ai_provider=gemini-flash`, `tts_provider=gemini`.

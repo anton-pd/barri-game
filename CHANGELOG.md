@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.7] — 2026-04-15
+
+### Fixed
+- **DiceRoller зависає після кидку** — `pendingRollResult` залишався в БД якщо LLM забував тег `[CLEAR_PENDING_ROLL]`. Тепер сервер примусово очищає його коли гравець надсилає чисте число (результат кидку)
+
+---
+
 ## [0.2.6] — 2026-04-15
 
 ### Changed
