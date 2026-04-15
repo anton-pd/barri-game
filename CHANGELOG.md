@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.5] — 2026-04-14
+
+### Added
+- **Language selection** — вибір мови гри (Українська / English) при створенні сесії. Кіпер відповідає відповідною мовою протягом усієї сесії (ANT-14)
+- **Model pricing DB table** — ціни на API-виклики зберігаються в таблиці `model_pricing`, оновлюються через `PATCH /api/admin/pricing`. 7-денний in-memory cache. Виправлено ціни Gemini 2.5 Flash ($0.30/$2.50 замість $0.10/$0.40) (ANT-14)
+
+---
+
 ## [0.2.4] — 2026-04-15
 
 ### Added

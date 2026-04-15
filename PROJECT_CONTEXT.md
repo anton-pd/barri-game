@@ -86,7 +86,7 @@ src/
 
 | Table | Key columns | Purpose |
 |-------|-------------|---------|
-| `game_sessions` | id, scenario_id, world_state JSONB, players JSONB, campaign_id, keeper_style | One session = one game |
+| `game_sessions` | id, scenario_id, world_state JSONB, players JSONB, campaign_id, keeper_style, language | One session = one game |
 | `messages` | id, session_id, role, content, player_idx | Full chat history |
 | `users` | id (UUID), email, role, email_verified | Auth |
 | `campaigns` | id, user_id, scenario_id, world_state, npc_states, session_count | Multi-session campaigns |
@@ -94,6 +94,7 @@ src/
 | `scenario_assets` | scenario_id, type, tags[], url, prompt | Scenario-level images |
 | `campaign_assets` | campaign_id, type, tags[], url | Campaign-specific images |
 | `api_usage` | provider, type, model, input_tokens, output_tokens, cost_usd | Cost tracking per call |
+| `model_pricing` | provider, model, metric, value_usd, updated_at | Editable API prices (UNIQUE provider+model+metric) |
 
 ---
 
@@ -111,6 +112,12 @@ src/
 
 Caching via `anthropic-beta: prompt-caching-2024-07-31`.
 Limits: `max_tokens: 600` (main), `500` (summarize).
+
+### Model Pricing
+
+Prices stored in `model_pricing` DB table (seeded on first `initializeSchema()` run). `costTracker.ts` loads from DB with 7-day in-memory cache. Admin can update via `PATCH /api/admin/pricing` `{provider, model, metric, value_usd}`. Cache invalidated on write.
+
+Metrics: `inputPer1M`, `outputPer1M` (LLM tokens), `perChar` (TTS), `perImage` (image gen), `perMinute` (STT).
 
 ### Tag Protocol
 
@@ -192,6 +199,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 5. **Next.js standalone caches `public/`** — after adding new files to the public volume, `docker compose restart cthulhu` is required.
 6. **KeeperStyle** — stored in localStorage, default `'balanced'`. Values: `'passive'`, `'balanced'`, `'active'`.
 7. **DiceRoller** — shown when `world_state.pendingRollResult` is set + `diceMode === 'virtual'` (localStorage). Result determined by `Math.random()` before animation. On confirm: optimistically clears `pendingRollResult` locally, then sends result as plain message to LLM. Key prop forces remount on each new roll. Physical mode shows inline hint only.
+8. **Language** — stored in `game_sessions.language` (`'uk'` default, `'en'` supported). Set at session creation. `buildSystemPromptBlocks()` injects language instruction + response style. Scenario JSON content (NPCs, locations) remains Ukrainian — AI auto-translates.
 
 ---
 
@@ -203,6 +211,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 | Phase 10: ElevenLabs ambient generation | Deferred; `ambientFile` field exists in scenarios but generation pipeline not built |
 | SSE client-side error recovery | Basic retry only |
 | DiceRoller visuals | Currently slot-machine animation. 3D physics (dice-box/Babylon.js) tried but incompatible with Next.js standalone. Revisit with raw Three.js or Babylon.js canvas. |
+| English scenario content | `language='en'` sessions get English system prompt, but scenario JSON (NPCs, locations, clues) is Ukrainian — AI auto-translates but native English scenario files would improve quality |
 
 ---
 
