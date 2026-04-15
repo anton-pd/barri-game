@@ -180,6 +180,38 @@ export async function initializeSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scenario_assets_scenario_id ON scenario_assets(scenario_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_campaign_assets_campaign_id ON campaign_assets(campaign_id)`;
+
+  // Model pricing table — editable via admin API, fallback to hardcoded defaults
+  await sql`
+    CREATE TABLE IF NOT EXISTS model_pricing (
+      id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      provider   VARCHAR(30)   NOT NULL,
+      model      VARCHAR(100)  NOT NULL,
+      metric     VARCHAR(20)   NOT NULL,
+      value_usd  DECIMAL(12,8) NOT NULL,
+      updated_at TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+      UNIQUE (provider, model, metric)
+    )
+  `;
+
+  // Seed default prices (won't overwrite existing rows)
+  await sql`
+    INSERT INTO model_pricing (provider, model, metric, value_usd) VALUES
+      ('anthropic', 'claude-sonnet-4-6',          'inputPer1M',  3.00),
+      ('anthropic', 'claude-sonnet-4-6',          'outputPer1M', 15.00),
+      ('anthropic', 'claude-haiku-4-5-20251001',  'inputPer1M',  0.80),
+      ('anthropic', 'claude-haiku-4-5-20251001',  'outputPer1M', 4.00),
+      ('gemini',    'gemini-2.5-flash',            'inputPer1M',  0.30),
+      ('gemini',    'gemini-2.5-flash',            'outputPer1M', 2.50),
+      ('gemini',    'gemini-2.0-flash',            'inputPer1M',  0.10),
+      ('gemini',    'gemini-2.0-flash',            'outputPer1M', 0.40),
+      ('gemini',    'gemini-2.5-flash-preview-tts','perChar',     0.000030),
+      ('gemini',    'gemini-2.5-flash-image',      'perImage',    0.04),
+      ('openai',    'tts-1',                       'perChar',     0.000015),
+      ('openai',    'whisper-1',                   'perMinute',   0.006),
+      ('openai',    'dall-e-2',                    'perImage',    0.02)
+    ON CONFLICT (provider, model, metric) DO NOTHING
+  `;
 }
 
 // ── Session queries ────────────────────────────────────────────────────────────

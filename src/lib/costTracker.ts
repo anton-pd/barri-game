@@ -1,13 +1,18 @@
-// CHANGED: New file — API cost tracking wrapper
+// API cost tracking — prices loaded from DB (model_pricing table), cached 7 days
 import sql from './db';
 
-const PRICING: Record<string, Record<string, Record<string, number>>> = {
+// ── Pricing cache ─────────────────────────────────────────────────────────────
+
+type PricingMap = Record<string, Record<string, Record<string, number>>>;
+
+// Hardcoded fallback — used if DB is unavailable or table not yet seeded
+const FALLBACK_PRICING: PricingMap = {
   anthropic: {
     'claude-sonnet-4-6':           { inputPer1M: 3.00,  outputPer1M: 15.00 },
     'claude-haiku-4-5-20251001':   { inputPer1M: 0.80,  outputPer1M:  4.00 },
   },
   gemini: {
-    'gemini-2.5-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
+    'gemini-2.5-flash':            { inputPer1M: 0.30,  outputPer1M:  2.50 },
     'gemini-2.0-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
     'gemini-2.5-flash-preview-tts': { perChar: 0.000030 },
     'gemini-2.5-flash-image':      { perImage: 0.04 },
@@ -18,6 +23,43 @@ const PRICING: Record<string, Record<string, Record<string, number>>> = {
     'dall-e-2':                    { perImage: 0.02 },
   },
 };
+
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+let cachedPricing: PricingMap | null = null;
+let cacheLoadedAt = 0;
+
+async function loadPricing(): Promise<PricingMap> {
+  if (cachedPricing && Date.now() - cacheLoadedAt < CACHE_TTL_MS) {
+    return cachedPricing;
+  }
+  try {
+    const rows = await sql<{ provider: string; model: string; metric: string; value_usd: string }[]>`
+      SELECT provider, model, metric, value_usd FROM model_pricing
+    `;
+    if (rows.length === 0) return FALLBACK_PRICING;
+
+    const map: PricingMap = {};
+    for (const row of rows) {
+      map[row.provider] ??= {};
+      map[row.provider][row.model] ??= {};
+      map[row.provider][row.model][row.metric] = parseFloat(row.value_usd);
+    }
+    cachedPricing = map;
+    cacheLoadedAt = Date.now();
+    return map;
+  } catch {
+    return FALLBACK_PRICING;
+  }
+}
+
+/** Invalidate in-memory cache (call after admin update). */
+export function invalidatePricingCache() {
+  cachedPricing = null;
+  cacheLoadedAt = 0;
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 export interface TrackParams {
   sessionId?: string;
@@ -34,7 +76,7 @@ export interface TrackParams {
 
 export async function trackAPICall(params: TrackParams): Promise<void> {
   try {
-    const costUSD = calculateCost(params);
+    const costUSD = await calculateCost(params);
     await sql`
       INSERT INTO api_usage
         (session_id, campaign_id, user_id, provider, type, model,
@@ -59,25 +101,27 @@ export async function trackAPICall(params: TrackParams): Promise<void> {
   }
 }
 
-function calculateCost(params: TrackParams): number {
-  const providerPricing = PRICING[params.provider]?.[params.model];
-  if (!providerPricing) return 0;
+async function calculateCost(params: TrackParams): Promise<number> {
+  const pricing = await loadPricing();
+  const modelPricing = pricing[params.provider]?.[params.model];
+  if (!modelPricing) return 0;
 
-  if (providerPricing.inputPer1M !== undefined && params.inputTokens !== undefined) {
-    const inputCost = (params.inputTokens / 1_000_000) * providerPricing.inputPer1M;
-    const outputCost = ((params.outputTokens ?? 0) / 1_000_000) * (providerPricing.outputPer1M ?? 0);
+  if (modelPricing.inputPer1M !== undefined && params.inputTokens !== undefined) {
+    const inputCost = (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
+    const outputCost = ((params.outputTokens ?? 0) / 1_000_000) * (modelPricing.outputPer1M ?? 0);
     return inputCost + outputCost;
   }
-  if (providerPricing.perChar !== undefined && params.characters !== undefined) {
-    return params.characters * providerPricing.perChar;
+  if (modelPricing.perChar !== undefined && params.characters !== undefined) {
+    return params.characters * modelPricing.perChar;
   }
-  if (providerPricing.perImage !== undefined && params.imageCount !== undefined) {
-    return params.imageCount * providerPricing.perImage;
+  if (modelPricing.perImage !== undefined && params.imageCount !== undefined) {
+    return params.imageCount * modelPricing.perImage;
   }
   return 0;
 }
 
-// Aggregates for admin dashboard
+// ── Aggregates for admin dashboard ───────────────────────────────────────────
+
 export async function getSessionCosts(sessionId: string) {
   const result = await sql`
     SELECT
