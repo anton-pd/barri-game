@@ -27,7 +27,7 @@ const FALLBACK_PRICING: PricingMap = {
     'gemini-2.5-flash':            { inputPer1M: 0.30,  outputPer1M:  2.50 },
     'gemini-2.0-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
     'gemini-2.5-flash-preview-tts': { perChar: 0.000000625 }, // $2.50/M tokens ÷ 4 chars/token
-    'gemini-2.5-flash-image':      { perImage: 0.04 },
+    'gemini-2.5-flash-image':      { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
   openai: {
     'tts-1':                       { perChar: 0.000015 },
@@ -118,17 +118,31 @@ async function calculateCost(params: TrackParams): Promise<number> {
   const modelPricing = pricing[params.provider]?.[params.model];
   if (!modelPricing) return 0;
 
-  if (modelPricing.inputPer1M !== undefined && params.inputTokens !== undefined) {
-    const inputCost = (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
+  // Use params.type to pick the right billing formula — avoids ambiguity when a model
+  // has both inputPer1M and perImage (e.g. gemini-2.5-flash-image)
+  if (params.type === 'image') {
+    let cost = 0;
+    if (modelPricing.perImage !== undefined && params.imageCount !== undefined) {
+      cost += params.imageCount * modelPricing.perImage;
+    }
+    // Prompt input tokens are also billed on image generation (Google charges for them)
+    if (modelPricing.inputPer1M !== undefined && params.inputTokens) {
+      cost += (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
+    }
+    return cost;
+  }
+
+  if (params.type === 'llm' || params.type === 'summarize') {
+    if (modelPricing.inputPer1M === undefined || params.inputTokens === undefined) return 0;
+    const inputCost  = (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
     const outputCost = ((params.outputTokens ?? 0) / 1_000_000) * (modelPricing.outputPer1M ?? 0);
     return inputCost + outputCost;
   }
-  if (modelPricing.perChar !== undefined && params.characters !== undefined) {
+
+  if (params.type === 'tts' && modelPricing.perChar !== undefined && params.characters !== undefined) {
     return params.characters * modelPricing.perChar;
   }
-  if (modelPricing.perImage !== undefined && params.imageCount !== undefined) {
-    return params.imageCount * modelPricing.perImage;
-  }
+
   return 0;
 }
 

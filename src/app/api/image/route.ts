@@ -123,7 +123,8 @@ async function handleGemini(
     }
 
     const data = await res.json() as {
-      candidates: { content: { parts: { inlineData?: { mimeType: string; data: string } }[] } }[]
+      candidates: { content: { parts: { inlineData?: { mimeType: string; data: string } }[] } }[];
+      usageMetadata?: { promptTokenCount?: number; totalTokenCount?: number };
     };
 
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
@@ -136,7 +137,7 @@ async function handleGemini(
     const buf = Buffer.from(b64, 'base64');
     if (cacheKey) saveImageToCache(cacheKey, buf);
 
-    // CHANGED: Track Gemini image cost (non-blocking)
+    // Track Gemini image cost: perImage + prompt input tokens
     if (userId) {
       trackAPICall({
         sessionId,
@@ -145,6 +146,7 @@ async function handleGemini(
         type: 'image',
         model: 'gemini-2.5-flash-image',
         imageCount: 1,
+        inputTokens: data.usageMetadata?.promptTokenCount,
       }).catch(console.error);
     }
 
