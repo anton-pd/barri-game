@@ -362,3 +362,16 @@ if (updates.players !== undefined) {
 
 ### Ключове рішення
 Не намагатись "виправити" кеш на рівні файлової системи — проблема в ключах React state. Достатньо повернути реальний DB ID з API і перемаппувати optimistic ID одразу після отримання відповіді.
+
+---
+
+## Fix: Location display falls back to "Акт 1" after transition (2026-04-15)
+
+### Проблема
+Після переходу в нову локацію UI показував "Акт 1" замість назви локації. LLM вигадував нові location ID (`elm_street_782_hallway`, `carlos_lopez_house`), яких немає в `scenario.locations`. `scenario.locations.find(l => l.id === location)` повертав `undefined`, `locationName` = `null`, UI падав на fallback "Акт 1".
+
+Корінь проблеми: в промпті інструкція `[LOCATION:location_id]` не перераховувала доступні ID. LLM бачив тільки поточну + відвідані локації в `## ЛОКАЦІЇ` секції, але для нових локацій ID не знав.
+
+### Рішення
+- **`src/lib/prompts.ts`**: додано перелік усіх `scenario.locations` ID з назвами в інструкцію `[LOCATION:]` — LLM бачить повний список і не вигадує нові
+- **`src/components/GameChat.tsx`**: UI fallback — якщо `currentLocationName` = null але `currentLocation` є, показуємо ID з заміною `_` → пробіл; "Акт 1" тільки якщо взагалі немає location

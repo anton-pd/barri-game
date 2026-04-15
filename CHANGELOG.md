@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.10] — 2026-04-15
+
+### Fixed
+- **Location display shows "Акт 1" after transition** — LLM вигадував нові location ID замість використання існуючих. Додано перелік усіх доступних ID в інструкцію `[LOCATION:]` у системному промпті. UI fallback тепер показує відформатований ID замість "Акт 1" якщо назва не знайдена.
+
+---
+
 ## [0.2.9] — 2026-04-15
 
 ### Fixed

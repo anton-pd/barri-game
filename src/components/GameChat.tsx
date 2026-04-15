@@ -877,7 +877,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           >←</a>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
-            <p className="text-[11px] text-stone-500 truncate leading-tight">{currentLocationName ?? `Акт ${session.world_state?.act || 1}`}</p>
+            <p className="text-[11px] text-stone-500 truncate leading-tight">{currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
