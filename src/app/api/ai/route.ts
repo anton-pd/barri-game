@@ -350,11 +350,10 @@ export async function POST(request: Request) {
     locationRisk: worldState.locationRisk ?? {},
   };
 
-  const newLocationFromPrev = recentMessages.length > 0
-    ? extractLocationFromMessages(recentMessages.slice(-3).map((m) => m.content))
-    : undefined;
-  const eventDecision = evaluateRandomEvent(worldState, scenario, newLocationFromPrev, !!worldState.pendingRollResult);
-  worldState = applyEventDecision(worldState, eventDecision, newLocationFromPrev, scenario);
+  // Use currentLocation from worldState directly — LOCATION tags are stripped before DB save
+  const currentLocation = worldState.currentLocation;
+  const eventDecision = evaluateRandomEvent(worldState, scenario, currentLocation, !!worldState.pendingRollResult);
+  worldState = applyEventDecision(worldState, eventDecision, currentLocation, scenario);
 
   const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
   const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
@@ -673,12 +672,3 @@ export async function POST(request: Request) {
   });
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function extractLocationFromMessages(recentContents: string[]): string | undefined {
-  for (const content of [...recentContents].reverse()) {
-    const match = content.match(/\[LOCATION:([\w-]+)\]/);
-    if (match) return match[1];
-  }
-  return undefined;
-}
