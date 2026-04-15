@@ -41,8 +41,15 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
       const text = part
         .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
         .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
+        .replace(/\s*\[USE_ITEM:\d+:[^\]]+\]/g, '')
+        .replace(/\s*\[REMOVE_ITEM:\d+:[^\]]+\]/g, '')
+        .replace(/\s*\[EQUIP:\d+:[^\]]+\]/g, '')
+        .replace(/\s*\[BREAK_ITEM:\d+:[^\]]+\]/g, '')
         .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
         .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
+        .replace(/\s*\[SET_PENDING_ROLL:[^\]]+\]/g, '')
+        .replace(/\s*\[CLEAR_PENDING_ROLL\]/g, '')
+        .replace(/\s*\[RANDOM_EVENT:[^\]]+\]/g, '')
         .trim();
       if (text) segments.push({ type: 'narration', text });
     }
