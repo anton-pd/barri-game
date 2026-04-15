@@ -463,6 +463,17 @@ LLM починав відповіді з `[Anton]:` — наприклад `[Ant
 - Очищається одразу після першого AI response — не витрачає токени далі
 - Генератор повертає JSON без збереження на диск — це робить адмін UI (ANT-17)
 
+## ANT-18: Scenario generator — rolePresets (2026-04-15)
+
+### Що зроблено
+1. **`src/lib/scenarioGenerator.ts`** — додано `rolePresets` до схеми в SYSTEM_PROMPT: повна структура з id, name, description, rulesetId, hp/sanity/luck, skills, background, inventory. Додано розділ "rolePresets rules" з вимогами (2-5 ролей, HP/Sanity/Luck діапазони, навички, інвентар, ПЕРК у бекграунді). max_tokens: 8000 → 10000.
+2. **`SCENARIO_GUIDE.md`** — розширено секцію 14: повна документація `rolePresets` з прикладом і правилами.
+
+### Ключові рішення
+- `getRolesForScenario()` вже пріоритезує `scenario.rolePresets` над глобальними — нульові зміни в runtime коді
+- Backtick символи всередині template literal SYSTEM_PROMPT замінено на plain text (уникнення TypeScript parse error)
+- Навички — англійською (game engine використовує їх як ключі)
+
 ## ANT-17: Admin UI для генерації сценаріїв (2026-04-15)
 
 ### Що зроблено

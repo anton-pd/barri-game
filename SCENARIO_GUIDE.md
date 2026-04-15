@@ -288,18 +288,59 @@
 
 ---
 
-## 14. supportedRoles / defaultRoles
+## 14. supportedRoles / defaultRoles / rolePresets
 
 ```json
-"supportedRoles": ["detective", "journalist", "doctor", "antiquarian", "soldier"],
+"supportedRoles": ["detective", "journalist", "doctor"],
 "defaultRoles": ["detective", "doctor"]
 ```
 
-Доступні presets з `src/lib/roles.ts`:
-- `detective`, `journalist`, `doctor`, `antiquarian`, `soldier`
-- `private_investigator`, `telegraph_reporter`
-
 `defaultRoles` — ролі для нової сесії якщо гравець не вибрав вручну.
+
+### rolePresets — сценарій-специфічні ролі (рекомендовано)
+
+Якщо сценарій має `rolePresets`, вони мають пріоритет над глобальними ролями з `roles.ts`.
+`supportedRoles` і `defaultRoles` мають посилатись на id з `rolePresets`.
+
+```json
+"rolePresets": [
+  {
+    "id": "occult_historian",
+    "name": "Окультний Історик",
+    "description": "Професор університету, чиї дослідження зайшли занадто далеко.",
+    "rulesetId": "coc_7e",
+    "hp": 8,
+    "sanity": 60,
+    "luck": 50,
+    "skills": {
+      "Occultism": 80,
+      "Library Use": 75,
+      "History": 70,
+      "Languages": 55,
+      "Spot Hidden": 50,
+      "Psychology": 45,
+      "First Aid": 30,
+      "Dodge": 30
+    },
+    "background": "Три речення хто і чому тут. ПЕРК — унікальна наративна перевага.",
+    "inventory": [
+      { "id": "grimoire", "name": "Заборонений трактат", "description": "+бонус до Occultism при розпізнаванні ритуалів.", "uses": -1 },
+      { "id": "binding_seal", "name": "Печать Зв'язування", "description": "Тематичний унікальний предмет для цього сценарію.", "uses": 1 }
+    ]
+  }
+]
+```
+
+**Правила:**
+- 2–5 ролей для one-shot; 3–6 для campaign
+- Ролі мають доповнювати одна одну: мінімум одна соціальна, одна дослідницька, одна з тематичними знаннями
+- Назви навичок — англійською (game engine використовує їх як ключі)
+- HP 8–14, Sanity 50–75, Luck 45–65
+- Кожна роль: 3–4 предмети, один унікальний/тематичний для сценарію
+- `uses: -1` = необмежено, `uses: N` = витратний з N зарядами
+- background — мова контенту сценарію; включає ПЕРК
+
+Глобальні presets (якщо не задано `rolePresets`): `detective`, `journalist`, `doctor`, `antiquarian`, `soldier`, `private_investigator`, `telegraph_reporter`.
 
 ---
 

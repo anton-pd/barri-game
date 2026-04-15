@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.2] — 2026-04-15
+
+### Changed
+- **Scenario generator — rolePresets** — генератор тепер продукує `rolePresets[]` у кожному сценарії: тематичні ролі зі своїми навичками, інвентарем (включно з унікальними предметами) та бекграундом з ПЕРКОМ. `supportedRoles` і `defaultRoles` посилаються на id з `rolePresets`. `max_tokens` підвищено до 10000.
+- **SCENARIO_GUIDE.md** — оновлено секцію 14 з повною документацією `rolePresets`.
+
+---
+
 ## [0.3.1] — 2026-04-15
 
 ### Added

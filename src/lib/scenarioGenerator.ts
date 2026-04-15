@@ -28,8 +28,28 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
   "era": "1920s",
   "difficulty": "beginner|intermediate|advanced",
   "rulesetId": "coc_7e",
-  "supportedRoles": ["detective","journalist","doctor","antiquarian","soldier","professor","occultist","nurse"],
-  "defaultRoles": ["detective","doctor"],
+  "supportedRoles": ["role_id_1", "role_id_2"],
+  "defaultRoles": ["role_id_1", "role_id_2"],
+  "rolePresets": [
+    {
+      "id": "snake_case_id",
+      "name": "Назва ролі",
+      "description": "Одне речення — хто ця людина і чому вона тут.",
+      "rulesetId": "coc_7e",
+      "hp": 10,
+      "sanity": 65,
+      "luck": 50,
+      "skills": {
+        "SkillName": 70,
+        "SkillName2": 60
+      },
+      "background": "3-5 речень: хто ця людина, що пережила, чому опинилась у цій справі, яку унікальну перевагу або тягар несе.",
+      "inventory": [
+        { "id": "item_id", "name": "Назва предмету", "description": "Що робить / яку механічну перевагу дає.", "uses": -1 },
+        { "id": "item_id2", "name": "Унікальний тематичний предмет", "description": "Специфічний для цього сценарію.", "uses": 3 }
+      ]
+    }
+  ],
   "sessionConfig": {
     "minPlayers": 1,
     "maxPlayers": 4,
@@ -146,9 +166,21 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 - mustHappenEvents: minimum 4-5 events
 - railguards: minimum 3-4
 - variants: always 2, rarely 3. Must use location IDs from your locations array.
-- All Ukrainian text fields (name, description, clues, etc.) must be in Ukrainian
-- All English text fields (soundPrompt, staticImages.prompt) must be in English
+- All Ukrainian text fields (name, description, clues, rolePresets names/descriptions/backgrounds/inventory, etc.) must be in Ukrainian
+- All English text fields (soundPrompt, staticImages.prompt, skill names) must be in English
 - IDs are always snake_case or kebab-case, no spaces
+
+## rolePresets rules:
+- Generate 2-5 roles for one-shot, 3-6 for campaign
+- supportedRoles and defaultRoles must use IDs from your rolePresets array (not generic names)
+- HP range: 8-14 (combat/military roles higher; scholars/doctors lower)
+- Sanity range: 50-75 (military/hardened — lower; academic/healer — higher)
+- Luck range: 45-65
+- Each role: 8-14 skills with realistic values (primary skills 60-80, secondary 35-55)
+- Each role: 3-4 inventory items — at least one must be unique and thematically specific to this scenario
+- uses: -1 means unlimited; uses: N means consumable with N charges
+- background: written in the content language — 3-5 sentences explaining who they are, why they're here, what unique advantage or burden they carry. Include a PERK — one thematic special ability (narrative, not mechanical)
+- Roles must complement each other: at least one social role, one investigative role, one role with relevant specialized knowledge
 `;
 
 export async function generateScenario(input: GenerateScenarioInput): Promise<object> {
@@ -171,7 +203,7 @@ Generate the full scenario JSON now. Remember: raw JSON only, no markdown.`;
 
   const message = await client.messages.create({
     model: 'claude-opus-4-6',
-    max_tokens: 8000,
+    max_tokens: 10000,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: userPrompt }],
   });
