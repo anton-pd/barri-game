@@ -40,6 +40,13 @@ export interface WorldState {
   };
   // Dynamic images cache
   sessionImages?: Record<string, string>;
+  // Situational locations created by LLM during play (persisted, no audio)
+  dynamicLocations?: Record<string, DynamicLocation>;
+}
+
+export interface DynamicLocation {
+  name: string;
+  description: string;
 }
 
 // CHANGED: Added equipped and broken state

@@ -175,8 +175,12 @@ uses=0 → витрачений, ігноруй при пропозиціях
 Типи: newspaper, map, letter, photo, artifact, scene. РІДКО — лише ключові моменти.
 
 ## ПЕРЕХОДИ МІЖ ЛОКАЦІЯМИ
-[LOCATION:location_id] — тільки при реальному фізичному переході. Використовуй ТІЛЬКИ ID зі списку нижче — ніколи не вигадуй нові ID.
-Доступні локації: ${scenario.locations?.map((l) => `${l.id} (${l.name})`).join(', ') ?? '—'}
+[LOCATION:location_id] — перехід до існуючої локації. Використовуй ID зі списку нижче або ID вже створених ситуативних локацій (у ПОТОЧНИЙ СТАН).
+Сценарні локації: ${scenario.locations?.map((l) => `${l.id} (${l.name})`).join(', ') ?? '—'}
+
+[NEW_LOCATION:id:Назва:Короткий опис] — якщо гравець потрапляє в місце, якого ще не існує в списку.
+  id — snake_case, унікальний (напр. kovalskyy_shop). Назва і опис — мовою сесії.
+  Після створення використовуй [LOCATION:id] для повторних переходів до цього місця.
 
 ## ОЗВУЧКА NPC
 [NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
@@ -194,11 +198,16 @@ ${RESPONSE_STYLE[lang]}
   const activitySection = options?.keeperActivitySection ?? '';
   const eventSection = options?.eventInstruction ?? '';
 
+  const dynLocEntries = Object.entries(worldState.dynamicLocations ?? {});
+  const dynLocSection = dynLocEntries.length
+    ? `\nСитуативні локації: ${dynLocEntries.map(([id, l]) => `${id} (${l.name})`).join(', ')}`
+    : '';
+
   const dynamicBlock = `
 ## ПОТОЧНИЙ СТАН
 Акт: ${worldState.act}
 Локація: ${worldState.currentLocation ?? 'невідома'}
-Відвідані: ${worldState.visitedLocations.join(', ') || 'жодної'}
+Відвідані: ${worldState.visitedLocations.join(', ') || 'жодної'}${dynLocSection}
 Підказки: ${worldState.discoveredClues.join(', ') || 'жодної'}
 Summary: ${worldState.summary || 'Гра починається'}
 Відкриті питання: ${worldState.openThreads.join(', ') || 'жодного'}

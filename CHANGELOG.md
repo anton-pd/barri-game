@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.11] — 2026-04-15
+
+### Added
+- **Situational locations** — LLM може створювати нові локації тегом `[NEW_LOCATION:id:Назва:Опис]`. Зберігаються у `world_state.dynamicLocations`, відображаються правильно при перезавантаженні. Ambient аудіо не генерується. При повторному переході — `[LOCATION:id]` як для звичайних локацій.
+
+---
+
 ## [0.2.10] — 2026-04-15
 
 ### Fixed

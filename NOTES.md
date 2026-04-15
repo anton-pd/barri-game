@@ -375,3 +375,26 @@ if (updates.players !== undefined) {
 ### Рішення
 - **`src/lib/prompts.ts`**: додано перелік усіх `scenario.locations` ID з назвами в інструкцію `[LOCATION:]` — LLM бачить повний список і не вигадує нові
 - **`src/components/GameChat.tsx`**: UI fallback — якщо `currentLocationName` = null але `currentLocation` є, показуємо ID з заміною `_` → пробіл; "Акт 1" тільки якщо взагалі немає location
+
+---
+
+## Feature: Situational (dynamic) locations (2026-04-15)
+
+### Проблема
+Сценарії мали лише статичні локації (прописані в JSON). Гравці могли входити до місць, яких немає в сценарії (крамниця, провулок), LLM вигадував ID — вони не зберігались, при повторному візиті локація "забувалась".
+
+### Рішення
+Два типи локацій:
+- **Статичні** — у `scenario.json`, мають ambient аудіо, показуються в промпті з деталями
+- **Ситуативні** — LLM створює тегом `[NEW_LOCATION:id:Назва:Опис]`, зберігаються у `world_state.dynamicLocations`. Без аудіо. При повторному переході — звичайний `[LOCATION:id]`.
+
+### Зміни
+- **`src/types/index.ts`**: `DynamicLocation {name, description}` + `WorldState.dynamicLocations`
+- **`src/lib/prompts.ts`**: в static блоці — нове правило `[NEW_LOCATION:]` + перелік сценарних ID; у dynamic блоці — компактний список вже створених ситуативних локацій
+- **`src/app/api/ai/route.ts`**: парсинг `[NEW_LOCATION:]` → запис у `dynamicLocations`, стрипінг з `textForDB`, `locationName` шукає в обох джерелах
+- **`src/app/session/[id]/page.tsx`**: `locationNames` включає `world_state.dynamicLocations` при завантаженні сторінки
+
+### Ключові рішення
+- Опис ситуативної локації зберігається у world_state, але НЕ передається повністю в промпт (тільки id+name) — LLM пам'ятає контекст з чату
+- Ambient logic незмінна: динамічні локації просто відсутні в `locationGroups` → audio не грає автоматично
+- Backward compat: `dynamicLocations` optional, старі сесії без змін

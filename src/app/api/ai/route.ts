@@ -460,9 +460,10 @@ export async function POST(request: Request) {
 
         // ── Parse tags ──────────────────────────────────────────────────────
 
-        const deltaMatch    = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
-        const imageMatch    = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
-        const locationMatch = assistantText.match(/\[LOCATION:([\w-]+)\]/);
+        const deltaMatch       = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
+        const imageMatch       = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+        const locationMatch    = assistantText.match(/\[LOCATION:([\w-]+)\]/);
+        const newLocationMatch = assistantText.match(/\[NEW_LOCATION:(\w+):([^:]+):([^\]]+)\]/);
 
         const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
           assistantText,
@@ -521,6 +522,7 @@ export async function POST(request: Request) {
         const textForDB = textAfterRollTags
           .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+          .replace(/\s*\[NEW_LOCATION:\w+:[^:]+:[^\]]+\]/g, '')
           .trim();
 
         // cleanText is used only for SSE streaming (already rendered in client) and TTS
@@ -593,6 +595,23 @@ export async function POST(request: Request) {
           };
         }
 
+        // ── Apply NEW_LOCATION (situational) ────────────────────────────────
+
+        if (newLocationMatch) {
+          const [, locId, locName, locDesc] = newLocationMatch;
+          updatedWorldState = {
+            ...updatedWorldState,
+            currentLocation: locId,
+            visitedLocations: updatedWorldState.visitedLocations.includes(locId)
+              ? updatedWorldState.visitedLocations
+              : [...updatedWorldState.visitedLocations, locId],
+            dynamicLocations: {
+              ...updatedWorldState.dynamicLocations,
+              [locId]: { name: locName.trim(), description: locDesc.trim() },
+            },
+          };
+        }
+
         // ── Persist messages ────────────────────────────────────────────────
 
         if (!isIntro) {
@@ -643,9 +662,11 @@ export async function POST(request: Request) {
 
         const imageType    = imageMatch?.[1] ?? null;
         const imagePrompt  = imageMatch?.[2]?.trim() ?? null;
-        const location     = locationMatch?.[1] ?? null;
+        const location     = (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null;
         const locationName = location
-          ? (scenario.locations.find((l) => l.id === location)?.name ?? null)
+          ? (scenario.locations.find((l) => l.id === location)?.name
+              ?? updatedWorldState.dynamicLocations?.[location]?.name
+              ?? null)
           : null;
 
         send('done', {

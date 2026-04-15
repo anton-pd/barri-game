@@ -131,7 +131,8 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 [EQUIP:idx:itemId]                                  — set as equipped
 [BREAK_ITEM:idx:itemId]                             — mark as broken
 [IMAGE:type:english description]                    — trigger image generation
-[LOCATION:location_id]                              — move + update worldState.currentLocation
+[LOCATION:location_id]                              — move to existing location (scenario or dynamic)
+[NEW_LOCATION:id:Name:Description]                  — create situational location + move there
 [NPC:Name]speech text[/NPC]                         — NPC dialogue bubble
 [SET_PENDING_ROLL:idx:skill:val:threshold:context]  — request dice roll
 [CLEAR_PENDING_ROLL]                                — cancel pending roll
@@ -173,6 +174,7 @@ On each AI response: server scans for `[NPC:Name]` → if name matches `scenario
   activeRandomEvent: { type, event_id } | null
   npcRelations: Record<npcId, 'friendly'|'neutral'|'hostile'|'unknown'>
   sessionImages: Record<msgId, '/scenarios/dynamic/HASH.jpg'>  // persisted image URL cache
+  dynamicLocations: Record<locId, { name: string; description: string }>  // situational locations
 }
 ```
 
@@ -186,6 +188,17 @@ Server decides, LLM only executes:
 - Transition events: 15% chance on location group change
 - Event types (weighted): roll_event 35%, negative 30%, neutral 20%, positive 15%
 - `eventHints` in scenario JSON provide LLM with thematic suggestions
+
+---
+
+## Location Types
+
+| Type | Defined in | Audio | Prompt details |
+|------|-----------|-------|---------------|
+| **Static** | `scenario.json → locations[]` | Yes (via `locationGroups`) | Full description + clues for current/visited |
+| **Situational** | `world_state.dynamicLocations` | No | Only `id (name)` in dynamic block |
+
+LLM uses `[LOCATION:id]` for both. Creates situational ones with `[NEW_LOCATION:id:Name:Desc]` — server saves to `dynamicLocations`, adds to `visitedLocations`. On page load, `locationNames` map includes both sources so UI shows correct name.
 
 ---
 

@@ -24,7 +24,10 @@ async function getSessionData(id: string): Promise<{ session: GameSession; messa
   }
 }
 
-function loadScenarioMeta(scenarioId: string): {
+function loadScenarioMeta(
+  scenarioId: string,
+  dynamicLocations?: Record<string, { name: string }>
+): {
   briefing: ScenarioBriefing | null;
   locationNames: Record<string, string>;
   npcs: NPC[];
@@ -39,6 +42,10 @@ function loadScenarioMeta(scenarioId: string): {
     const locationNames: Record<string, string> = {};
     for (const loc of scenario.locations ?? []) {
       locationNames[loc.id] = loc.name;
+    }
+    // Situational locations created during play
+    for (const [id, loc] of Object.entries(dynamicLocations ?? {})) {
+      locationNames[id] = loc.name;
     }
     return { briefing: scenario.briefing ?? null, locationNames, npcs: scenario.npcs ?? [] };
   } catch {
@@ -73,7 +80,7 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  const { briefing, locationNames, npcs } = loadScenarioMeta(data.session.scenario_id);
+  const { briefing, locationNames, npcs } = loadScenarioMeta(data.session.scenario_id, data.session.world_state.dynamicLocations);
 
   const settings = await getAllAppSettings();
   const defaultAiProvider  = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
