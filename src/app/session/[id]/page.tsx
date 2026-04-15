@@ -4,8 +4,9 @@ import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import GameChat from '@/components/GameChat';
 import { verifyJwt } from '@/lib/auth';
-import { getUserById } from '@/lib/queries';
+import { getUserById, getAllAppSettings } from '@/lib/queries';
 import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
+import type { AiProvider } from '@/app/api/ai/route';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -74,5 +75,9 @@ export default async function SessionPage({ params }: PageProps) {
 
   const { briefing, locationNames, npcs } = loadScenarioMeta(data.session.scenario_id);
 
-  return <GameChat session={data.session} initialMessages={data.messages} briefing={briefing} locationNames={locationNames} scenarioNpcs={npcs} />;
+  const settings = await getAllAppSettings();
+  const defaultAiProvider  = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
+  const defaultTtsProvider = (settings.tts_provider ?? 'gemini') as 'openai' | 'gemini';
+
+  return <GameChat session={data.session} initialMessages={data.messages} briefing={briefing} locationNames={locationNames} scenarioNpcs={npcs} defaultAiProvider={defaultAiProvider} defaultTtsProvider={defaultTtsProvider} />;
 }

@@ -217,6 +217,37 @@ export async function initializeSchema() {
       ('openai',    'dall-e-2',                    'perImage',    0.02)
     ON CONFLICT (provider, model, metric) DO NOTHING
   `;
+
+  // Global app settings table (key/value)
+  await sql`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key        VARCHAR(100) PRIMARY KEY,
+      value      TEXT         NOT NULL,
+      updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    INSERT INTO app_settings (key, value) VALUES
+      ('ai_provider',  'gemini-flash'),
+      ('tts_provider', 'gemini')
+    ON CONFLICT (key) DO NOTHING
+  `;
+}
+
+// ── App settings ──────────────────────────────────────────────────────────────
+
+export async function getAllAppSettings(): Promise<Record<string, string>> {
+  const rows = await sql<{ key: string; value: string }[]>`SELECT key, value FROM app_settings`;
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+export async function setAppSetting(key: string, value: string): Promise<void> {
+  await sql`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES (${key}, ${value}, NOW())
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
 }
 
 // ── Session queries ────────────────────────────────────────────────────────────

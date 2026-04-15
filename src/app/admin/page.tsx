@@ -5,6 +5,7 @@ import { verifyJwt } from '@/lib/auth';
 import { getAllUsers, getAllSessionsWithOwner } from '@/lib/queries';
 import RoleToggle from './RoleToggle';
 import CostsTables from './CostsTables';
+import KeeperSettings from './KeeperSettings';
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
@@ -90,6 +91,9 @@ export default async function AdminPage() {
             </table>
           </div>
         </section>
+
+        {/* Keeper Settings — global model & TTS config */}
+        <KeeperSettings />
 
         {/* API Costs — live client component, auto-refreshes every 30s */}
         <CostsTables />

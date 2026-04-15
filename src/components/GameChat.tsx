@@ -24,10 +24,6 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
   );
 }
 
-const AI_PROVIDERS: { id: AiProvider; label: string; short: string }[] = [
-  { id: 'claude-sonnet', label: 'Claude Sonnet 4.6', short: 'Sonnet' },
-  { id: 'gemini-flash',  label: 'Gemini 2.5 Flash',  short: 'Flash'  },
-];
 
 interface GameChatProps {
   session: GameSession;
@@ -35,6 +31,8 @@ interface GameChatProps {
   briefing?: ScenarioBriefing | null;
   locationNames?: Record<string, string>;
   scenarioNpcs?: NPC[];
+  defaultAiProvider?: AiProvider;
+  defaultTtsProvider?: 'openai' | 'gemini';
 }
 
 // msgId → { prompt, type }
@@ -371,7 +369,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [] }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [voiceStyles, setVoiceStyles]         = useState<Record<string, string>>({});
@@ -417,18 +415,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const audioRef          = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef     = useRef<Map<string, string>>(new Map());
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
-  const [ttsProvider, setTtsProvider] = useState<'openai' | 'gemini'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('ttsProvider') as 'openai' | 'gemini') ?? 'gemini';
-    }
-    return 'gemini';
-  });
-  const [aiProvider, setAiProvider] = useState<AiProvider>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('aiProvider') as AiProvider) ?? 'claude-sonnet';
-    }
-    return 'claude-sonnet';
-  });
+  const [ttsProvider] = useState<'openai' | 'gemini'>(defaultTtsProvider);
+  const [aiProvider]  = useState<AiProvider>(defaultAiProvider);
   // CHANGED: KeeperStyle — controls Keeper activity level
   const [keeperStyle, setKeeperStyle] = useState<'passive' | 'balanced' | 'active'>(() => {
     if (typeof window !== 'undefined') {
@@ -585,20 +573,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   useEffect(() => {
     localStorage.setItem('autoVoiceEnabled', String(autoVoiceEnabled));
   }, [autoVoiceEnabled]);
-
-  function toggleTtsProvider() {
-    setTtsProvider((prev) => {
-      const next = prev === 'openai' ? 'gemini' : 'openai';
-      localStorage.setItem('ttsProvider', next);
-      audioCacheRef.current.clear();
-      return next;
-    });
-  }
-
-  function changeAiProvider(p: AiProvider) {
-    localStorage.setItem('aiProvider', p);
-    setAiProvider(p);
-  }
 
   // CHANGED: KeeperStyle toggle — persisted to localStorage
   function changeKeeperStyle(s: 'passive' | 'balanced' | 'active') {
@@ -886,26 +860,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {/* Collapsible settings panel */}
       {showSettings && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 bg-stone-900/95 border-b border-stone-800 text-xs">
-          {/* AI provider */}
-          <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
-            {AI_PROVIDERS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => changeAiProvider(p.id)}
-                title={p.label}
-                className={`px-2.5 py-1.5 transition-colors ${
-                  aiProvider === p.id
-                    ? 'bg-amber-800 text-amber-100 font-medium'
-                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
-                }`}
-              >
-                {p.short}
-              </button>
-            ))}
-          </div>
-
-          <div className="w-px h-4 bg-stone-700" />
-
           {/* CHANGED: KeeperStyle selector */}
           <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
             {(['passive', 'balanced', 'active'] as const).map((s) => (
@@ -930,14 +884,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           <div className="w-px h-4 bg-stone-700" />
 
-          {/* TTS provider */}
-          <button
-            onClick={toggleTtsProvider}
-            title={ttsProvider === 'gemini' ? 'TTS: Gemini (перемкнути на OpenAI)' : 'TTS: OpenAI (перемкнути на Gemini)'}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
-          >
-            🔊 <span>{ttsProvider === 'gemini' ? 'Gemini' : 'OpenAI'}</span>
-          </button>
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
           <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
           <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
