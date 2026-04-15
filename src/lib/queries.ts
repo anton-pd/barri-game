@@ -208,8 +208,6 @@ export async function initializeSchema() {
       ('anthropic', 'claude-haiku-4-5-20251001',  'outputPer1M', 4.00),
       ('gemini',    'gemini-2.5-flash',            'inputPer1M',  0.30),
       ('gemini',    'gemini-2.5-flash',            'outputPer1M', 2.50),
-      ('gemini',    'gemini-2.0-flash',            'inputPer1M',  0.10),
-      ('gemini',    'gemini-2.0-flash',            'outputPer1M', 0.40),
       ('gemini',    'gemini-2.5-flash-preview-tts','perChar',     0.000000625),
       ('gemini',    'gemini-2.5-flash-image',      'perImage',    0.04),
       ('gemini',    'gemini-2.5-flash-image',      'inputPer1M',  0.30),

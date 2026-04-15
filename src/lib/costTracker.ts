@@ -25,7 +25,6 @@ const FALLBACK_PRICING: PricingMap = {
   },
   gemini: {
     'gemini-2.5-flash':            { inputPer1M: 0.30,  outputPer1M:  2.50 },
-    'gemini-2.0-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
     'gemini-2.5-flash-preview-tts': { perChar: 0.000000625 }, // $2.50/M tokens ÷ 4 chars/token
     'gemini-2.5-flash-image':      { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
@@ -84,6 +83,7 @@ export interface TrackParams {
   outputTokens?: number;
   characters?: number;
   imageCount?: number;
+  duration?: number; // seconds — for STT (whisper billing is per minute)
 }
 
 export async function trackAPICall(params: TrackParams): Promise<void> {
@@ -141,6 +141,10 @@ async function calculateCost(params: TrackParams): Promise<number> {
 
   if (params.type === 'tts' && modelPricing.perChar !== undefined && params.characters !== undefined) {
     return params.characters * modelPricing.perChar;
+  }
+
+  if (params.type === 'stt' && modelPricing.perMinute !== undefined && params.duration !== undefined) {
+    return (params.duration / 60) * modelPricing.perMinute;
   }
 
   return 0;

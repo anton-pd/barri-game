@@ -5,9 +5,10 @@ import { useState, useRef } from 'react';
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
   disabled?: boolean;
+  sessionId?: string;
 }
 
-export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps) {
+export default function VoiceButton({ onTranscript, disabled, sessionId }: VoiceButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -38,6 +39,7 @@ export default function VoiceButton({ onTranscript, disabled }: VoiceButtonProps
       try {
         const form = new FormData();
         form.append('audio', blob, 'audio.webm');
+        if (sessionId) form.append('sessionId', sessionId);
 
         const res = await fetch('/api/stt', { method: 'POST', body: form });
         if (res.ok) {

@@ -1178,7 +1178,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} />
+            <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
             {session.players.length > 1 && (
               <button
                 onClick={queueAction}
