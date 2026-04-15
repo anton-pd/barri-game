@@ -278,86 +278,38 @@
 - Вибір провайдера через `IMAGE_PROVIDER` env var (`gemini` | `openai` | інший → Pollinations)
 - В документації не описано
 
-**gemini-2.0-flash:**
-- В GEMINI_MODELS є `'gemini-pro': 'gemini-2.0-flash'` — але AI_PROVIDERS у GameChat.tsx має тільки `claude-sonnet` та `gemini-flash`. Gemini Pro з UI незвідний.
+**gemini-2.0-flash / gemini-pro:** ✅ ВИПРАВЛЕНО — `gemini-pro` видалено з `GEMINI_MODELS`, `AiProvider` тепер `'claude-sonnet' | 'gemini-flash'`.
 
 ### Технічний борг та потенційні проблеми
 
-**1. `updateSession` — подвійний запит до БД на кожен AI turn**
-```
-route.ts L608: await updateSession(session.id, { players: updatedPlayers });
-route.ts L610: await updateSession(session.id, { world_state: updatedWorldState });
-```
-Кожен виклик робить окремий UPDATE + SELECT. Разом 2 UPDATE + 2 SELECT за один хід.
-→ Краще: `updateSession` з обома полями в одному запиті.
+**1. `updateSession` — подвійний запит до БД** ✅ ВИПРАВЛЕНО — один батчований UPDATE.
 
-**2. `extractLocationFromMessages` — вторинний parse LOCATION з тексту повідомлень**
-- `api/ai/route.ts` L353-355: перед побудовою промпту сервер сканує 3 останніх повідомлення на `[LOCATION:]` тег щоб визначити `newLocationId` для `evaluateRandomEvent`
-- Але `[LOCATION:]` зберігається в DB тільки якщо він НЕ stripped (реально він і є stripped — `textForDB` видаляє `[LOCATION:]` на L515-516)
-- Тобто `extractLocationFromMessages` завжди повертає `undefined`, бо LOCATION тегів вже немає в збережених повідомленнях
-- Реальне поточне місцезнаходження вже є в `worldState.currentLocation` — функція зайва
+**2. `extractLocationFromMessages` — завжди повертала `undefined`** ✅ ВИПРАВЛЕНО — функцію видалено, використовується `worldState.currentLocation`.
 
-**3. `parseInventoryTags` — strips all inventory tags але `segments.ts` не знає про них**
-- `parseSegments()` у `segments.ts` L41-47 прибирає DELTA/ITEM/LOCATION/IMAGE теги, але НЕ прибирає `USE_ITEM`, `REMOVE_ITEM`, `EQUIP`, `BREAK_ITEM`
-- `parseInventoryTags()` в `api/ai/route.ts` прибирає їх на сервері, але до того передає вже-stripped text у `parseSegments()`
-- Порядок виконання: L468 `parseInventoryTags()` → L510 `parseSegments()` — порядок правильний ✓
+**3. `segments.ts` не стрипав inventory теги на клієнті** ✅ ВИПРАВЛЕНО — додано strip для USE_ITEM, REMOVE_ITEM, EQUIP, BREAK_ITEM, SET_PENDING_ROLL, CLEAR_PENDING_ROLL, RANDOM_EVENT.
 
-**4. `GameChat.tsx` — 1236 рядків, один монолітний компонент**
-- Можна декомпозувати: `useAudio()` хук (TTS логіка), `useInventory()` хук (item use), `useSse()` хук (streaming reader), `MessageList` компонент, `SettingsPanel` компонент
-- Не критично, але збільшує cognitive load при внесенні змін
+**4. `GameChat.tsx` — 1236 рядків, монолітний компонент**
+- Можна декомпозувати: `useAudio()`, `useInventory()`, `useSse()`, `MessageList`, `SettingsPanel`
+- Не критично зараз, але збільшує cognitive load
 
-**5. `segments.ts::parseSegments` — НЕ strips `USE_ITEM`, `EQUIP`, `BREAK_ITEM` tags**
-- Вже fixed на сервері через `parseInventoryTags`, але `parseSegments` викликається і на клієнті (при reload initialMessages, L454-458 у GameChat.tsx)
-- Якщо LLM іноді не дотримується порядку тегів і залишає їх у середині тексту, клієнт побачить сирі теги в bubble
-- Low risk (теги зазвичай в кінці відповіді), але варто додати strip у `segments.ts`
+**5. `costTracker.ts` — застарілі ціни** ✅ ВИПРАВЛЕНО — `model_pricing` таблиця в БД, ціни Gemini 2.5 Flash виправлено ($0.30/$2.50).
 
-**6. `costTracker.ts` — `gemini-2.5-flash` і `gemini-2.0-flash` мають однакову ціну**
-- `gemini-2.5-flash: { inputPer1M: 0.10, outputPer1M: 0.40 }` — ймовірно застарілі ціни
-- Станом на 2026 ціни Gemini 2.5 Flash вищі за 2.0 Flash
-- Варто перевірити актуальний прайс
+**6. Docker volume для dynamic images** ✅ ПЕРЕВІРЕНО — `docker-compose.yml` вже має `./cthulhu/public/scenarios:/app/public/scenarios`.
 
-**7. `Dockerfile` / standalone — `public/scenarios/dynamic` кешування зображень**
-- `api/image/route.ts` кешує зображення в `public/scenarios/dynamic/`
-- Для Next.js standalone потрібно монтувати цю папку як volume в Docker, інакше при rebuild кеш втрачається
-- PROJECT_CONTEXT.md про це мовчить
+**7. `proxy.ts` — невикористаний** ✅ ВИПРАВЛЕНО — файл видалено.
 
-**8. `proxy.ts` — невикористаний?**
-- `src/proxy.ts` присутній, але не знайдений в жодному import
-- Варто перевірити чи він потрібен
+**8. `gemini-pro` мертвий код** ✅ ВИПРАВЛЕНО — видалено разом з п.2 аудиту.
 
-**9. `gemini-2.0-flash` як `gemini-pro`**
-- `GEMINI_MODELS['gemini-pro'] = 'gemini-2.0-flash'` в `api/ai/route.ts`
-- Але в `AI_PROVIDERS` (GameChat) немає `gemini-pro` опції → `modelId` буде `''` якщо хтось передасть `gemini-pro`
-- Мертвий код: провайдер недоступний з UI
+**9. `isPassiveMessage()` — тільки українські патерни**
+- При English сесіях (`language='en'`) короткі повідомлення можуть хибно класифікуватись як passive
+- Прийнятно поки; варто додати англійські патерни якщо стане помітно
 
-**10. `isPassiveMessage()` — тільки українські патерни**
-- L162-166 в `api/ai/route.ts`: regex тільки для українських слів
-- Якщо гравець пише англійською ("I search the room") — завжди буде passiveMessage через `message.length < 20` умову (якщо коротке)
-- Прийнятно для поточної аудиторії (україномовна гра), але варто задокументувати
+**10. `pendingRollResult` зависає в БД** ✅ ВИПРАВЛЕНО — force-clear на сервері коли гравець надсилає число.
 
-### Речі що добре спроектовані
-
-1. **Tag protocol** — чистий, розширюваний, server-authoritative. LLM — виконавець, сервер — джерело правди.
-2. **Three-tier prompt caching** — ruleset кешується найдовше, static поки сценарій не змінюється, dynamic щоразу новий. Економить ~70% токенів на кешованих запитах.
-3. **Non-blocking side effects** — `trackAPICall()` і NPC registration через `.catch(console.error)` — не блокують stream.
-4. **Optimistic SSE bubbles** — порожній bubble з'являється одразу, наповнюється chunk за chunk. UX відразу responsivе.
-5. **Partial NPC name matching** — `segments.ts` знаходить NPC по частковому збігу імені (ANT-11 fix).
-6. **Image disk cache** — SHA256 ключ від (prompt+type), 7 днів HTTP cache. Повторні `[IMAGE:]` теги з однаковим промптом безкоштовні.
-7. **Fallback chain для зображень**: Gemini → Pollinations (free). Resilient.
-8. **Auto-fallback TTS**: Gemini → OpenAI при 429/502.
-9. **DiceRoller key prop** — `key={skillName-threshold-idx}` гарантує remount на кожен новий roll, скидає стан анімації.
-10. **`dynamicNpcs` в WorldState** — improvised NPCs, яких немає в сценарії, auto-реєструються і показуються в CaseFilesPanel.
-
-### Пріоритетні покращення
+### Залишкові покращення
 
 | Пріоритет | Зміна | Складність |
 |-----------|-------|------------|
-| High | Fix `extractLocationFromMessages` — прибрати або замінити на `worldState.currentLocation` | Trivial |
-| High | `updateSession` batch — один UPDATE замість двох | Low |
-| Medium | `segments.ts` strip inventory tags на клієнтській стороні | Low |
-| Medium | Додати `gemini-pro` в `AI_PROVIDERS` або видалити з `GEMINI_MODELS` | Trivial |
-| Medium | Оновити PRICING в costTracker (перевірити актуальні ціни Gemini 2.5) | Trivial |
 | Low | Декомпозиція `GameChat.tsx` на хуки + менші компоненти | High |
 | Low | Документувати `dynamicNpcs`, `IMAGE_PROVIDER` env, image cache path в PROJECT_CONTEXT | Low |
-| Low | Перевірити та прибрати `src/proxy.ts` якщо невикористаний | Trivial |
-| Low | Додати keeperStyle до SessionList (session creation modal) | Low |
+| Low | `isPassiveMessage()` — додати англійські патерни для `language='en'` сесій | Low |
