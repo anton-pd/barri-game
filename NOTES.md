@@ -225,6 +225,19 @@
 
 ---
 
+## Глобальні налаштування моделі та TTS (2026-04-15)
+
+- `app_settings` таблиця в БД (key/value, PRIMARY KEY на key). Seeds: `ai_provider=gemini-flash`, `tts_provider=gemini`.
+- `GET/PATCH /api/admin/settings` — читання та оновлення налаштувань.
+- `getAllAppSettings()` + `setAppSetting()` в `queries.ts`.
+- Session page (`session/[id]/page.tsx`) завантажує налаштування server-side і передає в `GameChat` як пропси `defaultAiProvider` / `defaultTtsProvider`.
+- `GameChat`: `aiProvider` та `ttsProvider` більше не в localStorage — визначаються пропсами. Прибрано `changeAiProvider()`, `toggleTtsProvider()`, константу `AI_PROVIDERS`.
+- З ⚙️ панелі прибрано вибір моделі та кнопку TTS-провайдера.
+- Новий `KeeperSettings.tsx` client component в `/admin` — картки вибору моделі та TTS, зберігає при кліку, показує "Saved ✓".
+- За замовчуванням: **Gemini 2.5 Flash** + **Gemini TTS** (замість попереднього Claude Sonnet за замовчуванням).
+
+---
+
 ## Аналіз структури проекту (2026-04-15)
 
 Повний аудит кодової бази після фаз 0-14. Мета: знайти невідповідності між NOTES/PROJECT_CONTEXT та реальним кодом, технічний борг, потенційні баги та ідеї покращень.
