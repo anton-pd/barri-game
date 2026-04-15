@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.3] — 2026-04-15
+
+### Changed
+- **Scenario generator** — перемкнено з `claude-opus-4-6` на `claude-sonnet-4-6`. Економія ~$0.40 за генерацію (з ~$0.50 до ~$0.10). Якість структурованого JSON-виводу аналогічна.
+
+---
+
 ## [0.3.2] — 2026-04-15
 
 ### Changed

@@ -231,7 +231,7 @@ export default function ScenarioGenerator() {
             {status === 'generating' ? 'Generating…' : 'Generate Scenario'}
           </button>
           {status === 'generating' && (
-            <span className="text-xs text-stone-500">Calling Claude Opus — this takes ~20–40s</span>
+            <span className="text-xs text-stone-500">Calling Claude Sonnet — this takes ~15–25s</span>
           )}
         </div>
 
