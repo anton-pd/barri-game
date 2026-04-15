@@ -506,6 +506,14 @@ export async function POST(request: Request) {
           updatedWorldState = clearActiveEvent(updatedWorldState);
         }
 
+        // Force-clear pendingRollResult if the player sent a dice result (plain number).
+        // LLM often forgets [CLEAR_PENDING_ROLL]; without this the roll persists in DB
+        // and the DiceRoller reopens on every page load.
+        const isDiceResult = worldState.pendingRollResult && /^\d+$/.test(message.trim());
+        if (isDiceResult && updatedWorldState.pendingRollResult === worldState.pendingRollResult) {
+          updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
+        }
+
         const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
 
         // textForDB keeps NPC speech tags and IMAGE tags so the client can reconstruct
