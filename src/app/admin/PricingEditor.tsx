@@ -10,46 +10,52 @@ interface PricingRow {
   updated_at: string;
 }
 
-// Display conversion: perChar is stored internally but shown as $/1M tokens (4 chars/token)
+// perChar stored internally → display/edit as $/1M tokens (4 chars/token)
 function toDisplay(metric: string, value: number): number {
   if (metric === 'perChar') return parseFloat((value * 4_000_000).toPrecision(6));
   return value;
 }
-
 function toStorage(metric: string, displayValue: number): number {
   if (metric === 'perChar') return displayValue / 4_000_000;
   return displayValue;
 }
 
-function metricLabel(metric: string): string {
+type ModelGroup = {
+  provider: string;
+  model: string;
+  metrics: Record<string, number>; // metric → stored value_usd
+  updated_at: string;
+};
+
+function unitLabel(metric: string): string {
   switch (metric) {
-    case 'inputPer1M':  return 'Input $/1M tokens';
-    case 'outputPer1M': return 'Output $/1M tokens';
-    case 'perChar':     return '$/1M tokens (TTS)';
-    case 'perImage':    return '$/image';
-    case 'perMinute':   return '$/minute';
-    default:            return metric;
+    case 'perChar':    return '$/1M tok (TTS)';
+    case 'perImage':   return '$/image';
+    case 'perMinute':  return '$/min';
+    default:           return metric;
   }
 }
 
-function metricUnit(metric: string): string {
-  switch (metric) {
-    case 'inputPer1M':
-    case 'outputPer1M':
-    case 'perChar':     return '$/1M tok';
-    case 'perImage':    return '$/img';
-    case 'perMinute':   return '$/min';
-    default:            return '';
-  }
+function providerColor(p: string) {
+  if (p === 'anthropic') return 'bg-amber-900/40 text-amber-400';
+  if (p === 'gemini')    return 'bg-blue-900/40 text-blue-400';
+  return 'bg-stone-700 text-stone-400';
 }
 
 export default function PricingEditor() {
-  const [rows, setRows] = useState<PricingRow[]>([]);
+  const [rows, setRows]     = useState<PricingRow[]>([]);
   const [loading, setLoading] = useState(true);
-  // key = `${provider}|${model}|${metric}`, value = current input string
-  const [edits, setEdits] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  // edits keyed by `provider|model|metric`
+  const [edits, setEdits]   = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});  // keyed by `provider|model`
   const [saved,  setSaved]  = useState<Record<string, boolean>>({});
+
+  function fieldKey(provider: string, model: string, metric: string) {
+    return `${provider}|${model}|${metric}`;
+  }
+  function modelKey(provider: string, model: string) {
+    return `${provider}|${model}`;
+  }
 
   useEffect(() => {
     fetch('/api/admin/pricing')
@@ -58,99 +64,167 @@ export default function PricingEditor() {
         setRows(data);
         const initial: Record<string, string> = {};
         for (const r of data) {
-          initial[key(r)] = String(toDisplay(r.metric, r.value_usd));
+          initial[fieldKey(r.provider, r.model, r.metric)] = String(toDisplay(r.metric, r.value_usd));
         }
         setEdits(initial);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  function key(r: Pick<PricingRow, 'provider' | 'model' | 'metric'>): string {
-    return `${r.provider}|${r.model}|${r.metric}`;
+  // Group by provider+model, preserve insertion order
+  const groups: ModelGroup[] = [];
+  const seen = new Map<string, ModelGroup>();
+  for (const r of rows) {
+    const mk = modelKey(r.provider, r.model);
+    if (!seen.has(mk)) {
+      const g: ModelGroup = { provider: r.provider, model: r.model, metrics: {}, updated_at: r.updated_at };
+      seen.set(mk, g);
+      groups.push(g);
+    }
+    seen.get(mk)!.metrics[r.metric] = r.value_usd;
+    // use latest updated_at for the group
+    if (r.updated_at > seen.get(mk)!.updated_at) seen.get(mk)!.updated_at = r.updated_at;
   }
 
-  async function save(row: PricingRow) {
-    const k = key(row);
-    const displayVal = parseFloat(edits[k] ?? '0');
-    if (isNaN(displayVal) || displayVal < 0) return;
-
-    setSaving(s => ({ ...s, [k]: true }));
+  async function saveModel(g: ModelGroup) {
+    const mk = modelKey(g.provider, g.model);
+    setSaving(s => ({ ...s, [mk]: true }));
     try {
-      const res = await fetch('/api/admin/pricing', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider:  row.provider,
-          model:     row.model,
-          metric:    row.metric,
-          value_usd: toStorage(row.metric, displayVal),
-        }),
-      });
-      if (res.ok) {
-        setSaved(s => ({ ...s, [k]: true }));
-        setTimeout(() => setSaved(s => ({ ...s, [k]: false })), 2000);
-        // Update local rows so updated_at reflects change
-        setRows(prev => prev.map(r =>
-          key(r) === k ? { ...r, value_usd: toStorage(row.metric, displayVal), updated_at: new Date().toISOString() } : r
-        ));
-      }
+      await Promise.all(
+        Object.entries(g.metrics).map(([metric]) => {
+          const fk = fieldKey(g.provider, g.model, metric);
+          const displayVal = parseFloat(edits[fk] ?? '0');
+          if (isNaN(displayVal) || displayVal < 0) return Promise.resolve();
+          return fetch('/api/admin/pricing', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider:  g.provider,
+              model:     g.model,
+              metric,
+              value_usd: toStorage(metric, displayVal),
+            }),
+          });
+        })
+      );
+      setSaved(s => ({ ...s, [mk]: true }));
+      setTimeout(() => setSaved(s => ({ ...s, [mk]: false })), 2000);
+      // update local stored values
+      setRows(prev => prev.map(r => {
+        if (r.provider !== g.provider || r.model !== g.model) return r;
+        const fk = fieldKey(r.provider, r.model, r.metric);
+        const displayVal = parseFloat(edits[fk] ?? String(toDisplay(r.metric, r.value_usd)));
+        return { ...r, value_usd: toStorage(r.metric, displayVal), updated_at: new Date().toISOString() };
+      }));
     } finally {
-      setSaving(s => ({ ...s, [k]: false }));
+      setSaving(s => ({ ...s, [mk]: false }));
     }
   }
 
-  // Group rows: first LLM/TTS (per-token), then image/stt
-  const tokenRows  = rows.filter(r => ['inputPer1M', 'outputPer1M', 'perChar'].includes(r.metric));
-  const otherRows  = rows.filter(r => !['inputPer1M', 'outputPer1M', 'perChar'].includes(r.metric));
+  function isDirty(g: ModelGroup): boolean {
+    return Object.entries(g.metrics).some(([metric, stored]) => {
+      const fk = fieldKey(g.provider, g.model, metric);
+      return parseFloat(edits[fk] ?? '') !== toDisplay(metric, stored);
+    });
+  }
+
+  function numInput(provider: string, model: string, metric: string, placeholder?: string) {
+    const fk = fieldKey(provider, model, metric);
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-stone-600 text-xs">$</span>
+        <input
+          type="number"
+          min="0"
+          step="any"
+          placeholder={placeholder}
+          value={edits[fk] ?? ''}
+          onChange={e => setEdits(prev => ({ ...prev, [fk]: e.target.value }))}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              const g = groups.find(g => g.provider === provider && g.model === model);
+              if (g) saveModel(g);
+            }
+          }}
+          className="w-24 px-2 py-1 rounded bg-stone-800 border border-stone-700 text-stone-200 text-xs font-mono focus:outline-none focus:border-amber-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </div>
+    );
+  }
+
+  const llmGroups   = groups.filter(g => 'inputPer1M' in g.metrics || 'outputPer1M' in g.metrics);
+  const otherGroups = groups.filter(g => !('inputPer1M' in g.metrics) && !('outputPer1M' in g.metrics));
 
   if (loading) return <p className="text-stone-600 text-sm py-4">Завантаження...</p>;
 
-  function renderRow(row: PricingRow) {
-    const k = key(row);
-    const isDirty = parseFloat(edits[k] ?? '') !== toDisplay(row.metric, row.value_usd);
+  function renderGroup(g: ModelGroup) {
+    const mk    = modelKey(g.provider, g.model);
+    const dirty = isDirty(g);
+    const isLlm = 'inputPer1M' in g.metrics || 'outputPer1M' in g.metrics;
+
+    // For non-LLM models, find the single "unit" metric
+    const unitMetric = Object.keys(g.metrics).find(m => !['inputPer1M', 'outputPer1M'].includes(m));
+
     return (
-      <tr key={k} className="border-b border-stone-800/50 hover:bg-stone-800/20">
+      <tr key={mk} className="border-b border-stone-800/50 hover:bg-stone-800/20">
+        {/* Provider */}
         <td className="px-4 py-2.5">
-          <span className={`text-xs px-1.5 py-0.5 rounded ${
-            row.provider === 'anthropic' ? 'bg-amber-900/40 text-amber-400' :
-            row.provider === 'gemini'    ? 'bg-blue-900/40 text-blue-400' :
-                                          'bg-stone-700 text-stone-400'
-          }`}>{row.provider}</span>
+          <span className={`text-xs px-1.5 py-0.5 rounded ${providerColor(g.provider)}`}>
+            {g.provider}
+          </span>
         </td>
-        <td className="px-4 py-2.5 font-mono text-xs text-stone-300">{row.model}</td>
-        <td className="px-4 py-2.5 text-stone-400 text-xs">{metricLabel(row.metric)}</td>
+
+        {/* Model */}
+        <td className="px-4 py-2.5 font-mono text-xs text-stone-300 max-w-xs truncate">
+          {g.model}
+        </td>
+
+        {/* Input $/1M */}
         <td className="px-4 py-2.5">
-          <div className="flex items-center gap-1.5">
-            <span className="text-stone-600 text-xs">$</span>
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={edits[k] ?? ''}
-              onChange={e => setEdits(prev => ({ ...prev, [k]: e.target.value }))}
-              onKeyDown={e => e.key === 'Enter' && save(row)}
-              className="w-28 px-2 py-1 rounded bg-stone-800 border border-stone-700 text-stone-200 text-xs font-mono focus:outline-none focus:border-amber-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-            <span className="text-stone-600 text-xs">{metricUnit(row.metric)}</span>
-          </div>
+          {isLlm && 'inputPer1M' in g.metrics
+            ? numInput(g.provider, g.model, 'inputPer1M')
+            : <span className="text-stone-700 text-xs">—</span>}
         </td>
+
+        {/* Output $/1M */}
+        <td className="px-4 py-2.5">
+          {isLlm && 'outputPer1M' in g.metrics
+            ? numInput(g.provider, g.model, 'outputPer1M')
+            : <span className="text-stone-700 text-xs">—</span>}
+        </td>
+
+        {/* Unit price (TTS / image / STT) */}
+        <td className="px-4 py-2.5">
+          {unitMetric ? (
+            <div className="flex items-center gap-2">
+              {numInput(g.provider, g.model, unitMetric)}
+              <span className="text-stone-500 text-xs">{unitLabel(unitMetric)}</span>
+            </div>
+          ) : (
+            <span className="text-stone-700 text-xs">—</span>
+          )}
+        </td>
+
+        {/* Save button */}
         <td className="px-4 py-2.5">
           <button
-            onClick={() => save(row)}
-            disabled={saving[k] || !isDirty}
-            className={`text-xs px-3 py-1 rounded-lg border transition-colors ${
-              saved[k]
+            onClick={() => saveModel(g)}
+            disabled={saving[mk] || !dirty}
+            className={`text-xs px-3 py-1 rounded-lg border transition-colors whitespace-nowrap ${
+              saved[mk]
                 ? 'bg-emerald-900/40 border-emerald-700 text-emerald-400'
-                : isDirty
+                : dirty
                 ? 'bg-amber-800/40 border-amber-700 text-amber-300 hover:bg-amber-800/60'
                 : 'bg-stone-800 border-stone-700 text-stone-600 cursor-default'
             }`}
           >
-            {saving[k] ? '...' : saved[k] ? '✓ Saved' : 'Update'}
+            {saving[mk] ? '...' : saved[mk] ? '✓ Saved' : 'Update'}
           </button>
         </td>
-        <td className="px-4 py-2.5 text-stone-600 text-xs">
-          {new Date(row.updated_at).toLocaleDateString()}
+
+        {/* Updated */}
+        <td className="px-4 py-2.5 text-stone-600 text-xs whitespace-nowrap">
+          {new Date(g.updated_at).toLocaleDateString()}
         </td>
       </tr>
     );
@@ -165,40 +239,41 @@ export default function PricingEditor() {
             <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
               <th className="text-left px-4 py-3">Provider</th>
               <th className="text-left px-4 py-3">Model</th>
-              <th className="text-left px-4 py-3">Metric</th>
-              <th className="text-left px-4 py-3">Value</th>
+              <th className="text-left px-4 py-3">Input $/1M tok</th>
+              <th className="text-left px-4 py-3">Output $/1M tok</th>
+              <th className="text-left px-4 py-3">Unit price</th>
               <th className="px-4 py-3"></th>
               <th className="text-left px-4 py-3">Updated</th>
             </tr>
           </thead>
           <tbody>
-            {tokenRows.length > 0 && (
+            {llmGroups.length > 0 && (
               <tr className="bg-stone-800/20">
-                <td colSpan={6} className="px-4 py-1.5 text-stone-600 text-xs uppercase tracking-widest">
-                  LLM &amp; TTS — billed per token
+                <td colSpan={7} className="px-4 py-1 text-stone-600 text-xs uppercase tracking-widest">
+                  LLM — per token
                 </td>
               </tr>
             )}
-            {tokenRows.map(renderRow)}
-            {otherRows.length > 0 && (
+            {llmGroups.map(renderGroup)}
+            {otherGroups.length > 0 && (
               <tr className="bg-stone-800/20">
-                <td colSpan={6} className="px-4 py-1.5 text-stone-600 text-xs uppercase tracking-widest">
-                  Image &amp; STT — billed per unit
+                <td colSpan={7} className="px-4 py-1 text-stone-600 text-xs uppercase tracking-widest">
+                  TTS / Image / STT — per unit
                 </td>
               </tr>
             )}
-            {otherRows.map(renderRow)}
-            {rows.length === 0 && (
+            {otherGroups.map(renderGroup)}
+            {groups.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-stone-600">
-                  No pricing data yet — will populate on first API call
+                <td colSpan={7} className="px-4 py-8 text-center text-stone-600">
+                  No pricing data — will populate on first API call
                 </td>
               </tr>
             )}
           </tbody>
         </table>
         <p className="px-4 py-2 text-stone-700 text-xs border-t border-stone-800">
-          TTS perChar values are displayed and edited as $/1M tokens (÷ 4 chars/token). Press Enter or click Update to save.
+          TTS values shown as $/1M tokens (auto-converts to/from internal perChar). Enter or Update to save.
         </p>
       </div>
     </section>
