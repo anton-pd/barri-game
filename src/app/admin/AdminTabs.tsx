@@ -6,6 +6,7 @@ import RoleToggle from './RoleToggle';
 import KeeperSettings from './KeeperSettings';
 import ScenarioGenerator from './ScenarioGenerator';
 import UsageTab from './UsageTab';
+import PricingEditor from './PricingEditor';
 
 type Tab = 'users' | 'usage' | 'scenarios' | 'settings';
 
@@ -169,7 +170,12 @@ export default function AdminTabs({
 
       {activeTab === 'usage'     && <UsageTab />}
       {activeTab === 'scenarios' && <ScenarioGenerator />}
-      {activeTab === 'settings'  && <KeeperSettings />}
+      {activeTab === 'settings'  && (
+        <div className="space-y-10">
+          <KeeperSettings />
+          <PricingEditor />
+        </div>
+      )}
     </div>
   );
 }
