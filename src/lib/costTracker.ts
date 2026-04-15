@@ -1,6 +1,18 @@
 // API cost tracking — prices loaded from DB (model_pricing table), cached 7 days
 import sql from './db';
 
+export type Period = 'today' | 'week' | 'month' | 'all' | 'custom';
+
+function periodFilter(period: Period, date?: string) {
+  switch (period) {
+    case 'today':  return sql`created_at >= CURRENT_DATE`;
+    case 'week':   return sql`created_at >= date_trunc('week', NOW())`;
+    case 'month':  return sql`created_at >= date_trunc('month', NOW())`;
+    case 'custom': return date ? sql`DATE(created_at) = ${date}::date` : sql`created_at > NOW() - INTERVAL '30 days'`;
+    default:       return sql`TRUE`; // 'all'
+  }
+}
+
 // ── Pricing cache ─────────────────────────────────────────────────────────────
 
 type PricingMap = Record<string, Record<string, Record<string, number>>>;
@@ -168,7 +180,8 @@ export async function getAdminOverview() {
   return result;
 }
 
-export async function getModelBreakdown() {
+export async function getModelBreakdown(period: Period = 'month', date?: string) {
+  const pf = periodFilter(period, date);
   const rows = await sql`
     SELECT
       provider,
@@ -181,7 +194,7 @@ export async function getModelBreakdown() {
       SUM(image_count)::int          AS image_count,
       SUM(cost_usd)::float           AS total_cost
     FROM api_usage
-    WHERE created_at > NOW() - INTERVAL '30 days'
+    WHERE ${pf}
     GROUP BY provider, model, type
     ORDER BY total_cost DESC NULLS LAST
   `;
@@ -192,25 +205,149 @@ export async function getModelBreakdown() {
   }[];
 }
 
-export async function getSessionBreakdown() {
-  const rows = await sql`
+export interface SessionModelRow {
+  session_id: string; provider: string; model: string; type: string;
+  calls: number; input_tokens: number | null; output_tokens: number | null;
+  characters: number | null; image_count: number | null; cost: number;
+}
+
+export interface EnhancedSessionRow {
+  session_name: string; scenario_id: string; session_id: string;
+  player_count: number; message_count: number; keeper_message_count: number;
+  calls: number; total_cost: number;
+  avg_output_tokens: number | null; avg_input_tokens: number | null;
+  last_used: string;
+  models: SessionModelRow[];
+}
+
+export async function getSessionBreakdownEnhanced(): Promise<EnhancedSessionRow[]> {
+  const sessionRows = await sql`
     SELECT
-      gs.name                          AS session_name,
+      gs.name                                          AS session_name,
       gs.scenario_id,
-      au.session_id,
-      COUNT(*)::int                    AS calls,
-      SUM(au.cost_usd)::float          AS total_cost,
-      MAX(au.created_at)               AS last_used
-    FROM api_usage au
-    JOIN game_sessions gs ON gs.id = au.session_id
-    WHERE au.created_at > NOW() - INTERVAL '30 days'
-      AND au.session_id IS NOT NULL
-    GROUP BY gs.name, gs.scenario_id, au.session_id
-    ORDER BY total_cost DESC NULLS LAST
-    LIMIT 20
+      gs.id                                            AS session_id,
+      jsonb_array_length(gs.players)                   AS player_count,
+      COALESCE(msg_agg.message_count, 0)::int          AS message_count,
+      COALESCE(msg_agg.keeper_message_count, 0)::int   AS keeper_message_count,
+      au_agg.calls,
+      au_agg.total_cost,
+      au_agg.avg_output_tokens,
+      au_agg.avg_input_tokens,
+      au_agg.last_used
+    FROM game_sessions gs
+    JOIN (
+      SELECT
+        session_id,
+        COUNT(*)::int                                                    AS calls,
+        SUM(cost_usd)::float                                             AS total_cost,
+        AVG(CASE WHEN type = 'llm' THEN output_tokens END)::float        AS avg_output_tokens,
+        AVG(CASE WHEN type = 'llm' THEN input_tokens  END)::float        AS avg_input_tokens,
+        MAX(created_at)                                                  AS last_used
+      FROM api_usage
+      WHERE session_id IS NOT NULL
+      GROUP BY session_id
+    ) au_agg ON au_agg.session_id = gs.id
+    LEFT JOIN (
+      SELECT
+        session_id,
+        COUNT(*)::int                                        AS message_count,
+        COUNT(CASE WHEN role = 'assistant' THEN 1 END)::int  AS keeper_message_count
+      FROM messages
+      GROUP BY session_id
+    ) msg_agg ON msg_agg.session_id = gs.id
+    ORDER BY au_agg.total_cost DESC NULLS LAST
+    LIMIT 50
   `;
-  return rows as unknown as {
-    session_name: string; scenario_id: string; session_id: string;
-    calls: number; total_cost: number; last_used: string;
-  }[];
+
+  if (sessionRows.length === 0) return [];
+
+  const sessionIds = (sessionRows as unknown as { session_id: string }[]).map(r => r.session_id);
+
+  const modelRows = await sql`
+    SELECT
+      session_id,
+      provider, model, type,
+      COUNT(*)::int           AS calls,
+      SUM(input_tokens)::bigint  AS input_tokens,
+      SUM(output_tokens)::bigint AS output_tokens,
+      SUM(characters)::bigint    AS characters,
+      SUM(image_count)::int      AS image_count,
+      SUM(cost_usd)::float       AS cost
+    FROM api_usage
+    WHERE session_id = ANY(${sessionIds})
+    GROUP BY session_id, provider, model, type
+    ORDER BY cost DESC NULLS LAST
+  `;
+
+  const modelsBySession = new Map<string, SessionModelRow[]>();
+  for (const m of modelRows as unknown as SessionModelRow[]) {
+    const sid = m.session_id;
+    if (!modelsBySession.has(sid)) modelsBySession.set(sid, []);
+    modelsBySession.get(sid)!.push(m);
+  }
+
+  return (sessionRows as unknown as EnhancedSessionRow[]).map(s => ({
+    ...s,
+    models: modelsBySession.get(s.session_id) ?? [],
+  }));
+}
+
+export interface AccountModelRow {
+  user_id: string; provider: string; model: string; type: string;
+  calls: number; input_tokens: number | null; output_tokens: number | null;
+  characters: number | null; image_count: number | null; cost: number;
+}
+
+export interface AccountRow {
+  user_id: string; email: string; session_count: number;
+  total_cost: number; last_active: string;
+  models: AccountModelRow[];
+}
+
+export async function getAccountsBreakdown(period: Period = 'month', date?: string): Promise<AccountRow[]> {
+  const pf = periodFilter(period, date);
+
+  const accountRows = await sql`
+    SELECT
+      u.id                                       AS user_id,
+      u.email,
+      COUNT(DISTINCT au.session_id)::int         AS session_count,
+      SUM(au.cost_usd)::float                    AS total_cost,
+      MAX(au.created_at)                         AS last_active
+    FROM api_usage au
+    JOIN users u ON u.id = au.user_id
+    WHERE ${pf}
+    GROUP BY u.id, u.email
+    ORDER BY total_cost DESC NULLS LAST
+  `;
+
+  if (accountRows.length === 0) return [];
+
+  const modelRows = await sql`
+    SELECT
+      user_id,
+      provider, model, type,
+      COUNT(*)::int              AS calls,
+      SUM(input_tokens)::bigint  AS input_tokens,
+      SUM(output_tokens)::bigint AS output_tokens,
+      SUM(characters)::bigint    AS characters,
+      SUM(image_count)::int      AS image_count,
+      SUM(cost_usd)::float       AS cost
+    FROM api_usage
+    WHERE ${pf}
+    GROUP BY user_id, provider, model, type
+    ORDER BY cost DESC NULLS LAST
+  `;
+
+  const modelsByUser = new Map<string, AccountModelRow[]>();
+  for (const m of modelRows as unknown as AccountModelRow[]) {
+    const uid = m.user_id;
+    if (!modelsByUser.has(uid)) modelsByUser.set(uid, []);
+    modelsByUser.get(uid)!.push(m);
+  }
+
+  return (accountRows as unknown as AccountRow[]).map(a => ({
+    ...a,
+    models: modelsByUser.get(a.user_id) ?? [],
+  }));
 }

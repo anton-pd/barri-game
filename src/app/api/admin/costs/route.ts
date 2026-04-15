@@ -1,8 +1,11 @@
-// CHANGED: New admin endpoint for API cost overview
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
-import { getAdminOverview, getUserCosts, getSessionCosts, getModelBreakdown, getSessionBreakdown } from '@/lib/costTracker';
+import {
+  getAdminOverview, getUserCosts, getSessionCosts,
+  getModelBreakdown, getSessionBreakdownEnhanced, getAccountsBreakdown,
+  type Period,
+} from '@/lib/costTracker';
 
 export async function GET(request: Request) {
   try {
@@ -18,23 +21,21 @@ export async function GET(request: Request) {
     const breakdown = searchParams.get('breakdown');
     const userId    = searchParams.get('userId');
     const sessionId = searchParams.get('sessionId');
+    const period    = (searchParams.get('period') ?? 'month') as Period;
+    const date      = searchParams.get('date') ?? undefined;
 
-    if (breakdown === 'model')   return NextResponse.json(await getModelBreakdown());
-    if (breakdown === 'session') return NextResponse.json(await getSessionBreakdown());
+    if (breakdown === 'model')             return NextResponse.json(await getModelBreakdown(period, date));
+    if (breakdown === 'sessions-enhanced') return NextResponse.json(await getSessionBreakdownEnhanced());
+    if (breakdown === 'accounts')          return NextResponse.json(await getAccountsBreakdown(period, date));
 
-    if (sessionId) {
-      const costs = await getSessionCosts(sessionId);
-      return NextResponse.json(costs);
-    }
+    if (sessionId) return NextResponse.json(await getSessionCosts(sessionId));
 
     if (userId) {
       const days = Number(searchParams.get('days') ?? '30');
-      const costs = await getUserCosts(userId, days);
-      return NextResponse.json(costs);
+      return NextResponse.json(await getUserCosts(userId, days));
     }
 
-    const overview = await getAdminOverview();
-    return NextResponse.json(overview);
+    return NextResponse.json(await getAdminOverview());
   } catch (error) {
     console.error('Admin costs error:', error);
     return NextResponse.json({ error: 'Failed to fetch costs' }, { status: 500 });
