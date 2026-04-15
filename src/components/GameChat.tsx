@@ -39,28 +39,42 @@ interface GameChatProps {
 interface DynamicImageMeta { prompt: string; type: string }
 
 // Inline image component for dynamic images
-// CHANGED: Added sessionId prop for cost tracking
-function DynamicImage({ prompt, type, sessionId }: { prompt: string; type: string; sessionId: string }) {
-  const [src, setSrc]         = useState<string | null>(null);
+// CHANGED: Supports static url resolving from session
+function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: { prompt: string; type: string; sessionId: string; msgId?: string; url?: string; onUrlGenerated?: (msgId: string, url: string) => void }) {
+  const [src, setSrc]         = useState<string | null>(url || null);
   const [error, setError]     = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const fetched = useRef(false);
 
   useEffect(() => {
-    if (fetched.current) return;
+    if (url) {
+      setSrc(url);
+      return;
+    }
+    if (fetched.current || !msgId || !onUrlGenerated) return;
     fetched.current = true;
-    const url = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}`;
-    fetch(url)
-      .then((r) => (r.ok ? r.blob() : Promise.reject()))
-      .then((blob) => setSrc(URL.createObjectURL(blob)))
+    
+    const urlStr = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}&json=true`;
+    fetch(urlStr)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (data.url) {
+          setSrc(data.url);
+          onUrlGenerated(msgId, data.url);
+        } else {
+          setError(true);
+        }
+      })
       .catch(() => setError(true));
-  }, [prompt, type, sessionId]);
+  }, [prompt, type, sessionId, url, msgId, onUrlGenerated]);
 
   if (error) return null;
 
   if (!src) {
     return (
-      <div className="mt-2 rounded-xl overflow-hidden bg-stone-700 animate-pulse" style={{ height: 160 }} />
+      <div className="mt-2 rounded-xl overflow-hidden bg-stone-800 animate-pulse flex items-center justify-center border border-stone-700" style={{ height: 160 }}>
+        <span className="text-stone-500 text-xs font-medium uppercase tracking-wide">Генерується зображення...</span>
+      </div>
     );
   }
 
@@ -104,6 +118,8 @@ function CaseFilesPanel({
   npcRelations,
   dynamicNpcs,
   dynamicImages,
+  sessionImages,
+  onUrlGenerated,
   sessionId,
   onClose,
 }: {
@@ -114,6 +130,8 @@ function CaseFilesPanel({
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
   dynamicNpcs?: { id: string; name: string }[];
   dynamicImages: Record<string, DynamicImageMeta>;
+  sessionImages?: Record<string, string>;
+  onUrlGenerated?: (msgId: string, url: string) => void;
   sessionId: string;
   onClose?: () => void;
 }) {
@@ -246,7 +264,7 @@ function CaseFilesPanel({
                 <div className="space-y-2">
                   {Object.entries(dynamicImages).map(([msgId, meta]) => (
                     <div key={msgId}>
-                      <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} />
+                      <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
                       <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
                         {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
                       </p>
@@ -371,6 +389,22 @@ async function readSseStream(
 
 export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
+
+  const handleUrlGenerated = (msgId: string, url: string) => {
+    setSession((s) => {
+      const updatedImages = { ...(s.world_state.sessionImages ?? {}), [msgId]: url };
+      const updatedWorldState = { ...s.world_state, sessionImages: updatedImages };
+      
+      fetch(`/api/sessions/${s.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ world_state: updatedWorldState }),
+      }).catch(console.error);
+      
+      return { ...s, world_state: updatedWorldState };
+    });
+  };
+
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [voiceStyles, setVoiceStyles]         = useState<Record<string, string>>({});
   const [msgSegments, setMsgSegments]         = useState<Record<string, Segment[]>>({});
@@ -435,16 +469,23 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Parse NPC segments from initial messages so speech bubbles survive reload
+  // Parse NPC segments and dynamic images from initial messages so speech bubbles survive reload
   useEffect(() => {
     const initial: Record<string, Segment[]> = {};
+    const initialImgs: Record<string, DynamicImageMeta> = {};
     for (const msg of initialMessages) {
       if (msg.role === 'assistant') {
         const segs = parseSegments(msg.content, scenarioNpcs);
         if (hasNpcSpeech(segs)) initial[msg.id] = segs;
+        
+        const imgMatch = msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+        if (imgMatch) {
+          initialImgs[msg.id] = { type: imgMatch[1], prompt: imgMatch[2].trim() };
+        }
       }
     }
     if (Object.keys(initial).length > 0) setMsgSegments(initial);
+    if (Object.keys(initialImgs).length > 0) setDynamicImages(initialImgs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -492,15 +533,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           ));
         });
         if (!data) return;
+        const introRealId = (data.messageId as string | undefined) ?? introId;
         setMessages((prev) => prev.map((m) =>
-          m.id === introId ? { ...m, content: data.response as string } : m
+          m.id === introId ? { ...m, id: introRealId, content: data.response as string } : m
         ));
-        if (data.voiceStyle)  setVoiceStyles({ [introId]: data.voiceStyle as string });
-        if (data.segments)    setMsgSegments({ [introId]: data.segments as Segment[] });
+        if (data.voiceStyle)  setVoiceStyles({ [introRealId]: data.voiceStyle as string });
+        if (data.segments)    setMsgSegments({ [introRealId]: data.segments as Segment[] });
         if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state as typeof s.world_state }));
-        if (data.imagePrompt) setDynamicImages({ [introId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' } });
+        if (data.imagePrompt) setDynamicImages({ [introRealId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' } });
         if (data.location)    { setCurrentLocation(data.location as string); setCurrentLocationName((data.locationName as string | null) ?? null); playAmbient(data.location as string); }
-        if (autoVoiceEnabled) speakMsg(introId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
+        if (autoVoiceEnabled) speakMsg(introRealId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       })
       .catch(() => {
         setMessages([{
@@ -767,12 +809,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       if (!data) throw new Error('No response from AI');
 
       // Replace streaming preview with clean server text + update all state
+      // Remap optimistic local ID → real DB message ID so sessionImages keys match on reload
+      const realId = (data.messageId as string | undefined) ?? optimisticId;
       setMessages((prev) => prev.map((m) =>
-        m.id === optimisticId ? { ...m, content: data.response as string } : m
+        m.id === optimisticId ? { ...m, id: realId, content: data.response as string } : m
       ));
 
-      if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [optimisticId]: data.voiceStyle as string }));
-      if (data.segments)    setMsgSegments((prev) => ({ ...prev, [optimisticId]: data.segments as Segment[] }));
+      if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [realId]: data.voiceStyle as string }));
+      if (data.segments)    setMsgSegments((prev) => ({ ...prev, [realId]: data.segments as Segment[] }));
       if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state as typeof s.world_state }));
       if (data.location)    {
         setCurrentLocation(data.location as string);
@@ -795,11 +839,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       }
 
       if (data.imagePrompt) setDynamicImages((prev) => ({
-        ...prev, [optimisticId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
+        ...prev, [realId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
       }));
 
       if (autoVoiceEnabled) {
-        speakMsg(optimisticId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
+        speakMsg(realId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       }
     } catch {
       setMessages((prev) => prev.map((m) =>
@@ -977,7 +1021,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                           {si === 0 && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
                           <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
                             {renderText(seg.text)}
-                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
                           {isLast && replayBtn}
                         </div>
@@ -991,7 +1035,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                           <p className="text-xs text-amber-500 mb-1">{seg.name}</p>
                           <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed italic bg-stone-800/60 text-stone-200 rounded-tl-sm border border-amber-900/40">
                             {renderText(seg.text)}
-                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
                           {isLast && replayBtn}
                         </div>
@@ -1010,7 +1054,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 <p className="text-xs text-amber-700 mb-1">Кіпер</p>
                 <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
                   {renderText(displayContent)}
-                  {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} />}
+                  {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                 </div>
                 {replayBtn}
               </div>
@@ -1172,6 +1216,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           npcRelations={session.world_state?.npcRelations ?? {}}
           dynamicNpcs={session.world_state?.dynamicNpcs}
           dynamicImages={dynamicImages}
+          sessionImages={session.world_state.sessionImages}
+          onUrlGenerated={handleUrlGenerated}
           sessionId={session.id}
           onClose={() => setShowSidebar(false)}
         />

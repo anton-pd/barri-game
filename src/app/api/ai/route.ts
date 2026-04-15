@@ -604,7 +604,7 @@ export async function POST(request: Request) {
             await saveMessage(sessionId, 'user', message, playerIdx);
           }
         }
-        await saveMessage(sessionId, 'assistant', textForDB);
+        const savedAssistantMsg = await saveMessage(sessionId, 'assistant', textForDB);
 
         // ── Persist state ───────────────────────────────────────────────────
 
@@ -650,6 +650,7 @@ export async function POST(request: Request) {
 
         send('done', {
           response: cleanText,
+          messageId: savedAssistantMsg.id,
           voiceStyle,
           segments,
           aiProvider,

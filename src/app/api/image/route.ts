@@ -45,14 +45,19 @@ export async function GET(request: Request) {
   const prompt    = searchParams.get('prompt')?.trim();
   const type      = searchParams.get('type') ?? 'scene';
   const sessionId = searchParams.get('sessionId') ?? undefined;
+  const asJson    = searchParams.get('json') === 'true';
 
   if (!prompt) return new Response('prompt is required', { status: 400 });
 
   const cacheKey = getCacheKey(prompt, type);
+  const fileUrl = `/scenarios/dynamic/${cacheKey}.jpg`;
 
   // Serve from disk cache if available — no API cost
   const cached = getCachedImage(cacheKey);
   if (cached) {
+    if (asJson) {
+      return Response.json({ url: fileUrl });
+    }
     return new Response(cached.buffer as ArrayBuffer, {
       headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' },
     });
@@ -75,6 +80,11 @@ export async function GET(request: Request) {
   } else {
     response = await handlePollinations(fullPrompt, cacheKey);
   }
+  
+  if (response.ok && asJson) {
+    return Response.json({ url: fileUrl });
+  }
+
   return response;
 }
 

@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.9] — 2026-04-15
+
+### Fixed
+- **Dynamic image re-generation on reload** — зображення `[IMAGE:...]` більше не перегенеровуються при заході у стару сесію. URL зберігається у `world_state.sessionImages` під реальним DB message ID (повертається у `done` event). При перезавантаженні `DynamicImage` знаходить URL у `sessionImages` і відображає збережений файл без запиту до Gemini.
+- **`?json=true` параметр для `/api/image`** — повертає `{ url }` замість файлового буфера для client-side збереження URL.
+
+---
+
 ## [0.2.8] — 2026-04-15
 
 ### Fixed

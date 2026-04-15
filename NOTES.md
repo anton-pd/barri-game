@@ -345,3 +345,20 @@ if (updates.players !== undefined) {
 1. **[ЗМІНЕНО] queries.ts**: Замінено перелік парметрів у `sql.unsafe` на вбудований синтаксис `postgres.js` (`sql\`UPDATE game_sessions SET ${sql(data)}\``), який правильно зберігає JSON без подвійного Stringify парсингу.
 2. **[ЗМІНЕНО] SessionList.tsx**: Додано `graceful degradation` до клієнтського коду, перевіряючи `typeof s.players === 'string'` та `typeof s.world_state === 'string'`, парсячи їх назад для backward compatibility.
 
+
+---
+
+## Fix: Dynamic image re-generation on session reload (ANT-Image-Cache) 2026-04-15
+
+### Проблема
+При заході у стару сесію всі зображення `[IMAGE:...]` перегенеровувались заново (витрачались токени Gemini). Причина: клієнт зберігав URL у `sessionImages` під ключем `optimisticId` (timestamp на момент запиту), а після перезавантаження `dynamicImages` населявся з реальних `msg.id` з БД — ключі не співпадали, тому `DynamicImage` не знаходив кешований URL і робив новий запит до API.
+
+### Рішення
+Три файли:
+1. **`src/types/index.ts`** — `sessionImages?: Record<string, string>` у `WorldState` (додано Gemini)
+2. **`src/app/api/image/route.ts`** — підтримка `?json=true` для повернення `{ url }` замість буфера (додано Gemini)
+3. **`src/app/api/ai/route.ts`** — повертаємо `messageId: savedAssistantMsg.id` у `done` event замість того, щоб ігнорувати return value `saveMessage()`
+4. **`src/components/GameChat.tsx`** — `DynamicImage` приймає `url` prop і `onUrlGenerated` callback (додано Gemini); після отримання `done` event перемаппуємо `optimisticId`/`introId` → `realId` у `messages`, `voiceStyles`, `msgSegments`, `dynamicImages`; `handleUrlGenerated` зберігає URL у `sessionImages[realId]` та PATCH-ить БД
+
+### Ключове рішення
+Не намагатись "виправити" кеш на рівні файлової системи — проблема в ключах React state. Достатньо повернути реальний DB ID з API і перемаппувати optimistic ID одразу після отримання відповіді.

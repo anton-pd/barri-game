@@ -38,6 +38,8 @@ export interface WorldState {
     description: string;
     groupId: string;
   };
+  // Dynamic images cache
+  sessionImages?: Record<string, string>;
 }
 
 // CHANGED: Added equipped and broken state
