@@ -5,7 +5,6 @@ import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/type
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
-import StatsBar from './StatsBar';
 import VoiceButton from './VoiceButton';
 import DiceRoller from './DiceRoller';
 
@@ -946,8 +945,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           )}
         </div>
       )}
-
-      <StatsBar players={session.players} onUpdatePlayers={updatePlayers} onUseItem={handleUseItem} />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
