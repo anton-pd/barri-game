@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.0] — 2026-04-15
+
+### Added
+- **Scenario generator** — `POST /api/admin/generate-scenario` (admin-only). Приймає параметри сценарію, викликає `claude-opus-4-6`, повертає повний валідний JSON з усіма полями.
+- **Scenario variants** — поле `variants: ScenarioVariant[]` у сценарії. При створенні сесії обирається випадковий варіант (різна стартова локація + `introHint` для Кіпера). Дозволяє перегравати сценарій з різними точками входу.
+- `the-haunting.json` отримав 2 варіанти: "Стандартний" (офіс детектива) і "Відразу в справу" (одразу біля будинку).
+- `SCENARIO_GUIDE.md` — нова секція про `variants`.
+
+---
+
 ## [0.2.14] — 2026-04-15
 
 ### Removed

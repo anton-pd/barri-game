@@ -6,13 +6,20 @@ import { getSessions, getSessionsByUserId, createSession, ensureSchema } from '@
 import { verifyJwt } from '@/lib/auth';
 import type { Player } from '@/types';
 
-function getStartingLocation(scenarioId: string): string | undefined {
+function pickVariant(scenarioId: string): { startingLocation?: string; variantId?: string; variantHint?: string } {
   try {
     const file = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
-    const scenario = JSON.parse(fs.readFileSync(file, 'utf-8')) as { startingLocation?: string };
-    return scenario.startingLocation;
+    const scenario = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+      startingLocation?: string;
+      variants?: { id: string; startingLocation: string; introHint?: string }[];
+    };
+    if (scenario.variants && scenario.variants.length > 0) {
+      const variant = scenario.variants[Math.floor(Math.random() * scenario.variants.length)];
+      return { startingLocation: variant.startingLocation, variantId: variant.id, variantHint: variant.introHint };
+    }
+    return { startingLocation: scenario.startingLocation };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -61,8 +68,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const startingLocation = getStartingLocation(scenarioId);
-    const session = await createSession(scenarioId, name, players, payload.sub, startingLocation, language ?? 'uk');
+    const { startingLocation, variantId, variantHint } = pickVariant(scenarioId);
+    const session = await createSession(scenarioId, name, players, payload.sub, startingLocation, language ?? 'uk', variantId, variantHint);
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
     console.error('Error creating session:', error);

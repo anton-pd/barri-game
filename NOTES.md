@@ -442,3 +442,23 @@ LLM починав відповіді з `[Anton]:` — наприклад `[Ant
 ## ANT-14: Видалено StatsBar над чатом (2026-04-15)
 
 Прибрано `import StatsBar` та `<StatsBar>` з `GameChat.tsx`. Компонент `StatsBar.tsx` збережено. Статистика гравців доступна в сайдбарі (вкладка «Гравці»).
+
+---
+
+## ANT-15: Scenario generator + variants (2026-04-15)
+
+### Що зроблено
+1. **`src/lib/scenarioGenerator.ts`** — нова функція `generateScenario()`, викликає `claude-opus-4-6` з детальним системним промптом (повна схема сценарію + правила). Повертає розпарсений JSON.
+2. **`src/app/api/admin/generate-scenario/route.ts`** — POST endpoint, admin-only. Параметри: `title, titleUk, premise, era, difficulty, minPlayers, maxPlayers, isCampaign, estimatedSessions, language`.
+3. **`src/types/index.ts`** — `ScenarioVariant {id, label, startingLocation, introHint}`, `variants?` у `Scenario`, `variantId?`/`variantHint?` у `WorldState`.
+4. **`src/app/api/sessions/route.ts`** — `pickVariant()` обирає випадковий варіант зі сценарію, передає у createSession.
+5. **`src/lib/queries.ts`** — `createSession` приймає `variantId`/`variantHint`, зберігає у `world_state`.
+6. **`src/lib/prompts.ts`** — dynamic блок включає `variantHint` секцію якщо є.
+7. **`src/app/api/ai/route.ts`** — очищає `variantHint` після інтро.
+8. **`scenarios/the-haunting.json`** — додано 2 variants: "Стандартний" (офіс) і "Відразу в справу" (будинок).
+9. **`SCENARIO_GUIDE.md`** — нова секція 16 "variants".
+
+### Ключові рішення
+- `variantHint` зберігається в world_state і включається в dynamic блок (не static) — не засмічує кеш
+- Очищається одразу після першого AI response — не витрачає токени далі
+- Генератор повертає JSON без збереження на диск — це робить адмін UI (ANT-17)

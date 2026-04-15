@@ -42,6 +42,10 @@ export interface WorldState {
   sessionImages?: Record<string, string>;
   // Situational locations created by LLM during play (persisted, no audio)
   dynamicLocations?: Record<string, DynamicLocation>;
+  // Scenario variant chosen at session creation
+  variantId?: string;
+  // One-time hint for the Keeper about this variant's entry point (cleared after intro)
+  variantHint?: string;
 }
 
 export interface DynamicLocation {
@@ -282,6 +286,13 @@ export interface RolePreset {
   background: string;
 }
 
+export interface ScenarioVariant {
+  id: string;
+  label: string;          // e.g. "Стандартний", "Альтернативний вхід"
+  startingLocation: string;
+  introHint?: string;     // one-time note to Keeper about this variant's setup
+}
+
 export interface Scenario {
   id: string;
   title: string;
@@ -310,6 +321,7 @@ export interface Scenario {
   };
   rolePresets?: RolePreset[];
   locationGroups?: LocationGroup[];
+  variants?: ScenarioVariant[];
   eventHints?: {
     positive: string[];
     negative: string[];

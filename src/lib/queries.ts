@@ -296,7 +296,9 @@ export async function createSession(
   players: Player[],
   userId: string,
   startingLocation?: string,
-  language: 'uk' | 'en' = 'uk'
+  language: 'uk' | 'en' = 'uk',
+  variantId?: string,
+  variantHint?: string,
 ): Promise<GameSession> {
   const initialWorldState: WorldState = {
     act: 1,
@@ -310,6 +312,8 @@ export async function createSession(
     passiveMessageCount: 0,
     totalMessageCount: 0,
     locationRisk: {},
+    ...(variantId ? { variantId } : {}),
+    ...(variantHint ? { variantHint } : {}),
   };
 
   const rows = await sql`

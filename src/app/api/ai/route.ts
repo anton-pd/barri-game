@@ -612,6 +612,11 @@ export async function POST(request: Request) {
           };
         }
 
+        // ── Clear one-time variant hint after intro ─────────────────────────
+        if (isIntro && updatedWorldState.variantHint) {
+          updatedWorldState = { ...updatedWorldState, variantHint: undefined };
+        }
+
         // ── Persist messages ────────────────────────────────────────────────
 
         if (!isIntro) {

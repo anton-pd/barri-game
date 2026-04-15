@@ -198,6 +198,10 @@ ${RESPONSE_STYLE[lang]}
   const activitySection = options?.keeperActivitySection ?? '';
   const eventSection = options?.eventInstruction ?? '';
 
+  const variantHintSection = worldState.variantHint
+    ? `\n\n## ВАРІАНТ ПОЧАТКУ\n${worldState.variantHint}\n(Цю підказку враховуй тільки для інтро — далі вона більше не діє)`
+    : '';
+
   const dynLocEntries = Object.entries(worldState.dynamicLocations ?? {});
   const dynLocSection = dynLocEntries.length
     ? `\nСитуативні локації: ${dynLocEntries.map(([id, l]) => `${id} (${l.name})`).join(', ')}`
@@ -225,7 +229,7 @@ ${players
   .join('\n\n')}
 
 Якщо бачиш префікс [Ім'я]: у повідомленні — це гравець. Ніколи не дій від їх імені.${players.length > 2 ? ' Коли відповідь стосується конкретного гравця — починай абзац з Ім\'я: (без дужок). Для загальних описів — без префіксу.' : ' Не використовуй префікс з іменем у своїх відповідях.'}
-При перевірці навички використовуй ТОЧНЕ значення зі списку вище.${activitySection}${eventSection}
+При перевірці навички використовуй ТОЧНЕ значення зі списку вище.${variantHintSection}${activitySection}${eventSection}
 `.trim();
 
   return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };
