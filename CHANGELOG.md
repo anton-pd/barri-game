@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.1] — 2026-04-15
+
+### Added
+- **Scenario generator UI** — нова секція в адмін-панелі (`/admin`). Форма для генерації сценарію: назва EN/UK, premise, era, складність, мова, к-ть гравців, режим кампанії. Після генерації — перегляд JSON, кнопки "Copy JSON" та "Save to scenarios/". Зберігає файл через `POST /api/admin/generate-scenario/save`.
+- Disabled checkbox "Generate ambient audio" з підказкою Phase 10 — задає очікування для майбутньої фічі.
+
+---
+
 ## [0.3.0] — 2026-04-15
 
 ### Added

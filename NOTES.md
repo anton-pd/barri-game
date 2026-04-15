@@ -462,3 +462,16 @@ LLM починав відповіді з `[Anton]:` — наприклад `[Ant
 - `variantHint` зберігається в world_state і включається в dynamic блок (не static) — не засмічує кеш
 - Очищається одразу після першого AI response — не витрачає токени далі
 - Генератор повертає JSON без збереження на диск — це робить адмін UI (ANT-17)
+
+## ANT-17: Admin UI для генерації сценаріїв (2026-04-15)
+
+### Що зроблено
+1. **`src/app/admin/ScenarioGenerator.tsx`** — новий client component. Форма: title/titleUk, premise (textarea), era, difficulty, language, minPlayers/maxPlayers, isCampaign + estimatedSessions, disabled ambient checkbox (Phase 10). Після генерації — показ JSON у `<pre>`, кнопки "Copy JSON" і "Save to scenarios/".
+2. **`src/app/api/admin/generate-scenario/save/route.ts`** — POST endpoint, admin-only. Отримує `{id, json}`, валідує id (kebab-case), пише `scenarios/{id}.json` через `fs.writeFileSync`.
+3. **`src/app/admin/page.tsx`** — додано `<ScenarioGenerator />` між KeeperSettings і CostsTables.
+
+### Ключові рішення
+- Save — окрема дія після перегляду JSON, щоб адмін міг перевірити перед записом
+- id валідується regex `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` — захист від path traversal
+- `generateAmbient` checkbox — disabled з підказкою "Phase 10 — not yet implemented", щоб задати очікування
+- Статус генерації: idle → generating → done/error, кнопка disabled поки немає title/titleUk/premise

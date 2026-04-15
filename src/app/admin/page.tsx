@@ -6,6 +6,7 @@ import { getAllUsers, getAllSessionsWithOwner } from '@/lib/queries';
 import RoleToggle from './RoleToggle';
 import CostsTables from './CostsTables';
 import KeeperSettings from './KeeperSettings';
+import ScenarioGenerator from './ScenarioGenerator';
 
 export default async function AdminPage() {
   const cookieStore = await cookies();
@@ -94,6 +95,9 @@ export default async function AdminPage() {
 
         {/* Keeper Settings — global model & TTS config */}
         <KeeperSettings />
+
+        {/* Scenario Generator — AI-powered scenario creation */}
+        <ScenarioGenerator />
 
         {/* API Costs — live client component, auto-refreshes every 30s */}
         <CostsTables />
