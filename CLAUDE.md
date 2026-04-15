@@ -7,10 +7,14 @@ Live at **barrigame.es** · repo `/opt/apps/cthulhu` · branch `main`.
 @PROJECT_CONTEXT.md
 @LINEAR.md
 
-## Shared notes
+## After every change — mandatory
 
-**NOTES.md** — shared scratchpad between models (Claude Code, Codex, etc.).
-Update after every completed task. Do not delete entries — append only.
+After completing **any** code change, always update both files before finishing:
+
+1. **NOTES.md** — append a section describing what was done: problem → solution → key decisions. Never delete existing entries.
+2. **CHANGELOG.md** — add an entry under the appropriate version (bump patch if needed). Format: `## [x.y.z] — YYYY-MM-DD` with `### Added / Changed / Fixed` subsections.
+
+These updates must be in their own commit (or included in the final commit of the task). Do not skip even for small fixes.
 
 ## Scenario authoring
 
