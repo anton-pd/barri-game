@@ -50,10 +50,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { scenarioId, name, players } = body as {
+    const { scenarioId, name, players, language } = body as {
       scenarioId: string;
       name: string;
       players: Player[];
+      language?: 'uk' | 'en';
     };
 
     if (!scenarioId || !name || !players || !Array.isArray(players) || players.length === 0) {
@@ -61,7 +62,7 @@ export async function POST(request: Request) {
     }
 
     const startingLocation = getStartingLocation(scenarioId);
-    const session = await createSession(scenarioId, name, players, payload.sub, startingLocation);
+    const session = await createSession(scenarioId, name, players, payload.sub, startingLocation, language ?? 'uk');
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
     console.error('Error creating session:', error);

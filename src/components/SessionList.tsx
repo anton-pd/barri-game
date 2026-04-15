@@ -21,6 +21,7 @@ export default function SessionList() {
   const [sessionName, setSessionName] = useState('');
   const [drafts, setDrafts] = useState<DraftPlayer[]>([emptyDraft()]);
   const [pickingRoleFor, setPickingRoleFor] = useState<number | null>(null);
+  const [language, setLanguage] = useState<'uk' | 'en'>('uk');
   const [isCreating, setIsCreating] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -67,7 +68,7 @@ export default function SessionList() {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenarioId: selectedScenario.id, name: sessionName, players }),
+        body: JSON.stringify({ scenarioId: selectedScenario.id, name: sessionName, players, language }),
       });
       if (!res.ok) throw new Error('Failed');
       const session = await res.json();
@@ -91,6 +92,7 @@ export default function SessionList() {
     setSessionName('');
     setDrafts([emptyDraft()]);
     setPickingRoleFor(null);
+    setLanguage('uk');
   }
 
   const difficultyLabel = (d: string) => {
@@ -298,6 +300,25 @@ export default function SessionList() {
                       placeholder="Напр: Ніч у Бостоні"
                       className="w-full bg-stone-800 border border-stone-700 focus:border-amber-700 rounded-xl px-3.5 py-2.5 text-sm text-stone-200 placeholder-stone-600 focus:outline-none transition-colors"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-stone-500 uppercase tracking-wide block mb-1.5">Мова гри</label>
+                    <div className="flex gap-2">
+                      {(['uk', 'en'] as const).map((lang) => (
+                        <button
+                          key={lang}
+                          onClick={() => setLanguage(lang)}
+                          className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                            language === lang
+                              ? 'bg-amber-800/60 border-amber-700 text-amber-300'
+                              : 'bg-stone-800 border-stone-700 text-stone-500 hover:border-stone-600 hover:text-stone-400'
+                          }`}
+                        >
+                          {lang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>

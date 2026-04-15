@@ -54,6 +54,30 @@ function formatInventory(inventory: InventoryItem[]): string {
     .join('\n    ');
 }
 
+const LANGUAGE_INSTRUCTION: Record<string, string> = {
+  uk: `## МОВА\nВідповідай ТІЛЬКИ українською мовою. Всі репліки NPC, описи та підказки — виключно українською.`,
+  en: `## LANGUAGE\nRespond ONLY in English. All NPC dialogue, descriptions, and hints must be in English.\nUse "you" (second person) for addressing players.`,
+};
+
+const RESPONSE_STYLE: Record<string, string> = {
+  uk: `## СТИЛЬ ВІДПОВІДІ
+- Відповідай ТІЛЬКИ українською.
+- Обсяг: 2–4 абзаци залежно від ситуації. Бойова сцена — коротше. Дослідження, атмосфера, NPC-діалог — повніше.
+- Перший абзац: кінематографічна сцена — що персонаж бачить, чує, відчуває. Конкретні сенсорні деталі (запах, текстура, звук).
+- **Жирним** позначай ключові підказки та незвичайні деталі, які варто запам'ятати.
+- NPC: передавай голос через дію та манеру, не лише слова: "Стара жінка стискає шаль..."
+- Жах — через деталі та атмосферу, а не пряме оголошення.
+- НЕ перераховуй можливі дії та не питай "що ви робите далі?".`,
+  en: `## RESPONSE STYLE
+- Respond ONLY in English.
+- Length: 2–4 paragraphs depending on situation. Combat — shorter. Exploration, atmosphere, NPC dialogue — fuller.
+- First paragraph: cinematic scene — what the character sees, hears, feels. Specific sensory details (smell, texture, sound).
+- **Bold** key clues and unusual details worth remembering.
+- NPCs: convey voice through action and manner, not just words: "The old woman clutches her shawl..."
+- Horror through detail and atmosphere, not direct announcement.
+- Do NOT list possible actions or ask "what do you do?".`,
+};
+
 // CHANGED: Accept optional campaign context and event/activity instructions
 export function buildSystemPromptBlocks(
   scenario: Scenario,
@@ -63,8 +87,12 @@ export function buildSystemPromptBlocks(
     campaignContext?: { recentSummaries: string };
     eventInstruction?: string;
     keeperActivitySection?: string;
+    language?: 'uk' | 'en';
   }
 ): SystemPromptBlocks {
+
+  // ── Language ─────────────────────────────────────────────────────────────────
+  const lang = options?.language ?? 'uk';
 
   // ── RULESET BLOCK (separate cache) ──────────────────────────────────────────
   const rulesetBlock = buildRulesetPromptBlock(scenario.rulesetId ?? 'coc_7e');
@@ -152,14 +180,9 @@ uses=0 → витрачений, ігноруй при пропозиціях
 ## ОЗВУЧКА NPC
 [NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
 
-## СТИЛЬ ВІДПОВІДІ
-- Відповідай ТІЛЬКИ українською.
-- Обсяг: 2–4 абзаци залежно від ситуації. Бойова сцена — коротше. Дослідження, атмосфера, NPC-діалог — повніше.
-- Перший абзац: кінематографічна сцена — що персонаж бачить, чує, відчуває. Конкретні сенсорні деталі (запах, текстура, звук).
-- **Жирним** позначай ключові підказки та незвичайні деталі, які варто запам'ятати.
-- NPC: передавай голос через дію та манеру, не лише слова: "Стара жінка стискає шаль..."
-- Жах — через деталі та атмосферу, а не пряме оголошення.
-- НЕ перераховуй можливі дії та не питай "що ви робите далі?".
+${LANGUAGE_INSTRUCTION[lang]}
+
+${RESPONSE_STYLE[lang]}
 `.trim();
 
   // ── DYNAMIC BLOCK ───────────────────────────────────────────────────────────

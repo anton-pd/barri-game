@@ -181,6 +181,11 @@ export async function initializeSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_scenario_assets_scenario_id ON scenario_assets(scenario_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_campaign_assets_campaign_id ON campaign_assets(campaign_id)`;
 
+  // Language field for session language selection (uk/en)
+  await sql`
+    ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS language VARCHAR(5) NOT NULL DEFAULT 'uk'
+  `;
+
   // Model pricing table — editable via admin API, fallback to hardcoded defaults
   await sql`
     CREATE TABLE IF NOT EXISTS model_pricing (
@@ -259,7 +264,8 @@ export async function createSession(
   name: string,
   players: Player[],
   userId: string,
-  startingLocation?: string
+  startingLocation?: string,
+  language: 'uk' | 'en' = 'uk'
 ): Promise<GameSession> {
   const initialWorldState: WorldState = {
     act: 1,
@@ -276,13 +282,14 @@ export async function createSession(
   };
 
   const rows = await sql`
-    INSERT INTO game_sessions (scenario_id, name, players, world_state, user_id)
+    INSERT INTO game_sessions (scenario_id, name, players, world_state, user_id, language)
     VALUES (
       ${scenarioId},
       ${name},
       ${sql.json(jsonOf(players))},
       ${sql.json(jsonOf(initialWorldState))},
-      ${userId}
+      ${userId},
+      ${language}
     )
     RETURNING *
   `;

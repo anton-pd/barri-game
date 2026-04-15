@@ -363,6 +363,7 @@ export async function POST(request: Request) {
   const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
     keeperActivitySection: activitySection,
     eventInstruction,
+    language: (session.language ?? 'uk') as 'uk' | 'en',
   });
 
   // Claude conversation history

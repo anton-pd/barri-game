@@ -91,6 +91,8 @@ export interface GameSession {
   turn_queue?: number[];
   // Keeper style (phase 12)
   keeper_style?: 'passive' | 'balanced' | 'active';
+  // Language selection (ANT-14)
+  language?: 'uk' | 'en';
   created_at: string;
   updated_at: string;
 }
