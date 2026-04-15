@@ -144,6 +144,16 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 - On client reload: `parseSegments()` restores NPC bubbles and dynamic images from DB content
 - `cleanText` (all tags stripped) used only for SSE stream chunks and TTS input
 
+### Dynamic Image Caching
+
+`[IMAGE:type:desc]` triggers client-side image generation. Flow:
+
+1. **First render** — `DynamicImage` component checks `world_state.sessionImages[msg.id]`:
+   - No URL → fetches `/api/image?prompt=...&json=true` → server generates via Gemini/Pollinations, saves to `public/scenarios/dynamic/HASH.jpg`, returns `{ url }`
+   - Client calls `onUrlGenerated(msg.id, url)` → updates `sessionImages` in React state + PATCHes `world_state` to DB
+2. **Subsequent renders / page reload** — `sessionImages[msg.id]` has the URL → renders `<img src={url}>` directly, no API call
+3. **Key invariant** — `sessionImages` must be keyed by the real DB `message.id`, not the temporary optimistic ID used during streaming. The `/api/ai` `done` event returns `messageId` so the client remaps optimistic IDs before any image is rendered.
+
 ### NPC Auto-Registration
 
 On each AI response: server scans for `[NPC:Name]` → if name matches `scenario.npcs` and not yet in `npcRelations` → auto-adds as `'unknown'`. No wait for summarize cycle.
@@ -162,6 +172,7 @@ On each AI response: server scans for `[NPC:Name]` → if name matches `scenario
   locationRisk: Record<groupId, { currentChance, incrementRate, eventCycleCount, lastEventAt }>
   activeRandomEvent: { type, event_id } | null
   npcRelations: Record<npcId, 'friendly'|'neutral'|'hostile'|'unknown'>
+  sessionImages: Record<msgId, '/scenarios/dynamic/HASH.jpg'>  // persisted image URL cache
 }
 ```
 
