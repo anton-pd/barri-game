@@ -14,11 +14,10 @@ import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
 import type { Scenario, WorldState, NPC, Player, InventoryItem } from '@/types';
 
-export type AiProvider = 'claude-sonnet' | 'gemini-flash' | 'gemini-pro';
+export type AiProvider = 'claude-sonnet' | 'gemini-flash';
 
 const GEMINI_MODELS: Record<string, string> = {
   'gemini-flash': 'gemini-2.5-flash',
-  'gemini-pro':   'gemini-2.0-flash',
 };
 
 function detectVoiceStyle(_text: string, _npcs: NPC[]): string {
