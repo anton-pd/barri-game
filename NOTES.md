@@ -195,6 +195,27 @@
 
 ---
 
+---
+
+## Admin panel redesign (2026-04-15) — ANT-19/20/21/22
+
+**Проблема:** адмінка була одним великим скролом без структури; таблиця моделей показувала лише 30 днів; сесії без деталей.
+
+**Рішення:**
+- `AdminTabs.tsx` — 'use client' компонент з tab-навігацією, 4 вкладки: Users / Usage / Scenarios / Settings. `admin/page.tsx` залишається server component, передає users + sessions як props.
+- `UsageTab.tsx` — новий клієнтський компонент з 3 секціями:
+  1. **By Model** — фільтр Today/Week/Month/All/Custom, refetch при зміні
+  2. **Sessions** — all-time top 50; player_count з `jsonb_array_length(players)`, message_count + keeper_message_count з `messages` через subquery, avg output/input tokens (AVG по llm-типу), expandable model breakdown
+  3. **By Account** — той самий period filter, expandable model breakdown
+- `costTracker.ts` — додано `Period` type, `periodFilter()` SQL fragment helper, нові функції `getSessionBreakdownEnhanced()` (2 запити: stats + model breakdown, merge в TS) та `getAccountsBreakdown()` (аналогічно)
+- `api/admin/costs/route.ts` — нові breakdowns `sessions-enhanced` і `accounts`, params `period` і `date`
+
+**Ключові рішення:**
+- Expandable рядки через Set<string> у state — жодного додаткового fetch при розкритті (дані вже завантажені)
+- `periodFilter()` повертає sql fragment (безпечно, параметризовано) — вбудовується у WHERE через postgres.js template literal
+- Sessions не мають period filter (показуємо всі активні сесії по сумарній вартості, не прив'язуємо до дати)
+- `CostsTables.tsx` більше не використовується (функціональність перенесена в `UsageTab.tsx`)
+
 ## Наступні кроки
 - Фаза 10: ElevenLabs ambient audio generation (після стабілізації)
 - ~~SSE streaming: реалізувати client-side reader в GameChat.tsx~~ ✅ ЗРОБЛЕНО

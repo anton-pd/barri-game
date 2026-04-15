@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.4] — 2026-04-15
+
+### Added
+- **Admin panel tabs** — адмінка розбита на 4 вкладки: Users / Usage / Scenarios / Settings (`AdminTabs.tsx`)
+- **Usage tab: period filter** — фільтр по periodу для таблиць моделей та акаунтів: Today / Week / Month / All / Custom date
+- **Usage tab: sessions** — розширена таблиця сесій: кількість гравців, повідомлень (з кіпером), avg output/input токенів, expandable model breakdown
+- **Usage tab: accounts** — нова секція акаунтів з period filter та expandable деталями по моделях
+- `costTracker.ts`: `Period` тип, `getSessionBreakdownEnhanced()`, `getAccountsBreakdown(period, date?)`, оновлено `getModelBreakdown(period, date?)`
+- `api/admin/costs`: підтримка `?breakdown=sessions-enhanced`, `?breakdown=accounts`, параметрів `period` та `date`
+
+---
+
 ## [0.3.3] — 2026-04-15
 
 ### Changed
