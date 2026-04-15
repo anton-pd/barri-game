@@ -26,7 +26,7 @@ const FALLBACK_PRICING: PricingMap = {
   gemini: {
     'gemini-2.5-flash':            { inputPer1M: 0.30,  outputPer1M:  2.50 },
     'gemini-2.0-flash':            { inputPer1M: 0.10,  outputPer1M:  0.40 },
-    'gemini-2.5-flash-preview-tts': { perChar: 0.000030 },
+    'gemini-2.5-flash-preview-tts': { perChar: 0.000000625 }, // $2.50/M tokens ÷ 4 chars/token
     'gemini-2.5-flash-image':      { perImage: 0.04 },
   },
   openai: {
