@@ -313,3 +313,35 @@
 | Low | Декомпозиція `GameChat.tsx` на хуки + менші компоненти | High |
 | Low | Документувати `dynamicNpcs`, `IMAGE_PROVIDER` env, image cache path в PROJECT_CONTEXT | Low |
 | Low | `isPassiveMessage()` — додати англійські патерни для `language='en'` сесій | Low |
+
+---
+
+## Fix: Збій "This page couldn't load" при простроченому токені (2026-04-15)
+
+**Проблема:** Якщо JWT токен авторизації прострочився, запит `/api/sessions` на клієнті повертав `401 Unauthorized` з тілом `{ error: 'Unauthorized' }`. Компонент `SessionList` одразу розпарсював це як масив, не перевіряючи статус (відсутність `.catch` та `res.ok`). Оскільки `error` не є масивом, метод `.map` викликав помилку і ламав увесь React-додаток з помилкою клієнтського рендерингу "This page couldn't load".
+
+**Рішення:** 
+- У `src/components/SessionList.tsx` додано коректну обробку `Promise.all` запитів через `try/catch`. 
+- Якщо `res.status === 401`, відбувається примусовий редирект (через `window.location.href`) на сторінку `/auth/login`. 
+- Для інших помилок обережно відображається пустий масив, що не дає додатку збій.
+
+---
+
+## План виправлення краху "The page couldn't load" (SessionList Crash v2) 2026-04-15
+
+### Огляд проблеми
+Додаток досі падає на головній сторінці. Аналіз показав, що крах відбувається під час виконання `s.players.map(...)` або при зверненні до `s.world_state.act` у клієнтському рендерингу компонента `SessionList.tsx` ПІСЛЯ успішної авторизації.
+
+Під час рефакторингу `updateSession` (ANT-14, батчінг запитів БД), оптимізація запитів до БД за допомогою `sql.unsafe` призвела до збереження строк замість JSON:
+```typescript
+if (updates.players !== undefined) { 
+  sets.push(`players = $${sets.length + 1}`);
+  vals.push(JSON.stringify(jsonOf(updates.players))); 
+}
+```
+Оскільки `sql.unsafe` використовує сирі параметри `$1`, PostgreSQL сприймає надісланий `JSON.stringify()` як звичайну текстову строку, зберігаючи її всередині `JSONB` колонки. Коли API повертає дані: `players` — це формально валідний тип String, який не має методу `.map()`, через що React падає під час рендерингу. Нові сесії працюють, але після першого оновлення — об'єкти заміняються строками і `SessionList` вмирає.
+
+### Виконані зміни
+1. **[ЗМІНЕНО] queries.ts**: Замінено перелік парметрів у `sql.unsafe` на вбудований синтаксис `postgres.js` (`sql\`UPDATE game_sessions SET ${sql(data)}\``), який правильно зберігає JSON без подвійного Stringify парсингу.
+2. **[ЗМІНЕНО] SessionList.tsx**: Додано `graceful degradation` до клієнтського коду, перевіряючи `typeof s.players === 'string'` та `typeof s.world_state === 'string'`, парсячи їх назад для backward compatibility.
+

@@ -26,14 +26,50 @@ export default function SessionList() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      fetch('/api/sessions').then((r) => r.json()),
-      fetch('/api/scenarios').then((r) => r.json()),
-    ]).then(([s, sc]) => {
-      setSessions(s);
-      setScenarios(sc);
-      setLoading(false);
-    });
+    async function loadData() {
+      try {
+        const [sessionsRes, scenariosRes] = await Promise.all([
+          fetch('/api/sessions'),
+          fetch('/api/scenarios'),
+        ]);
+
+        // Expired / invalid token → redirect to login
+        if (sessionsRes.status === 401) {
+          window.location.href = '/auth/login';
+          return;
+        }
+
+        if (!sessionsRes.ok || !scenariosRes.ok) {
+          console.error('Failed to load data', sessionsRes.status, scenariosRes.status);
+          setLoading(false);
+          return;
+        }
+
+        const [s, sc] = await Promise.all([sessionsRes.json(), scenariosRes.json()]);
+        
+        let parsedSessions = Array.isArray(s) ? s : [];
+        parsedSessions = parsedSessions.map((session: any) => {
+          let players = session.players;
+          if (typeof players === 'string') {
+            try { players = JSON.parse(players); } catch (e) { players = []; }
+          }
+          let world_state = session.world_state;
+          if (typeof world_state === 'string') {
+            try { world_state = JSON.parse(world_state); } catch (e) { world_state = {}; }
+          }
+          return { ...session, players, world_state };
+        });
+
+        setSessions(parsedSessions);
+        setScenarios(Array.isArray(sc) ? sc : []);
+      } catch (err) {
+        console.error('Network error loading data', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
   }, []);
 
   function addDraft() {

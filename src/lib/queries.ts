@@ -338,22 +338,19 @@ export async function updateSession(
   id: string,
   updates: { world_state?: WorldState; act?: number; players?: Player[]; status?: string; language?: string }
 ): Promise<GameSession> {
-  // Build one UPDATE with all changed columns to avoid multiple round-trips
-  const sets: string[] = [];
-  const vals: unknown[] = [];
+  // Build one UPDATE with all changed columns using postgres.js dynamic query builder
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: Record<string, any> = {};
 
-  if (updates.world_state !== undefined) { sets.push(`world_state = $${sets.length + 1}`); vals.push(JSON.stringify(jsonOf(updates.world_state))); }
-  if (updates.players     !== undefined) { sets.push(`players = $${sets.length + 1}`);     vals.push(JSON.stringify(jsonOf(updates.players))); }
-  if (updates.act         !== undefined) { sets.push(`act = $${sets.length + 1}`);         vals.push(updates.act); }
-  if (updates.status      !== undefined) { sets.push(`status = $${sets.length + 1}`);      vals.push(updates.status); }
-  if (updates.language    !== undefined) { sets.push(`language = $${sets.length + 1}`);    vals.push(updates.language); }
+  if (updates.world_state !== undefined) data.world_state = sql.json(jsonOf(updates.world_state));
+  if (updates.players     !== undefined) data.players     = sql.json(jsonOf(updates.players));
+  if (updates.act         !== undefined) data.act         = updates.act;
+  if (updates.status      !== undefined) data.status      = updates.status;
+  if (updates.language    !== undefined) data.language    = updates.language;
 
-  if (sets.length > 0) {
-    vals.push(id);
-    await sql.unsafe(
-      `UPDATE game_sessions SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${vals.length}`,
-      vals as string[]
-    );
+  if (Object.keys(data).length > 0) {
+    data.updated_at = sql`NOW()`;
+    await sql`UPDATE game_sessions SET ${sql(data)} WHERE id = ${id}`;
   }
 
   const rows = await sql`SELECT * FROM game_sessions WHERE id = ${id}`;

@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.2.8] — 2026-04-15
+
+### Fixed
+- **This page couldn't load (SessionList Crash v2)** — виправлено помилку, коли React падав після першого ходу гри через неправильне збереження `players` у БД у вигляді строки замість JSON («s.players.map is not a function»). Виправлено формування запиту в `postgres.js` та додано graceful parsing на клієнті для сумісності з вже пошкодженими сесіями в БД.
+- **This page couldn't load (SessionList Crash)** — виправлено помилку "This page couldn't load" при заході на головну сторінку з простроченим токеном авторизації. Раніше компонент `SessionList` намагався розпарсити відповідь `401 Unauthorized` як масив сесій, що викликало крах React. Тепер відбувається коректний редірект на екран логіна.
+
+---
+
 ## [0.2.7] — 2026-04-15
 
 ### Fixed
