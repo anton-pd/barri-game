@@ -8,7 +8,8 @@
 
 Web app for tabletop RPG sessions of **Call of Cthulhu** (and other systems) with an AI Keeper (GM).
 Players join a session, interact with the Keeper via chat/voice, roll dice, track stats/inventory.
-Live at **https://barrigame.es** · repo `/opt/apps/cthulhu` · branch `main`.
+Live at **https://barrigame.es** (Prod) and **https://staging.barrigame.es** (Staging).
+Repo: `/opt/apps/cthulhu` (Staging, branch `staging`), `/opt/apps/cthulhu-prod` (Prod, branch `main`).
 
 ---
 
@@ -29,12 +30,16 @@ Live at **https://barrigame.es** · repo `/opt/apps/cthulhu` · branch `main`.
 ## Architecture
 
 ```
-Browser → Caddy (:443) → Docker cthulhu (:3000) → Next.js App Router
-                                                  ├── /api/ai        — AI turn
-                                                  ├── /api/tts       — text-to-speech
-                                                  ├── /api/stt       — speech-to-text
-                                                  ├── /api/image     — image generation + cache
-                                                  └── /api/sessions  — CRUD
+External (443) → Caddy → [Prod] cthulhu-prod container (:3000)
+                       → [Staging] cthulhu-staging container (:3001)
+
+Volumes Storage (/opt/apps/):
+├── cthulhu/ (Dev/Staging)
+│   ├── scenarios/         — Persistent JSONs (Staging)
+│   └── public/scenarios/  — Persistent Images (Staging)
+└── cthulhu-prod/ (Production)
+    ├── scenarios/         — Persistent JSONs (Production)
+    └── public/scenarios/  — Persistent Images (Production)
 ```
 
 **AI turn flow:**
@@ -150,7 +155,8 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 `[IMAGE:type:desc]` triggers client-side image generation. Flow:
 
 1. **First render** — `DynamicImage` component checks `world_state.sessionImages[msg.id]`:
-   - No URL → fetches `/api/image?prompt=...&json=true` → server generates via Gemini/Pollinations, saves to `public/scenarios/dynamic/HASH.jpg`, returns `{ url }`
+   - No URL → fetches `/api/image?prompt=...&json=true` → server generates, saves to `/app/public/scenarios/dynamic/HASH.jpg`
+   - **Persistence**: Mapped via Docker volumes to `./cthulhu/public/scenarios` (Staging) or `./cthulhu-prod/public/scenarios` (Prod).
    - Client calls `onUrlGenerated(msg.id, url)` → updates `sessionImages` in React state + PATCHes `world_state` to DB
 2. **Subsequent renders / page reload** — `sessionImages[msg.id]` has the URL → renders `<img src={url}>` directly, no API call
 3. **Key invariant** — `sessionImages` must be keyed by the real DB `message.id`, not the temporary optimistic ID used during streaming. The `/api/ai` `done` event returns `messageId` so the client remaps optimistic IDs before any image is rendered.
@@ -239,11 +245,13 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 
 ---
 
-## Deployment
-
-```bash
-# On server after git push:
-cd /opt/apps/cthulhu && git pull
-cd /opt/apps && docker compose up -d --build cthulhu
-docker compose logs -f cthulhu
-```
+1. **Staging Dev**: Work on `feature/ANT-XXX` from `staging`. Review at `staging.barrigame.es`.
+2. **Approval**: User moves Linear task to **Ready for Deployment**.
+3. **Deploy**: 
+   ```bash
+   # AI/Dev folder (/opt/apps/cthulhu):
+   git checkout main && git merge staging && git push origin main
+   
+   # Prod folder (/opt/apps/cthulhu-prod):
+   git pull origin main && docker compose -f /opt/apps/docker-compose.yml restart cthulhu-prod
+   ```
