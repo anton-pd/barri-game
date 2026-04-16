@@ -1,7 +1,8 @@
 # Barri Game — Agent Instructions
 
 Web app for tabletop RPG sessions with an AI Keeper (GM) for Call of Cthulhu and other systems.
-Live at **barrigame.es** · repo `/opt/apps/cthulhu` · branch `main`.
+Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
+Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
 
 Full architecture, DB schema, AI tag protocol, and conventions are in **PROJECT_CONTEXT.md** — read it before making any changes.
 
@@ -15,19 +16,23 @@ This project uses **Next.js 16.2** (App Router, standalone output). APIs, conven
 
 ---
 
-## Linear Workflow
+## Linear Workflow (Parallel-Safe)
 
 Full workflow details in **LINEAR.md**. Summary:
 
-1. Set issue → **In Progress**, assignee → Anton
-2. Post **plan comment** (files, approach, why) — before any code
-3. Implement
-4. Commit + push
-5. Update **CHANGELOG.md** and **NOTES.md**
-6. Post **summary comment** (problem → solution → result → commit hash)
-7. Set issue → **Done**
+1. **Selection**: Take task from **Todo** (assigned to you), move to **In Progress**, assignee → **Self**.
+2. **Setup**: Create `feature/ANT-XXX` from `staging` branch.
+3. **Plan**: Post technical plan (if complex). Move to **Planned**, assignee → **Anton**.
+4. **Dev**: Implement and test on [staging.barrigame.es](https://staging.barrigame.es). Assignee → **Self**.
+5. **Review**: Merge to `staging`, move issue to **In Review**, assignee → **Anton**.
+6. **Deploy**: When user moves to **Ready for Deployment** and assigns back to **Self**: merge to `main`, push to GitHub, update prod folder.
+7. **Finalize**: Move task to **Done**, keep on **Self**.
 
-Assignee is always **Anton**. Claude sets Done — Anton reviews.
+**AI Improvements**: When asked for plans/audits, create issues in **AI Improvements** column (1 per fix/feature) and assign to self.
+**Small tasks**: Add `small-task` label, skip step 3. Document reasoning.
+**Identity**: Claude takes "Claude" tasks, Codex takes "Codex" tasks.
+
+Assignee is always **Anton** for reviews. AI moves to Review — Anton moves to Ready for Deployment.
 
 ---
 

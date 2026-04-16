@@ -1,7 +1,11 @@
 # Barri Game — AI Keeper for Call of Cthulhu
 
 Web app for tabletop RPG sessions with an AI Keeper (GM).
-Live at **barrigame.es** · repo `/opt/apps/cthulhu` · branch `main`.
+Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
+Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
+
+**Identity**: You are **Claude**. Only take tasks assigned to **Claude** in Linear.
+Codex take tasks assigned to **Codex**.
 
 @AGENTS.md
 @PROJECT_CONTEXT.md

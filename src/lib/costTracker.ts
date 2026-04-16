@@ -5,11 +5,11 @@ export type Period = 'today' | 'week' | 'month' | 'all' | 'custom';
 
 function periodFilter(period: Period, date?: string) {
   switch (period) {
-    case 'today':  return sql`created_at >= CURRENT_DATE`;
-    case 'week':   return sql`created_at >= date_trunc('week', NOW())`;
-    case 'month':  return sql`created_at >= date_trunc('month', NOW())`;
+    case 'today': return sql`created_at >= CURRENT_DATE`;
+    case 'week': return sql`created_at >= date_trunc('week', NOW())`;
+    case 'month': return sql`created_at >= date_trunc('month', NOW())`;
     case 'custom': return date ? sql`DATE(created_at) = ${date}::date` : sql`created_at > NOW() - INTERVAL '30 days'`;
-    default:       return sql`TRUE`; // 'all'
+    default: return sql`TRUE`; // 'all'
   }
 }
 
@@ -20,18 +20,18 @@ type PricingMap = Record<string, Record<string, Record<string, number>>>;
 // Hardcoded fallback — used if DB is unavailable or table not yet seeded
 const FALLBACK_PRICING: PricingMap = {
   anthropic: {
-    'claude-sonnet-4-6':           { inputPer1M: 3.00,  outputPer1M: 15.00 },
-    'claude-haiku-4-5-20251001':   { inputPer1M: 0.80,  outputPer1M:  4.00 },
+    'claude-sonnet-4-6': { inputPer1M: 3.00, outputPer1M: 15.00 },
+    'claude-haiku-4-5-20251001': { inputPer1M: 0.80, outputPer1M: 4.00 },
   },
   gemini: {
-    'gemini-2.5-flash':            { inputPer1M: 0.30,  outputPer1M:  2.50 },
+    'gemini-2.5-flash': { inputPer1M: 0.30, outputPer1M: 2.50 },
     'gemini-2.5-flash-preview-tts': { perChar: 0.000000625 }, // $2.50/M tokens ÷ 4 chars/token
-    'gemini-2.5-flash-image':      { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
+    'gemini-2.5-flash-image': { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
   openai: {
-    'tts-1':                       { perChar: 0.000015 },
-    'whisper-1':                   { perMinute: 0.006 },
-    'dall-e-2':                    { perImage: 0.02 },
+    'tts-1': { perChar: 0.000015 },
+    'whisper-1': { perMinute: 0.006 },
+    'dall-e-2': { perImage: 0.02 },
   },
 };
 
@@ -134,7 +134,7 @@ async function calculateCost(params: TrackParams): Promise<number> {
 
   if (params.type === 'llm' || params.type === 'summarize') {
     if (modelPricing.inputPer1M === undefined || params.inputTokens === undefined) return 0;
-    const inputCost  = (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
+    const inputCost = (params.inputTokens / 1_000_000) * modelPricing.inputPer1M;
     const outputCost = ((params.outputTokens ?? 0) / 1_000_000) * (modelPricing.outputPer1M ?? 0);
     return inputCost + outputCost;
   }

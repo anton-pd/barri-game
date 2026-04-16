@@ -12,6 +12,7 @@
 |--------|-----------|
 | Anton | `2399a9db-92ac-4eb1-ab38-942cfa9a53f3` |
 | Claude | `4e483311-d106-4708-82a4-421812e84721` |
+| Codex | `TBD` |
 
 Assignee is always **Anton**. Claude acts under the Claude account.
 
@@ -23,29 +24,24 @@ Assignee is always **Anton**. Claude acts under the Claude account.
 | `in-execution` | `8cec9395-1235-48db-ab2d-f43be7a80882` | Actively being worked on |
 | `review` | `2092c19e-a36e-49bb-8249-06643034d121` | Done, waiting for Anton review |
 
-## Workflow — step by step
+## Workflow — States & Actions
 
-```
-Todo → In Progress → Done
-```
-
-| Step | Who | Action |
-|------|-----|--------|
-| 1 | Claude | Set status → **In Progress**, assignee → Anton |
-| 2 | Claude | Post **plan comment** to the issue (files affected, approach, why) |
-| 3 | Anton | Approves plan (or requests changes) |
-| 4 | Claude | Implements the work |
-| 5 | Claude | Commit + `git push` |
-| 6 | Claude | Update **CHANGELOG.md** and **NOTES.md** |
-| 7 | Claude | Post **summary comment** (problem → solution → result → commit hash) |
-| 8 | Claude | Set status → **Done** (assignee stays Anton) |
-| 9 | Anton | Reviews and confirms |
+| **Todo** | Any AI | **AI** (Self) | Fetch task (assigned to self) | `git checkout staging` |
+| **Planned** | Claude | **Anton** | Post technical plan (if complex) | - |
+| **In Progress** | Claude | **AI** (Self) | Implementation & local testing | `git checkout -b feature/*` |
+| **In Review** | Claude | **Anton** | Merge feature → staging, deploy | `git merge staging` |
+| **Ready for Deployment** | Any AI | **AI** (Self) | Anton approved review | `git checkout main` |
+| **Deployed / Done** | Any AI | **AI** (Self) | Final Merge → main, push, Update Prod | `git push` |
 
 **Rules:**
-- Always post the plan comment **before writing any code**
-- Assignee is always Anton, never Claude
-- Claude sets Done — Anton only reviews
-- Summary comment format: problem → solution → result → commit hash
+- **Staging Site**: [staging.barrigame.es](https://staging.barrigame.es) (Port 3001)
+- **Production Site**: [barrigame.es](https://barrigame.es) (Port 3000)
+- **Cleanup**: Delete feature branches after merging into `main`.
+- **Commit Format**: `ANT-XXX: summary`. Commit only before moving to **In Review**.
+- **Finalize**: When task transitions to **Ready for Deployment**, AI merges `staging` to `main`, pushes to GitHub, updates prod folder, move task to **Done** (keep on self).
+- **Assignee**: AI assigns task to **self** when starting. Assign back to **Anton** for Plan Approval (`Planned`) or Review (`In Review`).
+- **Identity**: Claude takes tasks assigned to **Claude**. Codex takes tasks assigned to **Codex**.
+- **AI Improvements**: When asked for plans/audits, AI creates issues in **AI Improvements** column (1 issue per fix/feature) with descriptions and assigns to self.
 
 ## MCP Auth on VPS
 

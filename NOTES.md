@@ -16,6 +16,7 @@
 - [x] Фаза 12: Keeper Activity System
 - [x] Фаза 13: Random Event Engine
 - [x] Фаза 14: Dice Roller (ANT-13)
+- [x] Фаза 15: Workflow & Staging (2026-04-16)
 
 ---
 
@@ -507,3 +508,24 @@ LLM починав відповіді з `[Anton]:` — наприклад `[Ant
 - id валідується regex `/^[a-z0-9]+(?:-[a-z0-9]+)*$/` — захист від path traversal
 - `generateAmbient` checkbox — disabled з підказкою "Phase 10 — not yet implemented", щоб задати очікування
 - Статус генерації: idle → generating → done/error, кнопка disabled поки немає title/titleUk/premise
+
+---
+
+## Фаза 15 — Workflow & Staging (2026-04-16)
+
+### Що змінено
+- **Ізоляція середовищ**: 
+  - `/opt/apps/cthulhu` — Devon/Staging (гілка `staging`, порт 3001)
+  - `/opt/apps/cthulhu-prod` — Production (гілка `main`, порт 3000)
+- **Caddy**: налаштовано `staging.barrigame.es` з автоматичним SSL.
+- **Git Workflow**: 
+  - Основна гілка розробки — `staging`.
+  - Фічі розробляються в `feature/ANT-XXX` від `staging`.
+  - Деплой на Prod — тільки через `Ready for Deployment` в Linear (мердж у `main`).
+- **Linear Integration**: 
+  - Автоматичне створення тасків у `AI Improvements`.
+  - Поділ ідентичностей: Claude vs Codex.
+
+### Рішення прийняті
+- База даних залишається спільною (один інстанс Postgres) для обох середовищ, оскільки дані (сценарії, сесії) мають бути синхронізовані для тестування.
+- AI працює в `cthulhu` папці, щоб не втрачати контекст NOTES/CHANGELOG.
