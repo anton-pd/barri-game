@@ -13,6 +13,8 @@ interface DraftPlayer {
 
 const emptyDraft = (): DraftPlayer => ({ name: '', preset: null });
 
+const sessionLabelsUk = ['перша', 'друга', 'третя', 'четверта', 'п’ята', 'шоста', 'сьома', 'восьма', 'дев’ята', 'десята'];
+
 export default function SessionList() {
   const [sessions, setSessions] = useState<(GameSession & { last_message?: string })[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -191,7 +193,11 @@ export default function SessionList() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-0.5">
                     <h3 className="font-semibold text-stone-200 truncate">{s.name}</h3>
-                    <span className="text-xs text-stone-600 shrink-0">Акт {s.world_state?.act || 1}</span>
+                    {s.campaign_id && (
+                      <span className="text-xs text-stone-600 shrink-0">
+                        Сесія: {sessionLabelsUk[(s.session_number || 1) - 1] || `${s.session_number}-та`}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-stone-600 mb-2">
                     {s.scenario_id} · {new Date(s.updated_at).toLocaleDateString('uk-UA')}
