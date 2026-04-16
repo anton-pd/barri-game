@@ -31,6 +31,7 @@ Full workflow details in **LINEAR.md**. Summary:
 **AI Improvements**: When asked for plans/audits, create issues in **AI Improvements** column (1 per fix/feature) and assign to self.
 **Small tasks**: Add `small-task` label, skip step 3. Document reasoning.
 **Identity**: Claude takes "Claude" tasks, Codex takes "Codex" tasks.
+**Project**: All tasks MUST be created in the **Barri** project (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) using team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
 
 Assignee is always **Anton** for reviews. AI moves to Review — Anton moves to Ready for Deployment.
 

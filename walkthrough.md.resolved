@@ -1,0 +1,39 @@
+# Walkthrough — Infrastructure & Workflow Overhaul
+
+Ми успішно перевели проект на нову архітектуру, яка дозволяє безпечно розробляти фічі на стейджингу та деплоїти їх на продакшн без дублювання витрат на AI-асети.
+
+## 1. Стейджинг та Продакшн
+
+Тепер у нас два незалежні середовища:
+- **Staging**: [staging.barrigame.es](https://staging.barrigame.es) (Порт 3001) — Папка `/opt/apps/cthulhu`.
+- **Production**: [barrigame.es](https://barrigame.es) (Порт 3000) — Папка `/opt/apps/cthulhu-prod`.
+
+## 2. Спільне сховище (Shared Storage)
+
+З огляду на те, що обидва середовища використовують спільну базу даних, я впровадив спільне сховище для динамічних даних у `/opt/apps/shared_data`.
+
+> [!TIP]
+> Це означає, що будь-який сценарій або картинка, згенеровані на стейджингу, будуть **миттєво доступні** на продакшні. Ми економимо гроші на AI-генераціях і уникаємо битих посилань у спільній БД.
+
+**Мапінг Volume:**
+- `/opt/apps/shared_data/scenarios` → `/app/scenarios` (JSON сценаріїв)
+- `/opt/apps/shared_data/public/scenarios` → `/app/public/scenarios` (Згенеровані картинки)
+
+## 3. Інтеграція з Linear
+
+Я налаштував доступ до Linear через API. Тепер я буду самостійно створювати таски в колонці **AI Improvements** для нових ідей та відстежувати свій прогрес.
+
+**Виконане завдання:**
+- **ANT-34**: [Implement Shared Storage for Staging and Production](https://linear.app/anton-ux/issue/ANT-34/ant-shared-storage-implement-shared-logic) — **DONE**.
+
+## 4. Оновлена документація
+
+Я оновив усі ключові інструкції проекту, щоб вони відповідали новій структурі:
+- [PROJECT_CONTEXT.md](file:///opt/apps/cthulhu/PROJECT_CONTEXT.md) — Повний опис архітектури, портів та сховищ.
+- [LINEAR.md](file:///opt/apps/cthulhu/LINEAR.md) — Правила воркфлоу та деплою.
+- [AGENTS.md](file:///opt/apps/cthulhu/AGENTS.md) — Універсальні інструкції для мене (Claude) та Codex.
+- [NOTES.md](file:///opt/apps/cthulhu/NOTES.md) — Запис Фази 15.
+- [CHANGELOG.md](file:///opt/apps/cthulhu/CHANGELOG.md) — Версія **0.3.5**.
+
+---
+**Все готово для початку розробки за новим стандартом!**
