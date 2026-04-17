@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.14] — 2026-04-17
+
+### Fixed
+- **Dynamic image fullscreen**: `DynamicImage` fullscreen overlay now renders via `createPortal` to `document.body`, escaping the transformed sidebar wrapper that was trapping the preview inside the sidebar for sessions with dynamic session images.
+
+---
+
 ## [0.3.13] — 2026-04-17
 
 ### Changed
