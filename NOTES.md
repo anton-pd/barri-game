@@ -846,3 +846,52 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Primary — Opus 4.7 (а не Sonnet 4.6 з піднятим лімітом), бо якість важлива для авторського тулу, а prompt caching на системному промпті робить повторні виклики дешевими; Gemini 2.5 Pro як fallback задовольняє вимогу «щоб не коштувало космос» — навіть якщо Opus таймаутиться, генерація не пропадає.
 - Не чіпали `trackAPICall` у цьому таску — генератор і раніше не трекав вартість, окремо розберемось за потреби.
 - Працював у worktree `.claude/worktrees/ant-23`, щоб не заважати Codex, який паралельно веде ANT-30 у `/Users/anton.leshchenko/Projects/Barri`.
+
+---
+
+## ANT-30: Ambient generation + scenario refresh + deploy sync (2026-04-18)
+
+**What changed.**
+- Додано окремий ambient pipeline через ElevenLabs: `src/lib/ambient.ts` + `POST /api/scenarios/[id]/ambient`.
+- Ambient генерується один раз під час materials flow для static scenario locations/groups, зберігається в shared `public/scenarios/<scenario>/ambient/`, а шлях пишеться в `ambientFile` у `scenario.json`.
+- Runtime вирівняно під реальний `ambientFile`: `src/app/api/ai/route.ts`, `src/app/session/[id]/page.tsx`, `src/components/GameChat.tsx` більше не збирають URL з `locationId`; після reload ambient теж відновлюється.
+- Dynamic session locations поки не генерують ambient, але код залишає такий future hook за аналогією з dynamic images.
+- Оновлено сценарії `the-haunting` і `the-last-telegram` під новий контракт; попередні версії заархівовано в `scenarios/archive/2026-04-18/`. Тестовий `the-last-cup.json` прибрано з активних сценаріїв.
+
+**Staging/prod operational notes.**
+- У live середовищах сценарії беруться не з repo напряму, а з shared volume `/opt/apps/shared_data/scenarios`, змонтованого поверх `/app/scenarios`. Тому оновлення/архівація scenario JSON потребують або save-route, або явного sync у shared storage.
+- Для staging було вручну синхронізовано shared scenarios: активними лишилися тільки `the-haunting.json` і `the-last-telegram.json`; старі версії та `the-last-cup.json` перенесено в `/opt/apps/shared_data/scenarios/archive/2026-04-18/`.
+- На staging успішно відпрацювали:
+  - `POST /api/scenarios/the-haunting/ambient`
+  - `POST /api/scenarios/the-last-telegram/ambient`
+  - `POST /api/scenarios/the-haunting/images`
+  - `POST /api/scenarios/the-last-telegram/images`
+- Після цього `https://staging.barrigame.es/api/scenarios` віддавав тільки `the-haunting` і `the-last-telegram`.
+
+**Git/history notes.**
+- Робочий коміт Codex по ANT-30: `a109fbb` (`ANT-30: ambient audio and scenario refresh`).
+- Тимчасово `staging` вказував на merge-коміт `cdfa88d`, але окремо було форсовано `origin/staging` прямо на `a109fbb` для чистого staging-тесту.
+- Пізніше Claude залив staging у prod; фінальна перевірка показала, що нічого не загубилось:
+  - `a109fbb` входить у `origin/main`
+  - `cdfa88d` теж входить у `origin/main`
+  - `ANT-23` (`15b4a44`) теж у `origin/main`
+  - `git diff origin/main..origin/staging` на момент перевірки був порожній
+
+**Verification.**
+- `npm run build` локально пройшов.
+- Staging rebuild на VPS пройшов успішно через `docker compose -f /opt/apps/docker-compose.yml up -d --build barri-dev`.
+- Prod після деплою перевірено користувачем: ambient assets доступні, критичних втрат у коді/історії не виявлено.
+
+**Tomorrow / follow-up.**
+- Є питання до якості згенерованих сценаріїв `the-haunting` і `the-last-telegram`; це окремий follow-up на завтра.
+- При наступному колі правок треба фіксити саме content/scenario-level проблеми, а не ambient/storage pipeline: інфраструктурно flow уже працює.
+
+---
+
+## ANT-23 post-deploy (2026-04-18)
+
+- Deployed `staging` → `main` через flow з PROJECT_CONTEXT: merge staging → main локально, push, на VPS `cd /opt/apps/barri && git pull` + `docker compose -f /opt/apps/docker-compose.yml up -d --build barri barri-dev`.
+- Після rebuild обидва контейнери `apps-barri-1` і `apps-barri-dev-1` піднялися, `https://barrigame.es` і `https://staging.barrigame.es` → 307 (нормальний auth redirect).
+- Користувач підтвердив, що генератор працює (Opus 4.7 → fallback Gemini 2.5 Pro). Дрібні правки по якості — окремі таски.
+- Linear `ANT-23` → `Done`, feature-гілку `feature/ANT-23` та worktree видалено.
+- Версію бампнуто до `0.3.17` разом з ANT-30 changelog-записом.

@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.17] — 2026-04-18
+
+### Added
+- **Ambient audio pipeline (ANT-30)**: `src/lib/ambient.ts` + `POST /api/scenarios/[id]/ambient` — ElevenLabs-based ambient генерація для static scenario locations/groups під час materials flow. Результат зберігається в shared `public/scenarios/<scenario>/ambient/` і записується в `ambientFile` у `scenario.json`.
+
+### Changed
+- **Runtime ambient resolution**: `src/app/api/ai/route.ts`, `src/app/session/[id]/page.tsx`, `src/components/GameChat.tsx` більше не конструюють URL з `locationId` — читають `ambientFile` зі сценарію (в т.ч. після reload).
+- **Scenarios refresh**: оновлено `the-haunting` і `the-last-telegram` під новий контракт; попередні версії заархівовано в `scenarios/archive/2026-04-18/`. Тестовий `the-last-cup.json` прибрано з активних сценаріїв.
+
+### Fixed
+- **Post-deploy verification (ANT-23)**: генератор успішно відпрацював на проді з Opus 4.7 → fallback Gemini 2.5 Pro pipeline. Фікс підтверджено живим запуском.
+
+---
+
 ## [0.3.16] — 2026-04-18
 
 ### Fixed
