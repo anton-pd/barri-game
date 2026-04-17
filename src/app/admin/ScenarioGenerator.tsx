@@ -32,6 +32,7 @@ export default function ScenarioGenerator() {
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [meta, setMeta] = useState<{ provider?: string; model?: string; inputTokens?: number; outputTokens?: number; fallbackReason?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -44,6 +45,7 @@ export default function ScenarioGenerator() {
   async function generate() {
     setStatus('generating');
     setResult(null);
+    setMeta(null);
     setError(null);
     setSaved(false);
 
@@ -53,13 +55,31 @@ export default function ScenarioGenerator() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json() as { scenario?: Record<string, unknown>; error?: string };
+
+      // Server may return an HTML error page (proxy timeout, etc.) — read as text first.
+      const raw = await res.text();
+      let data: { scenario?: Record<string, unknown>; error?: string; provider?: string; model?: string; inputTokens?: number; outputTokens?: number; fallbackReason?: string } = {};
+      try {
+        data = raw ? JSON.parse(raw) : {};
+      } catch {
+        setError(`HTTP ${res.status} — non-JSON response:\n${raw.slice(0, 500)}`);
+        setStatus('error');
+        return;
+      }
+
       if (!res.ok || data.error) {
-        setError(data.error ?? 'Unknown error');
+        setError(data.error ?? `HTTP ${res.status}`);
         setStatus('error');
         return;
       }
       setResult(data.scenario ?? null);
+      setMeta({
+        provider: data.provider,
+        model: data.model,
+        inputTokens: data.inputTokens,
+        outputTokens: data.outputTokens,
+        fallbackReason: data.fallbackReason,
+      });
       setStatus('done');
     } catch (err) {
       setError(String(err));
@@ -248,6 +268,15 @@ export default function ScenarioGenerator() {
             <div className="flex items-center justify-between">
               <p className="text-xs text-stone-400 uppercase tracking-wide">
                 Generated: <span className="text-amber-400">{result.id as string}</span>
+                {meta?.model && (
+                  <span className="ml-3 text-stone-500 normal-case tracking-normal">
+                    via {meta.provider}/{meta.model}
+                    {typeof meta.inputTokens === 'number' && typeof meta.outputTokens === 'number' && (
+                      <> · {meta.inputTokens} in / {meta.outputTokens} out tok</>
+                    )}
+                    {meta.fallbackReason && <span className="text-amber-500"> · fallback</span>}
+                  </span>
+                )}
                 {saved && <span className="text-emerald-500 ml-3">Saved to disk ✓</span>}
               </p>
               <div className="flex gap-2">

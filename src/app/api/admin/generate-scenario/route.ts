@@ -5,6 +5,11 @@ import { getUserById } from '@/lib/queries';
 import { generateScenario } from '@/lib/scenarioGenerator';
 import type { GenerateScenarioInput } from '@/lib/scenarioGenerator';
 
+// Scenario generation with Opus 4.7 can take 60–180s on large outputs.
+// Force Node runtime and extend max duration so the upstream proxy doesn't cut us off.
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   // Admin-only
   const cookieStore = await cookies();
@@ -25,7 +30,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const scenario = await generateScenario({
+    const result = await generateScenario({
       title,
       titleUk,
       premise,
@@ -37,9 +42,25 @@ export async function POST(req: NextRequest) {
       estimatedSessions: estimatedSessions ?? 1,
       language: language ?? 'uk',
     });
-    return NextResponse.json({ scenario });
+
+    console.log(
+      `[generate-scenario] ok provider=${result.provider} model=${result.model} ` +
+      `stop=${result.stopReason} in=${result.inputTokens} out=${result.outputTokens}` +
+      (result.fallbackReason ? ' fallback=true' : '')
+    );
+
+    return NextResponse.json({
+      scenario: result.scenario,
+      provider: result.provider,
+      model: result.model,
+      stopReason: result.stopReason,
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+      fallbackReason: result.fallbackReason,
+    });
   } catch (err) {
-    console.error('Scenario generation failed:', err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[generate-scenario] failed:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

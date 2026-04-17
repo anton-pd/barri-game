@@ -1,4 +1,6 @@
-// Scenario generator — produces full scenario JSON via Claude Opus.
+// Scenario generator — produces full scenario JSON.
+// Primary: Claude Opus 4.7 with prompt caching on the system prompt.
+// Fallback: Gemini 2.5 Pro (REST) if Opus fails (timeout / invalid JSON / API error).
 // Called from /api/admin/generate-scenario.
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -14,6 +16,20 @@ export interface GenerateScenarioInput {
   estimatedSessions: number;
   language: 'uk' | 'en';  // language for Ukrainian content fields
 }
+
+export interface GenerateScenarioResult {
+  scenario: object;
+  provider: 'anthropic' | 'gemini';
+  model: string;
+  stopReason: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  fallbackReason?: string;
+}
+
+const OPUS_MODEL = 'claude-opus-4-7';
+const GEMINI_MODEL = 'gemini-2.5-pro';
+const MAX_TOKENS = 32000;
 
 const SYSTEM_PROMPT = `You are an expert Call of Cthulhu scenario designer. You produce complete, valid scenario JSON files for the barrigame.es system.
 
@@ -183,10 +199,8 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 - Roles must complement each other: at least one social role, one investigative role, one role with relevant specialized knowledge
 `;
 
-export async function generateScenario(input: GenerateScenarioInput): Promise<object> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  const userPrompt = `Generate a complete Call of Cthulhu scenario with these parameters:
+function buildUserPrompt(input: GenerateScenarioInput): string {
+  return `Generate a complete Call of Cthulhu scenario with these parameters:
 
 Title: ${input.title}
 Ukrainian title: ${input.titleUk}
@@ -200,22 +214,125 @@ Premise:
 ${input.premise}
 
 Generate the full scenario JSON now. Remember: raw JSON only, no markdown.`;
+}
 
-  const message = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 10000,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: userPrompt }],
-  });
-
-  const text = message.content[0].type === 'text' ? message.content[0].text : '';
-
-  // Strip any accidental markdown fences
-  const clean = text.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
+/** Strip markdown fences and try to parse. On failure, fall back to first-{ to last-} substring. */
+function parseJsonLoose(text: string): object {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = (fenced ? fenced[1] : trimmed).trim();
 
   try {
-    return JSON.parse(clean) as object;
+    return JSON.parse(candidate) as object;
   } catch {
-    throw new Error(`Generator returned invalid JSON:\n${clean.slice(0, 500)}`);
+    const first = candidate.indexOf('{');
+    const last = candidate.lastIndexOf('}');
+    if (first !== -1 && last > first) {
+      const slice = candidate.slice(first, last + 1);
+      return JSON.parse(slice) as object;
+    }
+    throw new Error('No valid JSON object found in response');
+  }
+}
+
+async function generateWithOpus(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+  const message = await client.messages.create({
+    model: OPUS_MODEL,
+    max_tokens: MAX_TOKENS,
+    // Prompt caching on the static system prompt — ~90% input discount on subsequent calls.
+    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+    messages: [{ role: 'user', content: buildUserPrompt(input) }],
+  });
+
+  const textBlock = message.content.find((b) => b.type === 'text');
+  const text = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+
+  if (!text) {
+    throw new Error(`Opus returned empty text (stop_reason=${message.stop_reason})`);
+  }
+
+  try {
+    const scenario = parseJsonLoose(text);
+    return {
+      scenario,
+      provider: 'anthropic',
+      model: OPUS_MODEL,
+      stopReason: message.stop_reason,
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens,
+    };
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Opus JSON parse failed (stop_reason=${message.stop_reason}, ` +
+      `output_tokens=${message.usage.output_tokens}): ${detail}\n` +
+      `Response head: ${text.slice(0, 300)}`
+    );
+  }
+}
+
+async function generateWithGemini(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+
+  const body = {
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents: [{ role: 'user', parts: [{ text: buildUserPrompt(input) }] }],
+    generationConfig: {
+      maxOutputTokens: MAX_TOKENS,
+      temperature: 0.9,
+      responseMimeType: 'application/json',
+    },
+  };
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${err.slice(0, 300)}`);
+  }
+
+  const data = await res.json() as {
+    candidates?: { content?: { parts?: { text: string }[] }; finishReason?: string }[];
+    promptFeedback?: { blockReason?: string };
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+  };
+
+  const finishReason = data.candidates?.[0]?.finishReason ?? data.promptFeedback?.blockReason ?? null;
+  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') ?? '';
+
+  if (!text) {
+    throw new Error(`Gemini returned empty text (finishReason=${finishReason})`);
+  }
+
+  const scenario = parseJsonLoose(text);
+  return {
+    scenario,
+    provider: 'gemini',
+    model: GEMINI_MODEL,
+    stopReason: finishReason,
+    inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+  };
+}
+
+export async function generateScenario(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
+  try {
+    return await generateWithOpus(input);
+  } catch (opusErr) {
+    const reason = opusErr instanceof Error ? opusErr.message : String(opusErr);
+    console.warn('[scenarioGenerator] Opus failed, falling back to Gemini:', reason);
+    try {
+      const result = await generateWithGemini(input);
+      return { ...result, fallbackReason: reason };
+    } catch (geminiErr) {
+      const geminiReason = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
+      throw new Error(`Both providers failed.\nOpus: ${reason}\nGemini: ${geminiReason}`);
+    }
   }
 }

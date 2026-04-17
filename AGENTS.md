@@ -2,7 +2,7 @@
 
 Web app for tabletop RPG sessions with an AI Keeper (GM) for Call of Cthulhu and other systems.
 Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
-Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
+Repo `/opt/apps/barri-dev` (Staging, branch `staging`) and `/opt/apps/barri` (Prod, branch `main`). Containers: `apps-barri-dev-1` (staging :3001), `apps-barri-1` (prod :3000). Scenarios + image cache are shared via `/opt/apps/shared_data/` (Docker volumes mount into both).
 
 Full architecture, DB schema, AI tag protocol, and conventions are in **PROJECT_CONTEXT.md** — read it before making any changes.
 
