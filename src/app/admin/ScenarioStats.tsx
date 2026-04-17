@@ -11,10 +11,6 @@ interface ScenarioRow {
   avg_cost_per_session: number;
 }
 
-function fmtCost(n: number): string {
-  return `$${n.toFixed(4)}`;
-}
-
 export default function ScenarioStats() {
   const [rows, setRows]       = useState<ScenarioRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +24,7 @@ export default function ScenarioStats() {
 
   return (
     <section>
-      <h3 className="text-stone-300 text-sm tracking-widest uppercase mb-4">Scenario Stats</h3>
+      <h3 className="text-stone-300 text-sm tracking-widest uppercase mb-4">Scenario List</h3>
       <div className="bg-stone-900 border border-stone-800 rounded-xl overflow-hidden">
         {loading ? (
           <p className="px-4 py-8 text-center text-stone-600 text-sm">Loading...</p>
@@ -40,8 +36,6 @@ export default function ScenarioStats() {
                 <th className="text-right px-4 py-3">Sessions</th>
                 <th className="text-right px-4 py-3">Completed</th>
                 <th className="text-right px-4 py-3">Avg msgs</th>
-                <th className="text-right px-4 py-3">Avg cost</th>
-                <th className="text-right px-4 py-3">Total cost</th>
               </tr>
             </thead>
             <tbody>
@@ -60,17 +54,11 @@ export default function ScenarioStats() {
                   <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
                     {Math.round(row.avg_messages)}
                   </td>
-                  <td className="px-4 py-2.5 text-right text-amber-700 text-xs">
-                    {fmtCost(row.avg_cost_per_session)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
-                    {fmtCost(row.total_cost)}
-                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-stone-600">No scenario data yet</td>
+                  <td colSpan={4} className="px-4 py-8 text-center text-stone-600">No scenario data yet</td>
                 </tr>
               )}
             </tbody>

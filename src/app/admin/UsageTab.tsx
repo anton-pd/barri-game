@@ -39,6 +39,15 @@ interface AccountRow {
   models: AccountModelRow[];
 }
 
+interface ScenarioUsageRow {
+  scenario_id: string;
+  session_count: number;
+  completed_count: number;
+  avg_messages: number;
+  total_cost: number;
+  avg_cost_per_session: number;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtN(n: number | null | undefined): string {
@@ -50,10 +59,19 @@ function fmtCost(n: number | null | undefined): string {
   return `$${(n ?? 0).toFixed(4)}`;
 }
 
-function renderOutput(row: { output_tokens?: number | null; characters?: number | null; image_count?: number | null }) {
+function renderInput(row: { type?: string; input_tokens?: number | null; characters?: number | null }) {
+  if (row.input_tokens) return fmtN(row.input_tokens);
+  if (row.type === 'tts' && row.characters) return `${fmtN(row.characters)} ch`;
+  return '—';
+}
+
+function renderOutput(row: { type?: string; output_tokens?: number | null; characters?: number | null; image_count?: number | null }) {
   if (row.output_tokens) return fmtN(row.output_tokens);
-  if (row.characters)    return `${fmtN(row.characters)} ch`;
-  if (row.image_count)   return `${row.image_count} img`;
+  if (row.type === 'tts' && row.characters) {
+    const tok = Math.round(row.characters / 4);
+    return `${fmtN(tok)} tok / ${fmtN(row.characters)} ch`;
+  }
+  if (row.image_count) return `${row.image_count} img`;
   return '—';
 }
 
@@ -77,8 +95,8 @@ function ModelBreakdownTable({ rows }: { rows: { provider: string; model: string
           <th className="text-left py-1 pr-6">Model</th>
           <th className="text-left pr-6">Type</th>
           <th className="text-right pr-6">Calls</th>
-          <th className="text-right pr-6">Input tok</th>
-          <th className="text-right pr-6">Output / chars / img</th>
+          <th className="text-right pr-6">Input</th>
+          <th className="text-right pr-6">Output</th>
           <th className="text-right">Cost</th>
         </tr>
       </thead>
@@ -90,7 +108,7 @@ function ModelBreakdownTable({ rows }: { rows: { provider: string; model: string
               <span className="px-1 py-0.5 rounded bg-stone-800 text-stone-500">{m.type}</span>
             </td>
             <td className="text-right pr-6">{m.calls}</td>
-            <td className="text-right pr-6 text-stone-500">{fmtN(m.input_tokens)}</td>
+            <td className="text-right pr-6 text-stone-500">{renderInput(m)}</td>
             <td className="text-right pr-6 text-stone-500">{renderOutput(m)}</td>
             <td className="text-right text-amber-700">{fmtCost(m.cost)}</td>
           </tr>
@@ -106,13 +124,15 @@ export default function UsageTab() {
   const [period, setPeriod] = useState<Period>('month');
   const [customDate, setCustomDate] = useState('');
 
-  const [modelRows,   setModelRows]   = useState<ModelRow[]>([]);
-  const [sessionRows, setSessionRows] = useState<SessionRow[]>([]);
-  const [accountRows, setAccountRows] = useState<AccountRow[]>([]);
+  const [modelRows,    setModelRows]    = useState<ModelRow[]>([]);
+  const [sessionRows,  setSessionRows]  = useState<SessionRow[]>([]);
+  const [accountRows,  setAccountRows]  = useState<AccountRow[]>([]);
+  const [scenarioRows, setScenarioRows] = useState<ScenarioUsageRow[]>([]);
 
   const [loadingModels,   setLoadingModels]   = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
+  const [loadingScenarios, setLoadingScenarios] = useState(true);
 
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
@@ -153,12 +173,21 @@ export default function UsageTab() {
     }
   }, []);
 
+  const fetchScenarios = useCallback(async () => {
+    setLoadingScenarios(true);
+    try {
+      const res = await fetch('/api/admin/costs?breakdown=scenarios');
+      if (res.ok) setScenarioRows(await res.json());
+    } finally { setLoadingScenarios(false); }
+  }, []);
+
   // Initial load
   useEffect(() => {
     fetchSessions();
+    fetchScenarios();
     fetchModels('month', '');
     fetchAccounts('month', '');
-  }, [fetchSessions, fetchModels, fetchAccounts]);
+  }, [fetchSessions, fetchScenarios, fetchModels, fetchAccounts]);
 
   // Re-fetch on period change
   function applyPeriod(p: Period, d: string) {
@@ -217,7 +246,7 @@ export default function UsageTab() {
         )}
         <div className="flex-1" />
         <button
-          onClick={() => { fetchModels(period, customDate); fetchAccounts(period, customDate); fetchSessions(); }}
+          onClick={() => { fetchModels(period, customDate); fetchAccounts(period, customDate); fetchSessions(); fetchScenarios(); }}
           className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-lg transition-colors border border-stone-700"
         >
           ↻ Refresh
@@ -240,8 +269,8 @@ export default function UsageTab() {
                   <th className="text-left px-4 py-3">Model</th>
                   <th className="text-left px-4 py-3">Type</th>
                   <th className="text-right px-4 py-3">Calls</th>
-                  <th className="text-right px-4 py-3">Input tok</th>
-                  <th className="text-right px-4 py-3">Output / chars / img</th>
+                  <th className="text-right px-4 py-3">Input</th>
+                  <th className="text-right px-4 py-3">Output</th>
                   <th className="text-right px-4 py-3">Cost $</th>
                 </tr>
               </thead>
@@ -254,7 +283,7 @@ export default function UsageTab() {
                     </td>
                     <td className="px-4 py-2.5 text-right text-stone-400">{row.calls}</td>
                     <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
-                      {fmtN(row.input_tokens)}
+                      {renderInput(row)}
                     </td>
                     <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
                       {renderOutput(row)}
@@ -349,6 +378,60 @@ export default function UsageTab() {
                 })}
                 {sessionRows.length === 0 && (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-stone-600">No session data yet</td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
+      {/* ── Scenarios ──────────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-stone-300 text-sm tracking-widest uppercase">By Scenario</h3>
+          <span className="text-stone-600 text-xs">all time</span>
+        </div>
+        <div className="bg-stone-900 border border-stone-800 rounded-xl overflow-hidden">
+          {loadingScenarios ? (
+            <p className="px-4 py-8 text-center text-stone-600 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
+                  <th className="text-left px-4 py-3">Scenario</th>
+                  <th className="text-right px-4 py-3">Sessions</th>
+                  <th className="text-right px-4 py-3">Completed</th>
+                  <th className="text-right px-4 py-3">Avg msgs</th>
+                  <th className="text-right px-4 py-3">Avg cost $</th>
+                  <th className="text-right px-4 py-3">Total cost $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scenarioRows.map(row => (
+                  <tr key={row.scenario_id} className="border-b border-stone-800/50 hover:bg-stone-800/30">
+                    <td className="px-4 py-2.5 text-stone-200 font-mono text-xs">{row.scenario_id}</td>
+                    <td className="px-4 py-2.5 text-right text-stone-400">{row.session_count}</td>
+                    <td className="px-4 py-2.5 text-right text-stone-400">
+                      {row.completed_count}
+                      {row.session_count > 0 && (
+                        <span className="text-stone-600 text-xs ml-1">
+                          ({Math.round((row.completed_count / row.session_count) * 100)}%)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
+                      {Math.round(row.avg_messages)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-amber-700 text-xs">
+                      {fmtCost(row.avg_cost_per_session)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
+                      {fmtCost(row.total_cost)}
+                    </td>
+                  </tr>
+                ))}
+                {scenarioRows.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-stone-600">No data yet</td></tr>
                 )}
               </tbody>
             </table>

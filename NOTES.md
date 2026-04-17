@@ -570,6 +570,26 @@ LINEAR.md був розсинхронізований з реальною стр
 
 ---
 
+## [2026-04-17 14:00] Claude — ANT-26/27 fix: правильне розміщення stats + TTS/image display
+
+### Problem
+Антон повернув ANT-26 та ANT-27 з коментарями:
+- ANT-26: scenario stats з ціною були на вкладці Scenarios — мало бути на Usage. Scenarios tab: залишити тільки session stats.
+- ANT-27: (a) Usage table не показувала input для TTS/image; (b) TTS output має бути "N tok / N ch"; (c) PricingEditor: image модель була в LLM секції; (d) TTS не мала input pricing в editor.
+- Також: LINEAR.md — додано правило обов'язкового коментаря при переході в In Review.
+
+### Solution
+- `ScenarioStats.tsx`: прибрано cost-колонки (тільки session_count, completed_count, avg_messages).
+- `UsageTab.tsx`: нова секція "By Scenario" з cost-даними; `renderInput()` показує chars для TTS, input_tokens для LLM/image; `renderOutput()` для TTS — "N tok / N ch" (chars/4).
+- `PricingEditor.tsx`: LLM-фільтр змінено на `'outputPer1M' in metrics` (image без outputPer1M іде в нижню секцію); TTS `perChar` тепер показується в Input-колонці з міткою "$/1M tok".
+- `LINEAR.md`: додано правило "Review comment (mandatory)".
+
+### Key decisions
+- `perChar` for TTS залишається одиницею зберігання — тільки UI відображає його як "$/1M tok" (через toDisplay). Не дублюємо запис inputPer1M для TTS.
+- TTS output = chars/4 (стандартне відношення для Gemini TTS: 4 chars = 1 token).
+
+---
+
 ## [2026-04-17 12:00] Claude — ANT-25/26/27: Scenario stats + image output tokens
 
 ### Problem

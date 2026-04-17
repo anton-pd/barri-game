@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.8] — 2026-04-17
+
+### Changed
+- **Admin → Usage tab**: нова секція "By Scenario" з кількістю сесій, завершеннями, середньою вартістю та загальними витратами по кожному сценарію (ANT-26).
+- **Admin → Scenarios tab**: "Scenario List" тепер показує лише session stats (без вартості) (ANT-26).
+- **Admin → Usage → By Model**: колонка Input тепер коректно показує `chars` для TTS та `input_tokens` для image; колонка Output для TTS — формат "N tok / N ch" (ANT-27).
+- **Admin → Settings → Model Pricing**: Gemini image переміщено в секцію TTS/Image/STT; TTS-моделі показують input price в $/1M tok форматі (ANT-27).
+
+---
+
 ## [0.3.7] — 2026-04-17
 
 ### Added

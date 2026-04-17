@@ -152,18 +152,22 @@ export default function PricingEditor() {
     );
   }
 
-  const llmGroups   = groups.filter(g => 'inputPer1M' in g.metrics || 'outputPer1M' in g.metrics);
-  const otherGroups = groups.filter(g => !('inputPer1M' in g.metrics) && !('outputPer1M' in g.metrics));
+  // LLM = has outputPer1M (image models have inputPer1M but no outputPer1M)
+  const llmGroups   = groups.filter(g => 'outputPer1M' in g.metrics);
+  const otherGroups = groups.filter(g => !('outputPer1M' in g.metrics));
 
   if (loading) return <p className="text-stone-600 text-sm py-4">Завантаження...</p>;
 
   function renderGroup(g: ModelGroup) {
-    const mk    = modelKey(g.provider, g.model);
-    const dirty = isDirty(g);
-    const isLlm = 'inputPer1M' in g.metrics || 'outputPer1M' in g.metrics;
+    const mk        = modelKey(g.provider, g.model);
+    const dirty     = isDirty(g);
+    const hasInput  = 'inputPer1M' in g.metrics;
+    const hasOutput = 'outputPer1M' in g.metrics;
+    const hasChar   = 'perChar'    in g.metrics;
 
-    // For non-LLM models, find the single "unit" metric
-    const unitMetric = Object.keys(g.metrics).find(m => !['inputPer1M', 'outputPer1M'].includes(m));
+    // Unit = any metric except inputPer1M, outputPer1M, perChar
+    // perChar is shown in the input column (TTS input price = chars billed = input)
+    const unitMetric = Object.keys(g.metrics).find(m => !['inputPer1M', 'outputPer1M', 'perChar'].includes(m));
 
     return (
       <tr key={mk} className="border-b border-stone-800/50 hover:bg-stone-800/20">
@@ -179,21 +183,25 @@ export default function PricingEditor() {
           {g.model}
         </td>
 
-        {/* Input $/1M */}
+        {/* Input $/1M — LLM/image use inputPer1M; TTS uses perChar (displayed as $/1M tok) */}
         <td className="px-4 py-2.5">
-          {isLlm && 'inputPer1M' in g.metrics
-            ? numInput(g.provider, g.model, 'inputPer1M')
-            : <span className="text-stone-700 text-xs">—</span>}
+          {hasInput ? numInput(g.provider, g.model, 'inputPer1M')
+           : hasChar ? (
+            <div className="flex items-center gap-1.5">
+              {numInput(g.provider, g.model, 'perChar')}
+              <span className="text-stone-600 text-xs">$/1M tok</span>
+            </div>
+          ) : <span className="text-stone-700 text-xs">—</span>}
         </td>
 
-        {/* Output $/1M */}
+        {/* Output $/1M — LLM only */}
         <td className="px-4 py-2.5">
-          {isLlm && 'outputPer1M' in g.metrics
+          {hasOutput
             ? numInput(g.provider, g.model, 'outputPer1M')
             : <span className="text-stone-700 text-xs">—</span>}
         </td>
 
-        {/* Unit price (TTS / image / STT) */}
+        {/* Unit price — perImage, perMinute */}
         <td className="px-4 py-2.5">
           {unitMetric ? (
             <div className="flex items-center gap-2">
