@@ -2,7 +2,7 @@
 
 Web app for tabletop RPG sessions with an AI Keeper (GM).
 Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
-Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
+Repo `/opt/apps/barri-dev` (Staging, branch `staging`) and `/opt/apps/barri` (Prod, branch `main`). Persistent scenarios + image cache are shared across both via `/opt/apps/shared_data/{scenarios,public/scenarios}` (Docker volumes).
 
 **Identity**: You are **Claude**. Only take tasks assigned to **Claude** in Linear.
 Codex takes tasks assigned to **Codex**.
