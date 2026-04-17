@@ -60,17 +60,16 @@ function fmtCost(n: number | null | undefined): string {
 }
 
 function renderInput(row: { type?: string; input_tokens?: number | null; characters?: number | null }) {
-  if (row.input_tokens) return fmtN(row.input_tokens);
-  if (row.type === 'tts' && row.characters) return `${fmtN(row.characters)} ch`;
+  if (row.input_tokens) return `${fmtN(row.input_tokens)} tok`;
+  // Fallback for old TTS records without input_tokens: estimate from chars
+  if (row.type === 'tts' && row.characters) return `~${fmtN(Math.round(row.characters / 4))} tok`;
   return '—';
 }
 
 function renderOutput(row: { type?: string; output_tokens?: number | null; characters?: number | null; image_count?: number | null }) {
-  if (row.output_tokens) return fmtN(row.output_tokens);
-  if (row.type === 'tts' && row.characters) {
-    const tok = Math.round(row.characters / 4);
-    return `${fmtN(tok)} tok / ${fmtN(row.characters)} ch`;
-  }
+  if (row.output_tokens) return `${fmtN(row.output_tokens)} tok`;
+  // Fallback for old TTS records without output_tokens
+  if (row.type === 'tts' && row.characters) return `~${fmtN(Math.round(row.characters / 4))} tok`;
   if (row.image_count) return `${row.image_count} img`;
   return '—';
 }

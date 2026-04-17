@@ -570,6 +570,25 @@ LINEAR.md був розсинхронізований з реальною стр
 
 ---
 
+## [2026-04-17 15:00] Claude — ANT-27 fix2: Gemini TTS → token-based input+output pricing
+
+### Problem
+TTS модель не мала output ціни у pricing editor. Модель повинна мати і input (текст що відправляємо) і output (аудіо що отримуємо) — обидва в токенах.
+
+### Solution
+- `costTracker.ts`: FALLBACK_PRICING для Gemini TTS змінено з `{ perChar }` на `{ inputPer1M: 0.50, outputPer1M: 2.00 }` (сума $2.50/M — те саме). `calculateCost()` для TTS: якщо є inputPer1M — використовує token-based billing, fallback — perChar (для OpenAI TTS).
+- `queries.ts`: seed замінено (inputPer1M + outputPer1M замість perChar). Додано міграцію: DELETE perChar для Gemini TTS.
+- `tts/route.ts`: Gemini TTS тепер трекує `inputTokens = outputTokens = ceil(text.length/4)` + `characters` (для сумісності).
+- `UsageTab.tsx`: renderInput/renderOutput показують "N tok" для token-based даних; "~N tok" для старих записів з chars.
+- `PricingEditor.tsx`: Gemini TTS тепер у секції "Per token" (має outputPer1M); секція перейменована з "LLM — per token" на "Per token — LLM / TTS".
+
+### Key decisions
+- outputTokens для TTS ≈ inputTokens (chars/4) — Gemini не повертає реальний token count аудіо, але білінг приблизно такий.
+- perChar залишено тільки для OpenAI TTS (OpenAI білить по символах).
+- Ціна: $0.50 in + $2.00 out = $2.50/M tok (відповідає попередньому $2.50/M).
+
+---
+
 ## [2026-04-17 14:00] Claude — ANT-26/27 fix: правильне розміщення stats + TTS/image display
 
 ### Problem

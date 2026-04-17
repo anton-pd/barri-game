@@ -208,7 +208,8 @@ export async function initializeSchema() {
       ('anthropic', 'claude-haiku-4-5-20251001',  'outputPer1M', 4.00),
       ('gemini',    'gemini-2.5-flash',            'inputPer1M',  0.30),
       ('gemini',    'gemini-2.5-flash',            'outputPer1M', 2.50),
-      ('gemini',    'gemini-2.5-flash-preview-tts','perChar',     0.000000625),
+      ('gemini',    'gemini-2.5-flash-preview-tts','inputPer1M',  0.50),
+      ('gemini',    'gemini-2.5-flash-preview-tts','outputPer1M', 2.00),
       ('gemini',    'gemini-2.5-flash-image',      'perImage',    0.04),
       ('gemini',    'gemini-2.5-flash-image',      'inputPer1M',  0.30),
       ('openai',    'tts-1',                       'perChar',     0.000015),
@@ -217,12 +218,10 @@ export async function initializeSchema() {
     ON CONFLICT (provider, model, metric) DO NOTHING
   `;
 
-  // Fix: correct Gemini TTS pricing from wrong $0.000030/char to $0.000000625/char ($2.50/M tokens ÷ 4 chars/token)
+  // Migrate Gemini TTS from perChar to token-based pricing (inputPer1M + outputPer1M)
   await sql`
-    UPDATE model_pricing
-    SET value_usd = 0.000000625
+    DELETE FROM model_pricing
     WHERE provider = 'gemini' AND model = 'gemini-2.5-flash-preview-tts' AND metric = 'perChar'
-      AND value_usd = 0.000030
   `;
 
   // Global app settings table (key/value)

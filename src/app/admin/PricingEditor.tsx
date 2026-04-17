@@ -161,12 +161,11 @@ export default function PricingEditor() {
   function renderGroup(g: ModelGroup) {
     const mk        = modelKey(g.provider, g.model);
     const dirty     = isDirty(g);
-    const hasInput  = 'inputPer1M' in g.metrics;
+    const hasInput  = 'inputPer1M'  in g.metrics;
     const hasOutput = 'outputPer1M' in g.metrics;
-    const hasChar   = 'perChar'    in g.metrics;
+    const hasChar   = 'perChar'     in g.metrics;
 
-    // Unit = any metric except inputPer1M, outputPer1M, perChar
-    // perChar is shown in the input column (TTS input price = chars billed = input)
+    // Unit = anything that's not a token price or perChar
     const unitMetric = Object.keys(g.metrics).find(m => !['inputPer1M', 'outputPer1M', 'perChar'].includes(m));
 
     return (
@@ -183,18 +182,18 @@ export default function PricingEditor() {
           {g.model}
         </td>
 
-        {/* Input $/1M — LLM/image use inputPer1M; TTS uses perChar (displayed as $/1M tok) */}
+        {/* Input $/1M — token models; perChar for OpenAI TTS (shown as $/1M tok) */}
         <td className="px-4 py-2.5">
           {hasInput ? numInput(g.provider, g.model, 'inputPer1M')
-           : hasChar ? (
-            <div className="flex items-center gap-1.5">
-              {numInput(g.provider, g.model, 'perChar')}
-              <span className="text-stone-600 text-xs">$/1M tok</span>
-            </div>
-          ) : <span className="text-stone-700 text-xs">—</span>}
+            : hasChar ? (
+              <div className="flex items-center gap-1.5">
+                {numInput(g.provider, g.model, 'perChar')}
+                <span className="text-stone-600 text-xs">$/1M tok</span>
+              </div>
+            ) : <span className="text-stone-700 text-xs">—</span>}
         </td>
 
-        {/* Output $/1M — LLM only */}
+        {/* Output $/1M */}
         <td className="px-4 py-2.5">
           {hasOutput
             ? numInput(g.provider, g.model, 'outputPer1M')
@@ -258,7 +257,7 @@ export default function PricingEditor() {
             {llmGroups.length > 0 && (
               <tr className="bg-stone-800/20">
                 <td colSpan={7} className="px-4 py-1 text-stone-600 text-xs uppercase tracking-widest">
-                  LLM — per token
+                  Per token — LLM / TTS
                 </td>
               </tr>
             )}
@@ -266,7 +265,7 @@ export default function PricingEditor() {
             {otherGroups.length > 0 && (
               <tr className="bg-stone-800/20">
                 <td colSpan={7} className="px-4 py-1 text-stone-600 text-xs uppercase tracking-widest">
-                  TTS / Image / STT — per unit
+                  Per unit — Image / STT / TTS
                 </td>
               </tr>
             )}

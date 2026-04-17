@@ -25,7 +25,7 @@ const FALLBACK_PRICING: PricingMap = {
   },
   gemini: {
     'gemini-2.5-flash': { inputPer1M: 0.30, outputPer1M: 2.50 },
-    'gemini-2.5-flash-preview-tts': { perChar: 0.000000625 }, // $2.50/M tokens ÷ 4 chars/token
+    'gemini-2.5-flash-preview-tts': { inputPer1M: 0.50, outputPer1M: 2.00 }, // $0.50 text in + $2.00 audio out per 1M tokens
     'gemini-2.5-flash-image': { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
   openai: {
@@ -139,8 +139,17 @@ async function calculateCost(params: TrackParams): Promise<number> {
     return inputCost + outputCost;
   }
 
-  if (params.type === 'tts' && modelPricing.perChar !== undefined && params.characters !== undefined) {
-    return params.characters * modelPricing.perChar;
+  if (params.type === 'tts') {
+    // Token-based billing (Gemini TTS: separate input/output token pricing)
+    if (modelPricing.inputPer1M !== undefined && params.inputTokens !== undefined) {
+      const inputCost  = (params.inputTokens  / 1_000_000) * modelPricing.inputPer1M;
+      const outputCost = ((params.outputTokens ?? 0) / 1_000_000) * (modelPricing.outputPer1M ?? 0);
+      return inputCost + outputCost;
+    }
+    // Character-based billing (OpenAI TTS)
+    if (modelPricing.perChar !== undefined && params.characters !== undefined) {
+      return params.characters * modelPricing.perChar;
+    }
   }
 
   if (params.type === 'stt' && modelPricing.perMinute !== undefined && params.duration !== undefined) {

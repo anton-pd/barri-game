@@ -57,14 +57,17 @@ async function handleGemini(
   const pcm = await fetchGeminiPcm(text, voiceStyle, segments);
   if (!pcm) return new Response('TTS failed', { status: 502 });
 
-  // CHANGED: Track Gemini TTS cost (non-blocking)
+  // Track Gemini TTS: input = text tokens, output = audio tokens (approx same as input)
   if (userId) {
+    const tokens = Math.ceil(text.length / 4);
     trackAPICall({
       sessionId,
       userId,
       provider: 'gemini',
       type: 'tts',
       model: 'gemini-2.5-flash-preview-tts',
+      inputTokens: tokens,
+      outputTokens: tokens,
       characters: text.length,
     }).catch(console.error);
   }

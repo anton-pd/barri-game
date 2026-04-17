@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.9] — 2026-04-17
+
+### Changed
+- **Gemini TTS pricing**: модель білінгу змінено з per-char на per-token з окремими цінами на input ($0.50/M tok) і output ($2.00/M tok). Pricing editor показує TTS поряд з LLM у секції "Per token" (ANT-27).
+- **Admin → Usage**: input/output для TTS тепер показуються в токенах ("N tok"); старі записи — з префіксом "~" (ANT-27).
+
+---
+
 ## [0.3.8] — 2026-04-17
 
 ### Changed
