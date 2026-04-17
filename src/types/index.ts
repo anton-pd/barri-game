@@ -228,7 +228,7 @@ export interface APIUsageRecord {
   campaignId?: string;
   userId: string;
   provider: 'anthropic' | 'gemini' | 'openai' | 'elevenlabs' | 'pollinations';
-  type: 'llm' | 'tts' | 'stt' | 'image' | 'summarize';
+  type: 'llm' | 'tts' | 'stt' | 'image' | 'ambient' | 'summarize';
   model: string;
   inputTokens?: number;
   outputTokens?: number;

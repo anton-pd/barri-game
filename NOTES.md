@@ -1,5 +1,52 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Codex] — ANT-30: ElevenLabs ambient для сценарних матеріалів
+
+### Problem
+- Ambient у проєкті існував лише як schema/UI-заготовка: `soundPrompt` і `ambientFile` були в сценаріях, `GameChat` мав toggle і autoplay-логіку, але реальної генерації та persistence pipeline не було.
+- Runtime був розсинхронізований із моделлю даних: клієнт завжди намагався грати `/scenarios/<scenarioId>/sounds/<locationId>.mp3`, хоча сервер уже мислив через `locationGroups[].ambientFile`.
+- Потрібно було генерувати ambient один раз для сценарних матеріалів, зберігати на VPS у shared storage і не запускати автогенерацію для `dynamicLocations`.
+
+### Solution
+- **`src/lib/ambient.ts`** — новий helper для ElevenLabs sound generation:
+  - збирає targets із `locationGroups` (пріоритетно) та окремих static locations без групи;
+  - генерує seamless loop `.mp3`;
+  - зберігає у `public/scenarios/<scenarioId>/ambient/<targetId>.mp3`;
+  - записує `ambientFile` назад у `scenario.json`;
+  - повертає `ambientByLocation` map для runtime.
+- **`src/lib/scenarioFiles.ts`** — новий shared helper для читання/запису сценаріїв і ambient lookup (`resolveAmbientFileForLocation`, `buildAmbientByLocation`).
+- **`src/app/api/scenarios/[id]/ambient/route.ts`** — новий GET/POST endpoint:
+  - `GET` віддає вже відомий `ambientByLocation`;
+  - `POST` одноразово догенеровує missing ambient файли і оновлює сценарій.
+- **`src/app/session/[id]/page.tsx`** — тепер віддає в `GameChat` не лише `locationNames`, а й initial `ambientByLocation`.
+- **`src/components/GameChat.tsx`**:
+  - більше не хардкодить `/sounds/<locationId>.mp3`;
+  - використовує `ambientFile` / `ambientByLocation`;
+  - на mount тригерить `/api/scenarios/<id>/ambient` у фоні поруч із генерацією images;
+  - коректно відновлює ambient після reload;
+  - при переході в dynamic location без ambient — зупиняє попередній loop замість продовження чужого звуку.
+- **`src/app/api/ai/route.ts`** — у SSE `done` тепер віддається реальний `ambientFile` через helper, а не прямий lookup по group.
+- **`src/lib/costTracker.ts` / `src/types/index.ts`** — додано тип `ambient` у usage tracking, щоб ElevenLabs виклики не ламали типи й могли логуватися окремо.
+- **Docs/UI**:
+  - `PROJECT_CONTEXT.md`: Phase 10 більше не позначено як deferred gap;
+  - `SCENARIO_GUIDE.md`: додано `POST /api/scenarios/<id>/ambient` і пояснення про shared storage;
+  - `src/app/admin/ScenarioGenerator.tsx`: прибрано disabled note про Phase 10, замінено на пояснення про automatic materials-time generation;
+  - `CHANGELOG.md`: додано релізний запис про ambient generation.
+
+### Key decisions
+- Primary unit генерації — **`locationGroup`**, а не окрема локація. Це збігається з уже наявним random-event/risk runtime і не дублює майже однакові loops для сусідніх кімнат.
+- Для static location з `soundPrompt`, яка не входить у жодну group, лишено fallback-генерацію окремого файлу — щоб схема залишалась гнучкою.
+- `dynamicLocations` поки **не** запускають ambient generation автоматично. Hook для майбутнього залишено через новий ambient helper + runtime map, аналогічно до path з dynamic images.
+
+### Verification
+- `npm run build` — успішно.
+
+### Scenario follow-up
+- `scenarios/archive/2026-04-18/` — заархівовано попередні бойові версії `the-haunting.json`, `the-last-telegram.json`, а також тестовий `the-last-cup.json`.
+- `scenarios/the-haunting.json` — повністю оновлено під новий generator contract: додано `rolePresets`, `briefing`, `soundPrompt` для всіх static locations, нові `locationGroups`, освіжені NPC/locations/variants.
+- `scenarios/the-last-telegram.json` — так само повністю оновлено; сценарій розширено до 8 локацій і 5 rolePresets, щоб він реально відповідав campaign-level вимогам генератора.
+- `scenarios/the-last-cup.json` — прибрано з активного набору; top-level `scenarios/` тепер містить лише дві бойові кампанії.
+
 ## [2026-04-17 · Claude] — ANT-29: динамічна версія у футері
 
 ### Проблема
@@ -12,6 +59,16 @@
 ### Рішення прийняті
 - Small-task — без окремого Planned-етапу.
 - Сам текст змін у лог не виводиться, як і просив Anton у описі таски — лише номер версії.
+
+## [2026-04-17 · Codex] — Docs: Linear env assumption clarified
+
+### Problem
+- У кількох сесіях Codex передчасно робив висновок, що `LINEAR_API_KEY` недоступний, якщо змінна не була напряму видима в поточному shell.
+- Для Barri це збиває workflow: ключ очікується і локально, і на VPS, тож перед ескалацією треба спершу перевіряти проєктні env-джерела.
+
+### Solution
+- `AGENTS.md`: додано явне правило, що `LINEAR_API_KEY` очікується і в local dev env, і у VPS Codex env; якщо змінна порожня в shell, спочатку перевіряти env sources.
+- `LINEAR.md`: те саме правило додано в canonical workflow, а блок про “API unavailable” уточнено — спочатку перевірка env, потім уже ескалація Антону.
 
 ## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
 

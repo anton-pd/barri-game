@@ -77,6 +77,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.15] — 2026-04-17
+
+### Added
+- **Ambient audio generation (Phase 10)** — додано `POST /api/scenarios/[id]/ambient`, який генерує seamless ambient loop-и через ElevenLabs для `locationGroups` сценарію, зберігає `.mp3` у shared VPS storage і записує `ambientFile` назад у `scenario.json`.
+
+### Changed
+- **Ambient playback runtime** — ігровий клієнт більше не вгадує шлях як `/sounds/<locationId>.mp3`, а використовує фактичний `ambientFile` із сценарію. Це вирівнює runtime з `locationGroups` і дає коректне відновлення ambient після reload.
+- **Session startup materials flow** — під час старту сесії ambient generation тепер тригериться поруч із генерацією статичних scenario materials, але тільки для статичних сценарних локацій. Для dynamic locations автоматичну генерацію поки не вмикаємо.
+- **Scenario generator admin UI** — підказку `Phase 10` прибрано; тепер UI пояснює, що ambient генерується пізніше на етапі scenario materials generation.
+- **Canonical scenarios refreshed** — `the-haunting` і `the-last-telegram` перезібрані під новий generator contract: `rolePresets`, повний `briefing`, soundPrompt на static locations, коректні `supportedRoles/defaultRoles`, нові `variants` та розширений clue/event structure.
+- **Scenario archive cleanup** — попередні версії активних сценаріїв перенесено в `scenarios/archive/2026-04-18/`, а тестовий `the-last-cup` прибрано з активного набору.
+
+---
+
 ## [0.3.6] — 2026-04-17
 
 ### Changed
