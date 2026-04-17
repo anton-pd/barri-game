@@ -34,12 +34,18 @@ export default async function AdminPage() {
             id: string; email: string; role: string;
             email_verified: boolean; session_count: number; created_at: string;
           }[]}
-          sessions={sessions as {
-            id: string; name: string; scenario_id: string;
-            owner_email?: string; act: number; updated_at: string;
-          }[]}
-          currentUserId={payload.sub}
-        />
+        sessions={sessions as {
+          id: string; name: string; scenario_id: string;
+          owner_email?: string;
+          act: number;
+          status: string;
+          updated_at: string;
+          completed_at?: string | null;
+          feedback_rating?: number | null;
+          feedback_comment?: string | null;
+        }[]}
+        currentUserId={payload.sub}
+      />
       </div>
     </div>
   );

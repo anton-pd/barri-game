@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
 import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
@@ -8,6 +9,109 @@ import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
 import VoiceButton from './VoiceButton';
 import DiceRoller from './DiceRoller';
+
+const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
+
+type ReadOnlySessionSnapshot = GameSession & { last_message?: string };
+type CompletionMode = 'complete-session' | 'finish-evening';
+
+interface CompletionStats {
+  startedAt: string;
+  completedAt: string;
+  messageCount: number;
+  keeperMessageCount: number;
+  playerMessageCount: number;
+  durationMinutes: number;
+}
+
+interface CompletionResponse {
+  session: GameSession;
+  nextSession?: GameSession | null;
+  stats?: CompletionStats;
+}
+
+function isSessionReadOnly(status: string | undefined) {
+  return status === 'completed' || status === 'paused';
+}
+
+function getStatusMeta(session: GameSession) {
+  const isCampaign = Boolean(session.campaign_id);
+
+  if (session.status === 'completed') {
+    return {
+      isReadOnly: true,
+      badge: isCampaign ? 'Вечір кампанії завершено' : 'Сесію завершено',
+      summary: isCampaign
+        ? 'Вечір завершено. Історія, матеріали справи та озвучення лишаються доступними для перегляду.'
+        : 'Сесію завершено. Чат збережено в режимі лише для перегляду.',
+      completeLabel: '',
+      finishLabel: '',
+      panelClass: 'border-emerald-900/60 bg-emerald-950/20',
+      badgeClass: 'border-emerald-800/70 bg-emerald-950/60 text-emerald-200',
+      primaryActionClass: '',
+      secondaryActionClass: '',
+    };
+  }
+
+  if (session.status === 'paused') {
+    return {
+      isReadOnly: true,
+      badge: isCampaign ? 'Кампанію поставлено на паузу' : 'Сесію поставлено на паузу',
+      summary: 'Нові ходи тимчасово вимкнено. Поточну історію можна спокійно переглядати.',
+      completeLabel: '',
+      finishLabel: '',
+      panelClass: 'border-amber-900/60 bg-amber-950/20',
+      badgeClass: 'border-amber-800/70 bg-amber-950/60 text-amber-200',
+      primaryActionClass: '',
+      secondaryActionClass: '',
+    };
+  }
+
+  return {
+    isReadOnly: false,
+    badge: isCampaign ? 'Кампанійна сесія' : 'Активна сесія',
+    summary: isCampaign
+      ? 'Завершіть вечір, щоб перейти до наступної сесії кампанії, або завершіть кампанію повністю й залиште цей чат у режимі перегляду.'
+      : 'Коли пригода завершиться, закрийте сесію тут. Після цього чат стане доступним лише для перегляду.',
+    completeLabel: isCampaign ? 'Завершити кампанію' : 'Завершити сесію',
+    finishLabel: isCampaign ? 'Завершити вечір' : '',
+    panelClass: 'border-stone-800 bg-stone-900/80',
+    badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
+    primaryActionClass: 'bg-amber-800 hover:bg-amber-700 active:bg-amber-900 text-amber-100',
+    secondaryActionClass: 'border border-stone-700 bg-stone-900 text-stone-200 hover:border-stone-600 hover:bg-stone-800',
+  };
+}
+
+function upsertReadOnlySessionCache(snapshot: ReadOnlySessionSnapshot) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
+    const cached = raw ? (JSON.parse(raw) as ReadOnlySessionSnapshot[]) : [];
+    const next = [snapshot, ...cached.filter((item) => item.id !== snapshot.id)].slice(0, 12);
+    window.sessionStorage.setItem(READ_ONLY_SESSION_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore cache persistence issues and keep the session usable.
+  }
+}
+
+function buildLocalCompletionStats(session: GameSession, messages: Message[]): CompletionStats {
+  const completedAt = session.completed_at ?? session.updated_at;
+  const keeperMessageCount = messages.filter((message) => message.role === 'assistant').length;
+  const durationMs = Math.max(
+    0,
+    new Date(completedAt).getTime() - new Date(session.created_at).getTime()
+  );
+
+  return {
+    startedAt: session.created_at,
+    completedAt,
+    messageCount: messages.length,
+    keeperMessageCount,
+    playerMessageCount: Math.max(0, messages.length - keeperMessageCount),
+    durationMinutes: Math.round(durationMs / 60000),
+  };
+}
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
@@ -45,12 +149,10 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
   const [error, setError]     = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const fetched = useRef(false);
+  const resolvedSrc = url ?? src;
 
   useEffect(() => {
-    if (url) {
-      setSrc(url);
-      return;
-    }
+    if (url) return;
     if (fetched.current || !msgId || !onUrlGenerated) return;
     fetched.current = true;
     
@@ -70,7 +172,7 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
 
   if (error) return null;
 
-  if (!src) {
+  if (!resolvedSrc) {
     return (
       <div className="mt-2 rounded-xl overflow-hidden bg-stone-800 animate-pulse flex items-center justify-center border border-stone-700" style={{ height: 160 }}>
         <span className="text-stone-500 text-xs font-medium uppercase tracking-wide">Генерується зображення...</span>
@@ -81,7 +183,7 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
   return (
     <>
       <img
-        src={src}
+        src={resolvedSrc}
         alt=""
         onClick={() => setFullscreen(true)}
         className="mt-2 rounded-xl w-full object-cover cursor-zoom-in border border-stone-600"
@@ -92,7 +194,7 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setFullscreen(false)}
         >
-          <img src={src} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
+          <img src={resolvedSrc} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
         </div>
       )}
     </>
@@ -138,18 +240,19 @@ function CaseFilesPanel({
   type Tab = 'briefing' | 'players' | 'images' | 'npcs';
   const [tab, setTab]           = useState<Tab>('briefing');
   const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
+  const [imagesScenarioId, setImagesScenarioId] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState<string | null>(null);
-  const [loadingImgs, setLoadingImgs] = useState(false);
+  const loadingImgs = tab === 'images' && imagesScenarioId !== scenarioId;
+  const visibleImages = imagesScenarioId === scenarioId ? images : [];
 
   useEffect(() => {
-    if (tab !== 'images') return;
-    setLoadingImgs(true);
+    if (tab !== 'images' || imagesScenarioId === scenarioId) return;
+
     fetch(`/api/scenarios/${scenarioId}/images`)
       .then((r) => r.json())
-      .then((d) => { setImages(d.images ?? []); })
-      .catch(() => {})
-      .finally(() => setLoadingImgs(false));
-  }, [tab, scenarioId]);
+      .then((d) => { setImages(d.images ?? []); setImagesScenarioId(scenarioId); })
+      .catch(() => { setImages([]); setImagesScenarioId(scenarioId); });
+  }, [imagesScenarioId, scenarioId, tab]);
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'briefing', label: 'Опис' },
@@ -287,7 +390,7 @@ function CaseFilesPanel({
                 </div>
               )}
               {/* Static scenario images */}
-              {Object.keys(dynamicImages).length > 0 && (images.length > 0 || loadingImgs) && (
+              {Object.keys(dynamicImages).length > 0 && (visibleImages.length > 0 || loadingImgs) && (
                 <div className="border-t border-stone-800 pt-3">
                   <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
                 </div>
@@ -295,10 +398,10 @@ function CaseFilesPanel({
               {loadingImgs && (
                 <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
               )}
-              {!loadingImgs && images.length === 0 && Object.keys(dynamicImages).length === 0 && (
+              {!loadingImgs && visibleImages.length === 0 && Object.keys(dynamicImages).length === 0 && (
                 <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
               )}
-              {images.map((img) => (
+              {visibleImages.map((img) => (
                 <div key={img.id}>
                   <img
                     src={img.url}
@@ -396,6 +499,16 @@ async function readSseStream(
 
 export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [completionStats, setCompletionStats] = useState<CompletionStats | null>(
+    initialSession.status === 'completed'
+      ? buildLocalCompletionStats(initialSession, initialMessages)
+      : null
+  );
 
   const handleUrlGenerated = (msgId: string, url: string) => {
     setSession((s) => {
@@ -425,6 +538,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [showSidebar, setShowSidebar]         = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
+  const statusMeta = getStatusMeta(session);
+  const sessionIsReadOnly = statusMeta.isReadOnly;
+  const lastMessagePreview = (() => {
+    const lastMessage = [...messages].reverse().find((message) => message.content.trim().length > 0);
+    return lastMessage?.content;
+  })();
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('ambientEnabled') !== 'false';
@@ -476,6 +595,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!isSessionReadOnly(session.status)) return;
+    upsertReadOnlySessionCache({ ...session, last_message: lastMessagePreview });
+  }, [lastMessagePreview, session]);
+
   // Parse NPC segments and dynamic images from initial messages so speech bubbles survive reload
   useEffect(() => {
     const initial: Record<string, Segment[]> = {};
@@ -505,7 +629,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // Auto-generate intro if no messages yet
   const introRequested = useRef(false);
   useEffect(() => {
-    if (initialMessages.length !== 0 || introRequested.current) return;
+    if (initialMessages.length !== 0 || introRequested.current || initialSession.status !== 'active') return;
     introRequested.current = true;
     setIsLoading(true);
 
@@ -693,6 +817,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // ── Item use ─────────────────────────────────────────────────────────────────
 
   function handleUseItem(playerIdx: number, itemId: string, itemName: string) {
+    if (sessionIsReadOnly) return;
     // Track for post-send decrement
     pendingItemUsesRef.current = [...pendingItemUsesRef.current, { playerIdx, itemId }];
     // Switch to that player and insert text into input
@@ -719,20 +844,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     });
   }
 
-  // ── Players ──────────────────────────────────────────────────────────────────
-
-  async function updatePlayers(players: Player[]) {
-    setSession((s) => ({ ...s, players }));
-    await fetch(`/api/sessions/${session.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ players }),
-    });
-  }
-
   // ── Queue action ─────────────────────────────────────────────────────────────
 
   function queueAction() {
+    if (sessionIsReadOnly) return;
     const text = input.trim();
     if (!text) return;
     setPendingActions((prev) => [...prev, { playerIdx: activePlayer, text }]);
@@ -748,6 +863,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // ── Send message ─────────────────────────────────────────────────────────────
 
   async function sendMessage(text?: string) {
+    if (sessionIsReadOnly) return;
     const immediate = (text || input).trim();
 
     // Build full action list
@@ -865,7 +981,74 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (sessionIsReadOnly) return;
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  function openCompletionModal(mode: CompletionMode) {
+    setStatusError(null);
+    if (mode === 'complete-session') {
+      setShowCompletionModal(true);
+      return;
+    }
+    submitCompletion(mode);
+  }
+
+  async function submitCompletion(mode: CompletionMode) {
+    if (isUpdatingStatus) return;
+
+    if (mode === 'complete-session' && !feedbackRating) {
+      setStatusError('Постав оцінку від 1 до 5, щоб завершити сесію.');
+      return;
+    }
+
+    const confirmText = mode === 'finish-evening'
+      ? 'Завершити цей вечір кампанії та створити наступну сесію?'
+      : session.campaign_id
+        ? 'Завершити кампанію? Після цього чат залишиться доступним лише для перегляду.'
+        : 'Завершити цю сесію? Після цього чат залишиться доступним лише для перегляду.';
+
+    if (typeof window !== 'undefined' && !window.confirm(confirmText)) {
+      return;
+    }
+
+    setStatusError(null);
+    setIsUpdatingStatus(true);
+
+    try {
+      const response = await fetch(`/api/sessions/${session.id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode,
+          feedback: mode === 'complete-session'
+            ? { rating: feedbackRating, comment: feedbackComment.trim() }
+            : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to complete session');
+      }
+
+      const data = await response.json() as CompletionResponse;
+      const updatedSession = data.session;
+
+      setSession(updatedSession);
+      setCompletionStats(data.stats ?? buildLocalCompletionStats(updatedSession, messages));
+      setPendingActions([]);
+      setInput('');
+      setShowCompletionModal(false);
+      upsertReadOnlySessionCache({ ...updatedSession, last_message: lastMessagePreview });
+
+      if (mode === 'finish-evening' && data.nextSession?.id) {
+        window.location.href = `/session/${data.nextSession.id}`;
+      }
+    } catch {
+      setStatusError('Не вдалося завершити сесію. Спробуйте ще раз.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   }
 
   const playerName = session.players[activePlayer]?.name || 'Гравець';
@@ -877,11 +1060,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
         <div className="flex items-center gap-2 min-w-0">
-          <a
+          <Link
             href="/"
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors shrink-0"
             title="Назад"
-          >←</a>
+          >←</Link>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
             <p className="text-[11px] text-stone-500 truncate leading-tight">{currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}</p>
@@ -951,6 +1134,145 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <span className="text-stone-500">🔊</span>
             </div>
           )}
+        </div>
+      )}
+
+      <div className="px-3 py-3 bg-stone-950/80 border-b border-stone-800">
+        <div className={`rounded-2xl border px-4 py-3 ${statusMeta.panelClass}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusMeta.badgeClass}`}>
+                  {statusMeta.badge}
+                </span>
+                {session.campaign_id && (
+                  <span className="text-[11px] uppercase tracking-[0.18em] text-stone-500">
+                    Сесія {session.session_number || 1}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm leading-relaxed text-stone-300">{statusMeta.summary}</p>
+              {completionStats && (
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-stone-400">
+                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
+                    Повідомлень: {completionStats.messageCount}
+                  </span>
+                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
+                    Від кіпера: {completionStats.keeperMessageCount}
+                  </span>
+                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
+                    Тривалість: {completionStats.durationMinutes} хв
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {sessionIsReadOnly ? (
+              <Link
+                href="/"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
+              >
+                До списку сесій
+              </Link>
+            ) : (
+              <div className="flex flex-col gap-2 sm:min-w-[220px]">
+                <button
+                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session')}
+                  disabled={isUpdatingStatus || isLoading}
+                  className={`inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400 ${statusMeta.primaryActionClass}`}
+                >
+                  {isUpdatingStatus
+                    ? 'Завершення...'
+                    : (session.campaign_id ? statusMeta.finishLabel : statusMeta.completeLabel)}
+                </button>
+                {session.campaign_id && (
+                  <button
+                    onClick={() => openCompletionModal('complete-session')}
+                    disabled={isUpdatingStatus || isLoading}
+                    className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600 ${statusMeta.secondaryActionClass}`}
+                  >
+                    {statusMeta.completeLabel}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {statusError && (
+            <p className="mt-3 text-sm text-red-300">{statusError}</p>
+          )}
+        </div>
+      </div>
+
+      {showCompletionModal && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
+          <div className="w-full rounded-t-2xl border border-stone-700 bg-stone-900 p-5 sm:max-w-lg sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-base font-semibold text-stone-100">
+                  {session.campaign_id ? 'Завершити кампанію' : 'Завершити сесію'}
+                </h2>
+                <p className="mt-1 text-sm leading-relaxed text-stone-400">
+                  Кіпер подякує за гру, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCompletionModal(false)}
+                className="rounded-lg bg-stone-800 px-2.5 py-1.5 text-sm text-stone-300 transition-colors hover:bg-stone-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Оцінка гри</p>
+              <div className="mt-2 flex gap-2">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setFeedbackRating(value)}
+                    className={`h-11 w-11 rounded-xl border text-sm font-semibold transition-colors ${
+                      feedbackRating === value
+                        ? 'border-amber-600 bg-amber-800 text-amber-100'
+                        : 'border-stone-700 bg-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-700'
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="session-feedback" className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+                Коментар для покращення
+              </label>
+              <textarea
+                id="session-feedback"
+                value={feedbackComment}
+                onChange={(event) => setFeedbackComment(event.target.value)}
+                rows={4}
+                placeholder="Що сподобалось, а що варто підкрутити?"
+                className="mt-2 w-full rounded-2xl border border-stone-700 bg-stone-800 px-3.5 py-3 text-sm leading-relaxed text-stone-200 placeholder-stone-600 focus:border-stone-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setShowCompletionModal(false)}
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
+              >
+                Ще не зараз
+              </button>
+              <button
+                onClick={() => submitCompletion('complete-session')}
+                disabled={isUpdatingStatus}
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-amber-800 px-4 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-700 active:bg-amber-900 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
+              >
+                {isUpdatingStatus ? 'Завершення...' : 'Подякувати й завершити'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -1082,127 +1404,142 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Player selector */}
-      {session.players.length > 1 && (
-        <div className="flex gap-1.5 px-3 py-2 bg-stone-900 border-t border-stone-800">
-          {session.players.map((p, i) => (
-            <button
-              key={i}
-              onClick={() => setActivePlayer(i)}
-              className={`text-xs px-3 py-2 rounded-xl transition-colors min-h-[36px] ${
-                activePlayer === i
-                  ? 'bg-amber-800 text-amber-100 font-medium'
-                  : 'bg-stone-800 text-stone-400 hover:bg-stone-700 active:bg-stone-600'
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
+      {sessionIsReadOnly ? (
+        <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+          <div className="rounded-2xl border border-stone-800 bg-stone-950/60 px-4 py-4">
+            <p className="text-sm font-semibold text-stone-100 mb-1">
+              {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
+            </p>
+            <p className="text-sm leading-relaxed text-stone-400">
+              Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
+            </p>
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {/* Player selector */}
+          {session.players.length > 1 && (
+            <div className="flex gap-1.5 px-3 py-2 bg-stone-900 border-t border-stone-800">
+              {session.players.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActivePlayer(i)}
+                  className={`text-xs px-3 py-2 rounded-xl transition-colors min-h-[36px] ${
+                    activePlayer === i
+                      ? 'bg-amber-800 text-amber-100 font-medium'
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 active:bg-stone-600'
+                  }`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
 
-      {/* Pending actions queue */}
-      {pendingActions.length > 0 && (
-        <div className="px-3 pt-2 pb-1 bg-stone-900 border-t border-stone-800 flex flex-wrap gap-1">
-          {pendingActions.map((a, i) => (
-            <span
-              key={i}
-              className="flex items-center gap-1 text-xs bg-stone-700 text-stone-200 rounded-full px-2 py-1"
-            >
-              <span className="text-amber-500 font-medium">{session.players[a.playerIdx]?.name}</span>
-              <span className="text-stone-400 max-w-[140px] truncate">{a.text}</span>
-              <button
-                onClick={() => removePending(i)}
-                className="text-stone-500 hover:text-stone-300 ml-0.5"
-              >✕</button>
-            </span>
-          ))}
-        </div>
-      )}
+          {/* Pending actions queue */}
+          {pendingActions.length > 0 && (
+            <div className="px-3 pt-2 pb-1 bg-stone-900 border-t border-stone-800 flex flex-wrap gap-1">
+              {pendingActions.map((a, i) => (
+                <span
+                  key={i}
+                  className="flex items-center gap-1 text-xs bg-stone-700 text-stone-200 rounded-full px-2 py-1"
+                >
+                  <span className="text-amber-500 font-medium">{session.players[a.playerIdx]?.name}</span>
+                  <span className="text-stone-400 max-w-[140px] truncate">{a.text}</span>
+                  <button
+                    onClick={() => removePending(i)}
+                    className="text-stone-500 hover:text-stone-300 ml-0.5"
+                  >✕</button>
+                </span>
+              ))}
+            </div>
+          )}
 
-      {/* Inventory strip — active player's usable items */}
-      {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
-        <div className="px-3 py-1.5 bg-stone-900 border-t border-stone-800 flex gap-1.5 overflow-x-auto scrollbar-none">
-          {session.players[activePlayer].inventory
-            .filter(item => !item.broken && item.uses !== 0)
-            .map(item => (
-              <button
-                key={item.id}
-                onClick={() => handleUseItem(activePlayer, item.id, item.name)}
-                title={item.description}
-                className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700 active:bg-stone-600 transition-colors whitespace-nowrap"
-              >
-                {item.equipped ? '⚔' : '📦'} {item.name}
-                {item.uses > 0 && <span className="text-stone-500">×{item.uses}</span>}
-                {item.uses === -1 && <span className="text-stone-500">∞</span>}
-              </button>
-            ))}
-        </div>
-      )}
+          {/* Inventory strip — active player's usable items */}
+          {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
+            <div className="px-3 py-1.5 bg-stone-900 border-t border-stone-800 flex gap-1.5 overflow-x-auto scrollbar-none">
+              {session.players[activePlayer].inventory
+                .filter(item => !item.broken && item.uses !== 0)
+                .map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleUseItem(activePlayer, item.id, item.name)}
+                    title={item.description}
+                    className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700 active:bg-stone-600 transition-colors whitespace-nowrap"
+                  >
+                    {item.equipped ? '⚔' : '📦'} {item.name}
+                    {item.uses > 0 && <span className="text-stone-500">×{item.uses}</span>}
+                    {item.uses === -1 && <span className="text-stone-500">∞</span>}
+                  </button>
+                ))}
+            </div>
+          )}
 
-      {/* Dice roller — virtual mode */}
-      {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
-        <DiceRoller
-          key={`${session.world_state.pendingRollResult.skillName}-${session.world_state.pendingRollResult.goodThreshold}-${session.world_state.pendingRollResult.characterIdx}`}
-          pendingRoll={session.world_state.pendingRollResult}
-          onResult={(result) => {
-            // Optimistically hide dice before LLM responds with [CLEAR_PENDING_ROLL]
-            setSession((s) => ({
-              ...s,
-              world_state: { ...s.world_state, pendingRollResult: undefined },
-            }));
-            sendMessage(result.toString());
-          }}
-        />
-      )}
-
-      {/* Physical dice hint */}
-      {session.world_state?.pendingRollResult && diceMode === 'physical' && (
-        <div className="px-3 py-2 bg-stone-900 border-t border-stone-800 flex items-center gap-2">
-          <span className="text-lg">🎲</span>
-          <span className="text-xs text-stone-400">
-            <span className="text-amber-400 font-medium">{session.world_state.pendingRollResult.skillName}</span>
-            {' — кинь ≤ '}
-            <span className="text-amber-300 font-mono">{session.world_state.pendingRollResult.goodThreshold}</span>
-            {' і введи результат'}
-          </span>
-        </div>
-      )}
-
-      {/* Input */}
-      <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
-        <div className="flex gap-2 items-end">
-          <div className="flex-1 bg-stone-800 rounded-2xl border border-stone-700 focus-within:border-stone-600 overflow-hidden transition-colors">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={`${playerName}: дія або слова...`}
-              rows={2}
-              className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3.5 py-2.5 resize-none focus:outline-none leading-relaxed"
-              style={{ fontSize: 16 }}
-              disabled={isLoading}
+          {/* Dice roller — virtual mode */}
+          {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
+            <DiceRoller
+              key={`${session.world_state.pendingRollResult.skillName}-${session.world_state.pendingRollResult.goodThreshold}-${session.world_state.pendingRollResult.characterIdx}`}
+              pendingRoll={session.world_state.pendingRollResult}
+              onResult={(result) => {
+                // Optimistically hide dice before LLM responds with [CLEAR_PENDING_ROLL]
+                setSession((s) => ({
+                  ...s,
+                  world_state: { ...s.world_state, pendingRollResult: undefined },
+                }));
+                sendMessage(result.toString());
+              }}
             />
+          )}
+
+          {/* Physical dice hint */}
+          {session.world_state?.pendingRollResult && diceMode === 'physical' && (
+            <div className="px-3 py-2 bg-stone-900 border-t border-stone-800 flex items-center gap-2">
+              <span className="text-lg">🎲</span>
+              <span className="text-xs text-stone-400">
+                <span className="text-amber-400 font-medium">{session.world_state.pendingRollResult.skillName}</span>
+                {' — кинь ≤ '}
+                <span className="text-amber-300 font-mono">{session.world_state.pendingRollResult.goodThreshold}</span>
+                {' і введи результат'}
+              </span>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 bg-stone-800 rounded-2xl border border-stone-700 focus-within:border-stone-600 overflow-hidden transition-colors">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`${playerName}: дія або слова...`}
+                  rows={2}
+                  className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3.5 py-2.5 resize-none focus:outline-none leading-relaxed"
+                  style={{ fontSize: 16 }}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
+                {session.players.length > 1 && (
+                  <button
+                    onClick={queueAction}
+                    disabled={isLoading || !input.trim()}
+                    title="Додати в чергу (наступний гравець)"
+                    className="w-9 h-9 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-xl text-stone-300 transition-colors text-base font-bold flex items-center justify-center"
+                  >+</button>
+                )}
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
+                  className="w-9 h-9 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
+                >➤</button>
+              </div>
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
-            {session.players.length > 1 && (
-              <button
-                onClick={queueAction}
-                disabled={isLoading || !input.trim()}
-                title="Додати в чергу (наступний гравець)"
-                className="w-9 h-9 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-xl text-stone-300 transition-colors text-base font-bold flex items-center justify-center"
-              >+</button>
-            )}
-            <button
-              onClick={() => sendMessage()}
-              disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-              className="w-9 h-9 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
-            >➤</button>
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       </div>{/* end game column */}
 

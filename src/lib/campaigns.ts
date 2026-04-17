@@ -30,7 +30,6 @@ export async function createCampaign(
   scenarioId: string,
   name: string
 ) {
-  const { createSession } = await import('./queries');
   const initialWorldState = {
     act: 1,
     visitedLocations: [],
@@ -54,7 +53,7 @@ export async function closeSession(
   sessionNumber: number,
   players: Player[],
   messages: Array<{ role: string; content: string }>
-): Promise<void> {
+): Promise<{ summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> }> {
   const summarizePrompt = buildCloseSessionPrompt(messages);
   const response = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
@@ -81,6 +80,12 @@ export async function closeSession(
     summaryData.npcChanges || {},
     players
   );
+
+  return {
+    summary: summaryData.summary,
+    keyEvents: summaryData.keyEvents || [],
+    npcChanges: summaryData.npcChanges || {},
+  };
 }
 
 function buildCloseSessionPrompt(messages: Array<{ role: string; content: string }>): string {
@@ -100,5 +105,4 @@ ${transcript}
 }`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export { createCampaignRecord as _createCampaignRecord, Campaign, sql };

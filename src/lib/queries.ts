@@ -1,5 +1,5 @@
 import sql from './db';
-import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary } from '@/types';
+import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary, SessionFeedback } from '@/types';
 import crypto from 'crypto';
 
 let schemaInitialized = false;
@@ -95,6 +95,11 @@ export async function initializeSchema() {
       ADD COLUMN IF NOT EXISTS keeper_style VARCHAR(20) DEFAULT 'balanced'
   `;
 
+  await sql`
+    ALTER TABLE game_sessions
+      ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ
+  `;
+
   // CHANGED: New tables for campaign layer (phase 5)
   await sql`
     CREATE TABLE IF NOT EXISTS campaigns (
@@ -122,6 +127,17 @@ export async function initializeSchema() {
       npc_changes JSONB DEFAULT '{}',
       character_snapshots JSONB DEFAULT '[]',
       created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS session_feedback (
+      session_id UUID PRIMARY KEY REFERENCES game_sessions(id) ON DELETE CASCADE,
+      rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      comment TEXT,
+      submitted_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
 
@@ -180,6 +196,7 @@ export async function initializeSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scenario_assets_scenario_id ON scenario_assets(scenario_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_campaign_assets_campaign_id ON campaign_assets(campaign_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_session_feedback_submitted_by_user_id ON session_feedback(submitted_by_user_id)`;
 
   // Language field for session language selection (uk/en)
   await sql`
@@ -270,8 +287,13 @@ export async function getSessions(): Promise<(GameSession & { last_message?: str
       ORDER BY created_at DESC
       LIMIT 1
     ) m ON true
-    WHERE gs.status = 'active'
-    ORDER BY gs.updated_at DESC
+    ORDER BY
+      CASE gs.status
+        WHEN 'active' THEN 0
+        WHEN 'paused' THEN 1
+        ELSE 2
+      END,
+      gs.updated_at DESC
   `;
   return rows as unknown as (GameSession & { last_message?: string })[];
 }
@@ -290,8 +312,14 @@ export async function getSessionsByUserId(
       ORDER BY created_at DESC
       LIMIT 1
     ) m ON true
-    WHERE gs.status = 'active' AND gs.user_id = ${userId}
-    ORDER BY gs.updated_at DESC
+    WHERE gs.user_id = ${userId}
+    ORDER BY
+      CASE gs.status
+        WHEN 'active' THEN 0
+        WHEN 'paused' THEN 1
+        ELSE 2
+      END,
+      gs.updated_at DESC
   `;
   return rows as unknown as (GameSession & { last_message?: string })[];
 }
@@ -305,6 +333,11 @@ export async function createSession(
   language: 'uk' | 'en' = 'uk',
   variantId?: string,
   variantHint?: string,
+  options?: {
+    campaignId?: string;
+    sessionNumber?: number;
+    initialWorldState?: WorldState;
+  },
 ): Promise<GameSession> {
   const initialWorldState: WorldState = {
     act: 1,
@@ -321,16 +354,33 @@ export async function createSession(
     ...(variantId ? { variantId } : {}),
     ...(variantHint ? { variantHint } : {}),
   };
+  const worldState = options?.initialWorldState
+    ? {
+        ...options.initialWorldState,
+        currentLocation: options.initialWorldState.currentLocation ?? startingLocation,
+      }
+    : initialWorldState;
 
   const rows = await sql`
-    INSERT INTO game_sessions (scenario_id, name, players, world_state, user_id, language)
+    INSERT INTO game_sessions (
+      scenario_id,
+      name,
+      players,
+      world_state,
+      user_id,
+      language,
+      campaign_id,
+      session_number
+    )
     VALUES (
       ${scenarioId},
       ${name},
       ${sql.json(jsonOf(players))},
-      ${sql.json(jsonOf(initialWorldState))},
+      ${sql.json(jsonOf(worldState))},
       ${userId},
-      ${language}
+      ${language},
+      ${options?.campaignId ?? null},
+      ${options?.sessionNumber ?? 1}
     )
     RETURNING *
   `;
@@ -346,7 +396,14 @@ export async function getSession(id: string): Promise<GameSession | null> {
 
 export async function updateSession(
   id: string,
-  updates: { world_state?: WorldState; act?: number; players?: Player[]; status?: string; language?: string }
+  updates: {
+    world_state?: WorldState;
+    act?: number;
+    players?: Player[];
+    status?: GameSession['status'];
+    language?: string;
+    completed_at?: string | null;
+  }
 ): Promise<GameSession> {
   // Build one UPDATE with all changed columns using postgres.js dynamic query builder
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -357,6 +414,7 @@ export async function updateSession(
   if (updates.act         !== undefined) data.act         = updates.act;
   if (updates.status      !== undefined) data.status      = updates.status;
   if (updates.language    !== undefined) data.language    = updates.language;
+  if (updates.completed_at !== undefined) data.completed_at = updates.completed_at;
 
   if (Object.keys(data).length > 0) {
     data.updated_at = sql`NOW()`;
@@ -505,31 +563,49 @@ export async function getAllUsers(): Promise<(User & { session_count: number })[
       u.id, u.email, u.role, u.email_verified, u.created_at, u.updated_at,
       COUNT(gs.id)::int as session_count
     FROM users u
-    LEFT JOIN game_sessions gs ON gs.user_id = u.id AND gs.status = 'active'
+    LEFT JOIN game_sessions gs ON gs.user_id = u.id
     GROUP BY u.id
     ORDER BY u.created_at DESC
   `;
   return rows as unknown as (User & { session_count: number })[];
 }
 
-export async function getAllSessionsWithOwner(): Promise<(GameSession & { owner_email?: string; last_message?: string })[]> {
+export async function getAllSessionsWithOwner(): Promise<(GameSession & {
+  owner_email?: string;
+  last_message?: string;
+  feedback_rating?: number | null;
+  feedback_comment?: string | null;
+})[]> {
   const rows = await sql`
     SELECT
       gs.*,
       u.email as owner_email,
-      m.content as last_message
+      m.content as last_message,
+      sf.rating AS feedback_rating,
+      sf.comment AS feedback_comment
     FROM game_sessions gs
     LEFT JOIN users u ON gs.user_id = u.id
+    LEFT JOIN session_feedback sf ON sf.session_id = gs.id
     LEFT JOIN LATERAL (
       SELECT content FROM messages
       WHERE session_id = gs.id
       ORDER BY created_at DESC
       LIMIT 1
     ) m ON true
-    WHERE gs.status = 'active'
-    ORDER BY gs.updated_at DESC
+    ORDER BY
+      CASE gs.status
+        WHEN 'active' THEN 0
+        WHEN 'paused' THEN 1
+        ELSE 2
+      END,
+      gs.updated_at DESC
   `;
-  return rows as unknown as (GameSession & { owner_email?: string; last_message?: string })[];
+  return rows as unknown as (GameSession & {
+    owner_email?: string;
+    last_message?: string;
+    feedback_rating?: number | null;
+    feedback_comment?: string | null;
+  })[];
 }
 
 export async function updateUserRole(userId: string, role: 'user' | 'admin'): Promise<User> {
@@ -574,6 +650,19 @@ export async function getCampaignRecord(
   return (rows[0] as unknown as Campaign) || null;
 }
 
+export async function updateCampaignRecord(
+  campaignId: string,
+  updates: { worldState?: WorldState; status?: Campaign['status'] }
+): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data: Record<string, any> = {};
+  if (updates.worldState !== undefined) data.world_state = sql.json(jsonOf(updates.worldState));
+  if (updates.status !== undefined) data.status = updates.status;
+  if (Object.keys(data).length === 0) return;
+  data.updated_at = sql`NOW()`;
+  await sql`UPDATE campaigns SET ${sql(data)} WHERE id = ${campaignId}`;
+}
+
 export async function getRecentSessionSummaries(
   campaignId: string,
   limit = 3
@@ -585,6 +674,15 @@ export async function getRecentSessionSummaries(
     LIMIT ${limit}
   `;
   return rows as unknown as SessionSummary[];
+}
+
+export async function getSessionSummaryBySessionId(sessionId: string): Promise<SessionSummary | null> {
+  const rows = await sql`
+    SELECT * FROM session_summaries
+    WHERE session_id = ${sessionId}
+    LIMIT 1
+  `;
+  return (rows[0] as unknown as SessionSummary) || null;
 }
 
 export async function saveSessionSummary(
@@ -614,4 +712,24 @@ export async function saveSessionSummary(
     UPDATE campaigns SET session_count = session_count + 1, updated_at = NOW()
     WHERE id = ${campaignId}
   `;
+}
+
+export async function upsertSessionFeedback(
+  sessionId: string,
+  rating: number,
+  comment: string | null,
+  submittedByUserId: string
+): Promise<SessionFeedback> {
+  const rows = await sql`
+    INSERT INTO session_feedback (session_id, rating, comment, submitted_by_user_id)
+    VALUES (${sessionId}, ${rating}, ${comment}, ${submittedByUserId})
+    ON CONFLICT (session_id) DO UPDATE
+    SET
+      rating = EXCLUDED.rating,
+      comment = EXCLUDED.comment,
+      submitted_by_user_id = EXCLUDED.submitted_by_user_id,
+      updated_at = NOW()
+    RETURNING *
+  `;
+  return rows[0] as unknown as SessionFeedback;
 }
