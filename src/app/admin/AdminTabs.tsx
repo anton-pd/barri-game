@@ -165,9 +165,14 @@ export default function AdminTabs({
                           <div>
                             <div className="text-stone-300">{session.feedback_rating}/5</div>
                             {session.feedback_comment && (
-                              <div className="truncate text-stone-600" title={session.feedback_comment}>
-                                {session.feedback_comment}
-                              </div>
+                              <details className="mt-1">
+                                <summary className="cursor-pointer text-stone-500 hover:text-stone-300">
+                                  Переглянути коментар
+                                </summary>
+                                <div className="mt-2 max-w-60 whitespace-pre-wrap rounded-lg border border-stone-800 bg-stone-950/60 p-2 text-stone-400">
+                                  {session.feedback_comment}
+                                </div>
+                              </details>
                             )}
                           </div>
                         ) : (

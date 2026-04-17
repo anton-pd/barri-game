@@ -1,5 +1,18 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Claude] — ANT-29: динамічна версія у футері
+
+### Проблема
+- Футер головної сторінки показував зашиту `v0.2.0`, хоча в `CHANGELOG.md` вже 0.3.14. `package.json` теж лишався на 0.2.0.
+
+### Рішення
+- `src/components/SessionList.tsx`: `v0.2.0` замінено на імпорт `version` з `package.json` (`import { version as appVersion } from '../../package.json'`). `resolveJsonModule` у tsconfig вже увімкнено.
+- `package.json`: bumped `version` до 0.3.15 (актуальний реліз).
+
+### Рішення прийняті
+- Small-task — без окремого Planned-етапу.
+- Сам текст змін у лог не виводиться, як і просив Anton у описі таски — лише номер версії.
+
 ## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
 
 ### Проблема
@@ -748,3 +761,8 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Rating/comment винесено в окрему таблицю `session_feedback`, щоб не текти через публічний session payload.
 - Для кампаній використано модель “completed old session + create next session”, а не “paused one row forever”.
 - Read-only захист зроблено на сервері (`/api/ai`, `PATCH /api/sessions/[id]`) і на клієнті (`GameChat`), щоб UI не був єдиною лінією захисту.
+
+### Follow-up
+- Виявився важливий staging-specific нюанс: `barri-dev` монтує `/opt/apps/shared_data/scenarios` поверх `/app/scenarios`, тому нові scenario JSON з repo не з’являються автоматично в live API без окремого sync у shared volume.
+- `the-last-cup.json` вручну досинхронізовано в `/opt/apps/shared_data/scenarios`, після чого `https://staging.barrigame.es/api/scenarios` почав віддавати `the-last-cup`.
+- `src/app/admin/AdminTabs.tsx`: feedback cell змінено з `truncate + title` на `details/summary`, щоб comment можна було реально прочитати в адмінці.

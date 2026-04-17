@@ -6,6 +6,7 @@ import type { GameSession, Scenario, Player } from '@/types';
 // CHANGED: Use getRolesForScenario to get scenario-specific roles
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import AuthBar from './AuthBar';
+import { version as appVersion } from '../../package.json';
 
 const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
 
@@ -273,7 +274,7 @@ export default function SessionList() {
           <h1 className="text-3xl sm:text-4xl font-bold text-amber-500 tracking-tight mb-1">
             Call of Cthulhu
           </h1>
-          <p className="text-stone-500 text-sm">AI Keeper — Поклик Ктулху <span className="text-stone-700">· v0.2.0</span></p>
+          <p className="text-stone-500 text-sm">AI Keeper — Поклик Ктулху <span className="text-stone-700">· v{appVersion}</span></p>
           <div className="mt-6 flex items-center gap-3 text-stone-800 select-none">
             <div className="flex-1 h-px bg-stone-800" />
             <span className="text-xs tracking-widest uppercase">Ph&apos;nglui mglw&apos;nafh</span>
