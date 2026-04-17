@@ -9,7 +9,7 @@
 Web app for tabletop RPG sessions of **Call of Cthulhu** (and other systems) with an AI Keeper (GM).
 Players join a session, interact with the Keeper via chat/voice, roll dice, track stats/inventory.
 Live at **https://barrigame.es** (Prod) and **https://staging.barrigame.es** (Staging).
-Repo: `/opt/apps/cthulhu` (Staging, branch `staging`), `/opt/apps/cthulhu-prod` (Prod, branch `main`).
+Repo: `/opt/apps/barri-dev` (Staging, branch `staging`, container `apps-barri-dev-1`), `/opt/apps/barri` (Prod, branch `main`, container `apps-barri-1`). Persistent scenario JSONs and generated images live in `/opt/apps/shared_data/{scenarios,public/scenarios}` and are mounted into both containers.
 
 ---
 
@@ -30,16 +30,17 @@ Repo: `/opt/apps/cthulhu` (Staging, branch `staging`), `/opt/apps/cthulhu-prod` 
 ## Architecture
 
 ```
-External (443) → Caddy → [Prod] cthulhu-prod container (:3000)
-                       → [Staging] cthulhu-staging container (:3001)
+External (443) → Caddy → [Prod] apps-barri-1 container (:3000)
+                       → [Staging] apps-barri-dev-1 container (:3001)
 
-Volumes Storage (/opt/apps/):
-├── cthulhu/ (Dev/Staging)
-│   ├── scenarios/         — Persistent JSONs (Staging)
-│   └── public/scenarios/  — Persistent Images (Staging)
-└── cthulhu-prod/ (Production)
-    ├── scenarios/         — Persistent JSONs (Production)
-    └── public/scenarios/  — Persistent Images (Production)
+Code checkouts:
+├── /opt/apps/barri      — Prod repo (branch main)
+└── /opt/apps/barri-dev  — Staging repo (branch staging)
+
+Shared persistent data (mounted into BOTH containers as /app/scenarios and /app/public/scenarios):
+└── /opt/apps/shared_data/
+    ├── scenarios/         — Scenario JSONs (shared prod+staging)
+    └── public/scenarios/  — Generated images (shared prod+staging)
 ```
 
 **AI turn flow:**
@@ -156,7 +157,7 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 
 1. **First render** — `DynamicImage` component checks `world_state.sessionImages[msg.id]`:
    - No URL → fetches `/api/image?prompt=...&json=true` → server generates, saves to `/app/public/scenarios/dynamic/HASH.jpg`
-   - **Persistence**: Mapped via Docker volumes to `./cthulhu/public/scenarios` (Staging) or `./cthulhu-prod/public/scenarios` (Prod).
+   - **Persistence**: Mapped via Docker volumes to `/opt/apps/shared_data/public/scenarios` (shared between Prod and Staging).
    - Client calls `onUrlGenerated(msg.id, url)` → updates `sessionImages` in React state + PATCHes `world_state` to DB
 2. **Subsequent renders / page reload** — `sessionImages[msg.id]` has the URL → renders `<img src={url}>` directly, no API call
 3. **Key invariant** — `sessionImages` must be keyed by the real DB `message.id`, not the temporary optimistic ID used during streaming. The `/api/ai` `done` event returns `messageId` so the client remaps optimistic IDs before any image is rendered.
@@ -210,7 +211,7 @@ LLM uses `[LOCATION:id]` for both. Creates situational ones with `[NEW_LOCATION:
 
 ## Scenarios
 
-Files in `/opt/apps/cthulhu/scenarios/`:
+Files in `/opt/apps/shared_data/scenarios/` (shared by both prod and staging):
 - `the-haunting.json` — CoC 7e, beginner, locationGroups: elm_street_house + public_library
 - `the-last-telegram.json` — CoC 7e, intermediate, isCampaign: true, 4 location groups
 
@@ -226,7 +227,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 2. **Backward compatibility** — all new fields on existing types are optional; legacy `hp`/`sanity`/`luck` on Player still work.
 3. **No ORM** — raw SQL via `postgres` package. All queries in `lib/queries.ts`.
 4. **Non-blocking side effects** — `trackAPICall()` and NPC registration are fire-and-forget; don't await them in the critical path.
-5. **Next.js standalone caches `public/`** — after adding new files to the public volume, `docker compose restart cthulhu` is required.
+5. **Next.js standalone caches `public/`** — after adding new files to the public volume, `docker compose -f /opt/apps/docker-compose.yml restart barri` (prod) / `barri-dev` (staging) is required.
 6. **KeeperStyle** — stored in localStorage, default `'balanced'`. Values: `'passive'`, `'balanced'`, `'active'`.
 7. **DiceRoller** — shown when `world_state.pendingRollResult` is set + `diceMode === 'virtual'` (localStorage). Result determined by `Math.random()` before animation. On confirm: optimistically clears `pendingRollResult` locally, then sends result as plain message to LLM. Key prop forces remount on each new roll. Physical mode shows inline hint only.
 8. **Language** — stored in `game_sessions.language` (`'uk'` default, `'en'` supported). Set at session creation. `buildSystemPromptBlocks()` injects language instruction + response style. Scenario JSON content (NPCs, locations) remains Ukrainian — AI auto-translates.
@@ -238,7 +239,6 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 | Item | Notes |
 |------|-------|
 | `generateImageExternal()` in `assets.ts` | Placeholder — throws; not yet needed |
-| Phase 10: ElevenLabs ambient generation | Deferred; `ambientFile` field exists in scenarios but generation pipeline not built |
 | SSE client-side error recovery | Basic retry only |
 | DiceRoller visuals | Currently slot-machine animation. 3D physics (dice-box/Babylon.js) tried but incompatible with Next.js standalone. Revisit with raw Three.js or Babylon.js canvas. |
 | English scenario content | `language='en'` sessions get English system prompt, but scenario JSON (NPCs, locations, clues) is Ukrainian — AI auto-translates but native English scenario files would improve quality |
@@ -247,11 +247,12 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 
 1. **Staging Dev**: Work on `feature/ANT-XXX` from `staging`. Review at `staging.barrigame.es`.
 2. **Approval**: User moves Linear task to **Ready for deploy**.
-3. **Deploy**: 
+3. **Deploy**:
    ```bash
-   # AI/Dev folder (/opt/apps/cthulhu):
-   git checkout main && git merge staging && git push origin main
-   
-   # Prod folder (/opt/apps/cthulhu-prod):
-   git pull origin main && docker compose -f /opt/apps/docker-compose.yml restart cthulhu-prod
+   # Staging repo (/opt/apps/barri-dev): merge staging → main and push
+   cd /opt/apps/barri-dev && git checkout main && git merge staging && git push origin main
+
+   # Prod repo (/opt/apps/barri): pull main and restart prod container
+   cd /opt/apps/barri && git pull origin main && \
+     docker compose -f /opt/apps/docker-compose.yml restart barri
    ```

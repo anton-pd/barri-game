@@ -2,8 +2,6 @@
 // cost tracking, inventory mutation tags, keeper activity, random event injection.
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import fs from 'fs';
-import path from 'path';
 import { cookies } from 'next/headers';
 import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
 import { buildSystemPromptBlocks, buildSummarizePrompt } from '@/lib/prompts';
@@ -13,7 +11,8 @@ import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
 import { getCampaignContext } from '@/lib/campaigns';
-import type { Scenario, WorldState, NPC, Player, InventoryItem } from '@/types';
+import { readScenarioFile, resolveAmbientFileForLocation } from '@/lib/scenarioFiles';
+import type { WorldState, NPC, Player, InventoryItem } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
 
@@ -28,12 +27,6 @@ function detectVoiceStyle(_text: string, _npcs: NPC[]): string {
 }
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-function loadScenario(scenarioId: string): Scenario {
-  const filePath = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
-  const content = fs.readFileSync(filePath, 'utf-8');
-  return JSON.parse(content) as Scenario;
-}
 
 // ── Summarize (always uses fast/cheap model) ──────────────────────────────────
 
@@ -334,7 +327,7 @@ export async function POST(request: Request) {
 
   // ── Prompt preparation (before stream — fast, no AI call) ─────────────────
 
-  const scenario = loadScenario(session.scenario_id);
+  const scenario = readScenarioFile(session.scenario_id);
   const recentMessages = await getLastNMessages(sessionId, 30);
   const isIntro = message === '__intro__';
 
@@ -664,7 +657,10 @@ export async function POST(request: Request) {
         const newGroup = updatedWorldState.currentLocationGroup;
         const groupChanged = newGroup && newGroup !== prevGroup;
         const ambientFile = groupChanged
-          ? (scenario.locationGroups?.find((g) => g.id === newGroup)?.ambientFile ?? null)
+          ? resolveAmbientFileForLocation(
+              scenario,
+              (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
+            )
           : null;
 
         // ── TTS prefetch ────────────────────────────────────────────────────

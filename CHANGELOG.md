@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.16] — 2026-04-18
+
+### Fixed
+- **Scenario generator (ANT-23)**: перестав падати на великих сценаріях. Raised `max_tokens` 10 000 → 32 000 і переведено primary-модель на Claude Opus 4.7 з prompt caching на system prompt (~90% економії input на повторних викликах). Додано fallback на Gemini 2.5 Pro з `responseMimeType: application/json`, якщо Opus впав (timeout / parse error / 5xx).
+- **Scenario generator — JSON parsing**: шукаємо text-блок у відповіді (а не припускаємо `content[0]`), знімаємо markdown fences надійнішим regex, на парсі-фейлі витягаємо підрядок від першого `{` до останнього `}`. Сервер логує `stop_reason` + `input/output_tokens`.
+- **Scenario generator — timeouts**: `/api/admin/generate-scenario` тепер `runtime: 'nodejs'` + `maxDuration: 300`, щоб довга генерація не отримувала HTML 504 від reverse proxy (що давало `SyntaxError: Unexpected token '<'` у клієнта).
+- **Scenario generator UI**: клієнт парсить тіло як текст і акуратно показує HTTP-статус + перші 500 символів, якщо відповідь не JSON. Додано meta-рядок (`provider`, `model`, `input/output tokens`, `fallback`) над згенерованим JSON.
+
+### Changed
+- **Docs**: шляхи `/opt/apps/cthulhu` / `cthulhu-prod` у `CLAUDE.md`, `AGENTS.md`, `PROJECT_CONTEXT.md` замінено на актуальні `/opt/apps/barri` (prod), `/opt/apps/barri-dev` (staging) та `/opt/apps/shared_data/{scenarios,public/scenarios}` (shared volume). Команди деплою приведено у відповідність.
+
+---
+
 ## [0.3.15] — 2026-04-17
 
 ### Fixed
@@ -74,6 +87,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - **Usage tracking**: тепер зберігаються output tokens для Gemini image generation (`totalTokenCount - promptTokenCount`) — раніше трекувались лише input tokens (ANT-27).
+
+---
+
+## [0.3.15] — 2026-04-17
+
+### Added
+- **Ambient audio generation (Phase 10)** — додано `POST /api/scenarios/[id]/ambient`, який генерує seamless ambient loop-и через ElevenLabs для `locationGroups` сценарію, зберігає `.mp3` у shared VPS storage і записує `ambientFile` назад у `scenario.json`.
+
+### Changed
+- **Ambient playback runtime** — ігровий клієнт більше не вгадує шлях як `/sounds/<locationId>.mp3`, а використовує фактичний `ambientFile` із сценарію. Це вирівнює runtime з `locationGroups` і дає коректне відновлення ambient після reload.
+- **Session startup materials flow** — під час старту сесії ambient generation тепер тригериться поруч із генерацією статичних scenario materials, але тільки для статичних сценарних локацій. Для dynamic locations автоматичну генерацію поки не вмикаємо.
+- **Scenario generator admin UI** — підказку `Phase 10` прибрано; тепер UI пояснює, що ambient генерується пізніше на етапі scenario materials generation.
+- **Canonical scenarios refreshed** — `the-haunting` і `the-last-telegram` перезібрані під новий generator contract: `rolePresets`, повний `briefing`, soundPrompt на static locations, коректні `supportedRoles/defaultRoles`, нові `variants` та розширений clue/event structure.
+- **Scenario archive cleanup** — попередні версії активних сценаріїв перенесено в `scenarios/archive/2026-04-18/`, а тестовий `the-last-cup` прибрано з активного набору.
 
 ---
 

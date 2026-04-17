@@ -2,7 +2,7 @@
 
 Web app for tabletop RPG sessions with an AI Keeper (GM) for Call of Cthulhu and other systems.
 Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
-Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
+Repo `/opt/apps/barri-dev` (Staging, branch `staging`) and `/opt/apps/barri` (Prod, branch `main`). Containers: `apps-barri-dev-1` (staging :3001), `apps-barri-1` (prod :3000). Scenarios + image cache are shared via `/opt/apps/shared_data/` (Docker volumes mount into both).
 
 Full architecture, DB schema, AI tag protocol, and conventions are in **PROJECT_CONTEXT.md** — read it before making any changes.
 
@@ -30,6 +30,7 @@ This project uses **Next.js 16.2** (App Router, standalone output). APIs, conven
 Canonical workflow lives in **LINEAR.md**. This section is only a short checklist.
 
 - **Access policy**: Linear is **API-only** (`LINEAR_API_KEY`), no MCP/OAuth path.
+- **API availability**: `LINEAR_API_KEY` is expected to be available both in the local Barri dev environment and on the VPS Codex environment. If it appears empty in the current shell, verify the project's env sources first before concluding that API access is broken.
 - **Identity**: Claude takes only Claude tasks, Codex takes only Codex tasks (unless Anton explicitly asks otherwise).
 - **Project scope**: all issues must be in **Barri** (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) / team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
 
@@ -41,7 +42,7 @@ Canonical workflow lives in **LINEAR.md**. This section is only a short checklis
 6. **Review handoff**: `In Progress` → `In Review`, assignee → Anton.
 7. **Deploy**: when Anton moves to `Ready for deploy` and assigns back, deploy (`staging` → `main`) and close as `Done`.
 
-If API access is broken, stop and ask Anton to restore API access. Do not switch to MCP flow.
+If API access looks broken, first verify the Barri env sources that normally provide `LINEAR_API_KEY` (local env / VPS env). Only after that should you ask Anton to restore API access. Do not switch to MCP flow.
 
 When Anton asks for a plan/audit, create separate issues in `AI Improvements` (one issue per fix/feature), assigned to self.
 

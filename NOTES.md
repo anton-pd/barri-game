@@ -1,5 +1,52 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Codex] — ANT-30: ElevenLabs ambient для сценарних матеріалів
+
+### Problem
+- Ambient у проєкті існував лише як schema/UI-заготовка: `soundPrompt` і `ambientFile` були в сценаріях, `GameChat` мав toggle і autoplay-логіку, але реальної генерації та persistence pipeline не було.
+- Runtime був розсинхронізований із моделлю даних: клієнт завжди намагався грати `/scenarios/<scenarioId>/sounds/<locationId>.mp3`, хоча сервер уже мислив через `locationGroups[].ambientFile`.
+- Потрібно було генерувати ambient один раз для сценарних матеріалів, зберігати на VPS у shared storage і не запускати автогенерацію для `dynamicLocations`.
+
+### Solution
+- **`src/lib/ambient.ts`** — новий helper для ElevenLabs sound generation:
+  - збирає targets із `locationGroups` (пріоритетно) та окремих static locations без групи;
+  - генерує seamless loop `.mp3`;
+  - зберігає у `public/scenarios/<scenarioId>/ambient/<targetId>.mp3`;
+  - записує `ambientFile` назад у `scenario.json`;
+  - повертає `ambientByLocation` map для runtime.
+- **`src/lib/scenarioFiles.ts`** — новий shared helper для читання/запису сценаріїв і ambient lookup (`resolveAmbientFileForLocation`, `buildAmbientByLocation`).
+- **`src/app/api/scenarios/[id]/ambient/route.ts`** — новий GET/POST endpoint:
+  - `GET` віддає вже відомий `ambientByLocation`;
+  - `POST` одноразово догенеровує missing ambient файли і оновлює сценарій.
+- **`src/app/session/[id]/page.tsx`** — тепер віддає в `GameChat` не лише `locationNames`, а й initial `ambientByLocation`.
+- **`src/components/GameChat.tsx`**:
+  - більше не хардкодить `/sounds/<locationId>.mp3`;
+  - використовує `ambientFile` / `ambientByLocation`;
+  - на mount тригерить `/api/scenarios/<id>/ambient` у фоні поруч із генерацією images;
+  - коректно відновлює ambient після reload;
+  - при переході в dynamic location без ambient — зупиняє попередній loop замість продовження чужого звуку.
+- **`src/app/api/ai/route.ts`** — у SSE `done` тепер віддається реальний `ambientFile` через helper, а не прямий lookup по group.
+- **`src/lib/costTracker.ts` / `src/types/index.ts`** — додано тип `ambient` у usage tracking, щоб ElevenLabs виклики не ламали типи й могли логуватися окремо.
+- **Docs/UI**:
+  - `PROJECT_CONTEXT.md`: Phase 10 більше не позначено як deferred gap;
+  - `SCENARIO_GUIDE.md`: додано `POST /api/scenarios/<id>/ambient` і пояснення про shared storage;
+  - `src/app/admin/ScenarioGenerator.tsx`: прибрано disabled note про Phase 10, замінено на пояснення про automatic materials-time generation;
+  - `CHANGELOG.md`: додано релізний запис про ambient generation.
+
+### Key decisions
+- Primary unit генерації — **`locationGroup`**, а не окрема локація. Це збігається з уже наявним random-event/risk runtime і не дублює майже однакові loops для сусідніх кімнат.
+- Для static location з `soundPrompt`, яка не входить у жодну group, лишено fallback-генерацію окремого файлу — щоб схема залишалась гнучкою.
+- `dynamicLocations` поки **не** запускають ambient generation автоматично. Hook для майбутнього залишено через новий ambient helper + runtime map, аналогічно до path з dynamic images.
+
+### Verification
+- `npm run build` — успішно.
+
+### Scenario follow-up
+- `scenarios/archive/2026-04-18/` — заархівовано попередні бойові версії `the-haunting.json`, `the-last-telegram.json`, а також тестовий `the-last-cup.json`.
+- `scenarios/the-haunting.json` — повністю оновлено під новий generator contract: додано `rolePresets`, `briefing`, `soundPrompt` для всіх static locations, нові `locationGroups`, освіжені NPC/locations/variants.
+- `scenarios/the-last-telegram.json` — так само повністю оновлено; сценарій розширено до 8 локацій і 5 rolePresets, щоб він реально відповідав campaign-level вимогам генератора.
+- `scenarios/the-last-cup.json` — прибрано з активного набору; top-level `scenarios/` тепер містить лише дві бойові кампанії.
+
 ## [2026-04-17 · Claude] — ANT-29: динамічна версія у футері
 
 ### Проблема
@@ -12,6 +59,16 @@
 ### Рішення прийняті
 - Small-task — без окремого Planned-етапу.
 - Сам текст змін у лог не виводиться, як і просив Anton у описі таски — лише номер версії.
+
+## [2026-04-17 · Codex] — Docs: Linear env assumption clarified
+
+### Problem
+- У кількох сесіях Codex передчасно робив висновок, що `LINEAR_API_KEY` недоступний, якщо змінна не була напряму видима в поточному shell.
+- Для Barri це збиває workflow: ключ очікується і локально, і на VPS, тож перед ескалацією треба спершу перевіряти проєктні env-джерела.
+
+### Solution
+- `AGENTS.md`: додано явне правило, що `LINEAR_API_KEY` очікується і в local dev env, і у VPS Codex env; якщо змінна порожня в shell, спочатку перевіряти env sources.
+- `LINEAR.md`: те саме правило додано в canonical workflow, а блок про “API unavailable” уточнено — спочатку перевірка env, потім уже ескалація Антону.
 
 ## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
 
@@ -766,3 +823,26 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Виявився важливий staging-specific нюанс: `barri-dev` монтує `/opt/apps/shared_data/scenarios` поверх `/app/scenarios`, тому нові scenario JSON з repo не з’являються автоматично в live API без окремого sync у shared volume.
 - `the-last-cup.json` вручну досинхронізовано в `/opt/apps/shared_data/scenarios`, після чого `https://staging.barrigame.es/api/scenarios` почав віддавати `the-last-cup`.
 - `src/app/admin/AdminTabs.tsx`: feedback cell змінено з `truncate + title` на `details/summary`, щоб comment можна було реально прочитати в адмінці.
+
+---
+
+## ANT-23: Scenario generator — Opus 4.7 primary + Gemini 2.5 Pro fallback + robust JSON (2026-04-18)
+
+**Problem.** Адмін-генератор сценаріїв падав на prod і staging. Користувач бачив `SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON`. Логи `apps-barri-1` показали `Scenario generation failed: Error: Generator returned invalid JSON: { "id": "sagrada-familia-occult", ... "rolePresets": [ { "id": "arqueologa_catalana", "name": "Каталонська Археол` — JSON обривався на першій ролі.
+
+**Root cause.** Дві проблеми накладались:
+1. `max_tokens: 10000` на `claude-sonnet-4-6` — повний сценарій з `rolePresets` + 8–14 локаціями + NPCs + systemPrompt + variants не вміщується; модель обривалась посеред JSON → `JSON.parse` падав.
+2. Довгі запити ловили Caddy-таймаут → Caddy повертав HTML-сторінку помилки → клієнтський `res.json()` бачив `<!DOCTYPE` і кидав `SyntaxError`.
+
+**Fix.**
+1. `src/lib/scenarioGenerator.ts`: primary → `claude-opus-4-7` з prompt caching на SYSTEM_PROMPT (`cache_control: { type: 'ephemeral' }`) — ~90% знижки на input на повторних запусках. `max_tokens: 32000`. Fallback → `gemini-2.5-pro` з `responseMimeType: 'application/json'`. Якщо Opus падає (timeout / parse / 5xx), автоматично пробуємо Gemini, у відповідь повертаємо `fallbackReason`.
+2. Парсер зроблено стійким: шукаємо text-блок через `content.find(b => b.type === 'text')` (а не `content[0]`), знімаємо markdown fences `/```(?:json)?\s*([\s\S]*?)```/`, на фейлі `JSON.parse` — беремо підстроку від першого `{` до останнього `}`. Сервер логує `provider`, `model`, `stop_reason`, `input/output_tokens`.
+3. `src/app/api/admin/generate-scenario/route.ts`: `export const runtime = 'nodejs'` + `export const maxDuration = 300`, щоб проксі не різав запит. Повертаємо в JSON ще й `provider/model/stopReason/tokens/fallbackReason`.
+4. `src/app/admin/ScenarioGenerator.tsx`: спочатку `res.text()`, потім `JSON.parse` — якщо body не JSON, показуємо `HTTP {status} — non-JSON response:` + перші 500 символів (замість марного `Unknown error`). Додано meta-рядок над JSON (провайдер/модель/токени/fallback-marker).
+
+**Also (доки — застаріли після перейменування).** У `CLAUDE.md`, `AGENTS.md`, `PROJECT_CONTEXT.md` замінено `/opt/apps/cthulhu` / `cthulhu-prod` на актуальні `/opt/apps/barri` (prod), `/opt/apps/barri-dev` (staging) та `/opt/apps/shared_data/{scenarios,public/scenarios}` (shared volume, монтується в обидва контейнери). Команди деплою оновлено. Сам save-роут `generate-scenario/save` не чіпали — `process.cwd()/scenarios` в standalone Next.js = `/app/scenarios`, а це вже змапа на `shared_data`, тож файли й так потрапляють у правильне місце.
+
+**Key decisions.**
+- Primary — Opus 4.7 (а не Sonnet 4.6 з піднятим лімітом), бо якість важлива для авторського тулу, а prompt caching на системному промпті робить повторні виклики дешевими; Gemini 2.5 Pro як fallback задовольняє вимогу «щоб не коштувало космос» — навіть якщо Opus таймаутиться, генерація не пропадає.
+- Не чіпали `trackAPICall` у цьому таску — генератор і раніше не трекав вартість, окремо розберемось за потреби.
+- Працював у worktree `.claude/worktrees/ant-23`, щоб не заважати Codex, який паралельно веде ANT-30 у `/Users/anton.leshchenko/Projects/Barri`.

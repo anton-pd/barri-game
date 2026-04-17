@@ -77,7 +77,7 @@ export interface TrackParams {
   campaignId?: string;
   userId: string;
   provider: string;
-  type: 'llm' | 'tts' | 'stt' | 'image' | 'summarize';
+  type: 'llm' | 'tts' | 'stt' | 'image' | 'ambient' | 'summarize';
   model: string;
   inputTokens?: number;
   outputTokens?: number;
@@ -150,6 +150,10 @@ async function calculateCost(params: TrackParams): Promise<number> {
     if (modelPricing.perChar !== undefined && params.characters !== undefined) {
       return params.characters * modelPricing.perChar;
     }
+  }
+
+  if (params.type === 'ambient' && modelPricing.perChar !== undefined && params.characters !== undefined) {
+    return params.characters * modelPricing.perChar;
   }
 
   if (params.type === 'stt' && modelPricing.perMinute !== undefined && params.duration !== undefined) {

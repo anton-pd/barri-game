@@ -1,0 +1,65 @@
+import fs from 'fs';
+import path from 'path';
+import type { Scenario } from '@/types';
+
+export function getScenariosDir(): string {
+  return path.join(process.cwd(), 'scenarios');
+}
+
+export function getScenarioFilePath(scenarioId: string): string {
+  return path.join(getScenariosDir(), `${scenarioId}.json`);
+}
+
+export function readScenarioFile(scenarioId: string): Scenario {
+  const filePath = getScenarioFilePath(scenarioId);
+  const content = fs.readFileSync(filePath, 'utf-8');
+  return JSON.parse(content) as Scenario;
+}
+
+export function writeScenarioFile(scenarioId: string, scenario: Scenario): void {
+  const filePath = getScenarioFilePath(scenarioId);
+  fs.writeFileSync(filePath, JSON.stringify(scenario, null, 2), 'utf-8');
+}
+
+export function listScenarioFiles(): string[] {
+  return fs.readdirSync(getScenariosDir()).filter((file) => file.endsWith('.json'));
+}
+
+export function findLocationGroupForLocation(
+  scenario: Scenario,
+  locationId: string
+): { id: string; ambientFile?: string | null } | null {
+  const group = scenario.locationGroups?.find((candidate) => candidate.locationIds.includes(locationId));
+  return group ? { id: group.id, ambientFile: group.ambientFile ?? null } : null;
+}
+
+export function resolveAmbientFileForLocation(
+  scenario: Scenario,
+  locationId: string | null | undefined
+): string | null {
+  if (!locationId) return null;
+
+  const group = scenario.locationGroups?.find((candidate) => candidate.locationIds.includes(locationId));
+  if (group?.ambientFile) return group.ambientFile;
+
+  return scenario.locations.find((location) => location.id === locationId)?.ambientFile ?? null;
+}
+
+export function buildAmbientByLocation(scenario: Scenario): Record<string, string> {
+  const ambientByLocation: Record<string, string> = {};
+
+  for (const group of scenario.locationGroups ?? []) {
+    if (!group.ambientFile) continue;
+    for (const locationId of group.locationIds) {
+      ambientByLocation[locationId] = group.ambientFile;
+    }
+  }
+
+  for (const location of scenario.locations ?? []) {
+    if (!ambientByLocation[location.id] && location.ambientFile) {
+      ambientByLocation[location.id] = location.ambientFile;
+    }
+  }
+
+  return ambientByLocation;
+}

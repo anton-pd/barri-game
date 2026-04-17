@@ -134,6 +134,7 @@ interface GameChatProps {
   initialMessages: Message[];
   briefing?: ScenarioBriefing | null;
   locationNames?: Record<string, string>;
+  ambientByLocation?: Record<string, string>;
   scenarioNpcs?: NPC[];
   defaultAiProvider?: AiProvider;
   defaultTtsProvider?: 'openai' | 'gemini';
@@ -498,7 +499,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -570,12 +571,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     const locId = initialSession.world_state?.currentLocation;
     return locId ? (locationNames[locId] ?? null) : null;
   });
+  const [ambientByLocation, setAmbientByLocation] = useState<Record<string, string>>(initialAmbientByLocation);
 
   const messagesEndRef    = useRef<HTMLDivElement>(null);
   const textareaRef       = useRef<HTMLTextAreaElement>(null);
   const audioRef          = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef     = useRef<Map<string, string>>(new Map());
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
+  const currentAmbientUrlRef = useRef<string | null>(null);
   const [ttsProvider] = useState<'openai' | 'gemini'>(defaultTtsProvider);
   const [aiProvider]  = useState<AiProvider>(defaultAiProvider);
   // CHANGED: KeeperStyle — controls Keeper activity level
@@ -627,6 +630,25 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Trigger ambient generation in background when session starts.
+  // Files are persisted in shared storage, so subsequent sessions should resolve instantly.
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`/api/scenarios/${session.scenario_id}/ambient`, { method: 'POST' })
+      .then((response) => (response.ok ? response.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled || !data.ambientByLocation) return;
+        setAmbientByLocation((prev) => ({ ...prev, ...(data.ambientByLocation as Record<string, string>) }));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Auto-generate intro if no messages yet
   const introRequested = useRef(false);
   useEffect(() => {
@@ -673,7 +695,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         if (data.segments)    setMsgSegments({ [introRealId]: data.segments as Segment[] });
         if (data.world_state) setSession((s) => ({ ...s, world_state: data.world_state as typeof s.world_state }));
         if (data.imagePrompt) setDynamicImages({ [introRealId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' } });
-        if (data.location)    { setCurrentLocation(data.location as string); setCurrentLocationName((data.locationName as string | null) ?? null); playAmbient(data.location as string); }
+        if (data.location)    {
+          setCurrentLocation(data.location as string);
+          setCurrentLocationName((data.locationName as string | null) ?? null);
+          playAmbient(data.location as string, (data.ambientFile as string | null | undefined) ?? null);
+        }
         if (autoVoiceEnabled) speakMsg(introRealId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       })
       .catch(() => {
@@ -698,17 +724,38 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     setSpeakingId(null);
   }
 
-  function playAmbient(locationId: string) {
-    const url = `/scenarios/${session.scenario_id}/sounds/${locationId}.mp3`;
-    const prev = ambientRef.current;
+  function fadeOutAmbient(audio: HTMLAudioElement) {
+    const fadeOut = setInterval(() => {
+      if (audio.volume > 0.05) { audio.volume = Math.max(0, audio.volume - 0.05); }
+      else { clearInterval(fadeOut); audio.pause(); audio.src = ''; }
+    }, 80);
+  }
 
-    // Fade out previous
-    if (prev) {
-      const fadeOut = setInterval(() => {
-        if (prev.volume > 0.05) { prev.volume = Math.max(0, prev.volume - 0.05); }
-        else { clearInterval(fadeOut); prev.pause(); prev.src = ''; }
-      }, 80);
+  function stopAmbient() {
+    const prev = ambientRef.current;
+    currentAmbientUrlRef.current = null;
+    ambientRef.current = null;
+
+    if (prev) fadeOutAmbient(prev);
+  }
+
+  function playAmbientFile(url: string | null) {
+    if (!url) {
+      stopAmbient();
+      return;
     }
+
+    if (currentAmbientUrlRef.current === url && ambientRef.current) {
+      if (ambientEnabled && ambientRef.current.paused) {
+        ambientRef.current.volume = 0;
+        ambientRef.current.play().then(() => { ambientRef.current!.volume = ambientVolume; }).catch(() => {});
+      }
+      return;
+    }
+
+    const prev = ambientRef.current;
+    if (prev) fadeOutAmbient(prev);
+    currentAmbientUrlRef.current = url;
 
     const audio = new Audio(url);
     audio.loop = true;
@@ -725,6 +772,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       }, 80);
     }).catch(() => {/* autoplay blocked */});
   }
+
+  function playAmbient(locationId: string, explicitUrl?: string | null) {
+    const url = explicitUrl ?? ambientByLocation[locationId] ?? null;
+    playAmbientFile(url);
+  }
+
+  useEffect(() => {
+    if (!currentLocation) return;
+    playAmbient(currentLocation);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLocation, ambientByLocation]);
 
   // Sync ambient volume/enabled state
   useEffect(() => {
@@ -743,6 +801,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     localStorage.setItem('ambientEnabled', String(ambientEnabled));
     localStorage.setItem('ambientVolume', String(ambientVolume));
   }, [ambientEnabled, ambientVolume, currentLocation]);
+
+  useEffect(() => {
+    return () => {
+      if (ambientRef.current) {
+        ambientRef.current.pause();
+        ambientRef.current.src = '';
+      }
+      currentAmbientUrlRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('autoVoiceEnabled', String(autoVoiceEnabled));
@@ -945,7 +1013,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       if (data.location)    {
         setCurrentLocation(data.location as string);
         setCurrentLocationName((data.locationName as string | null) ?? null);
-        playAmbient(data.location as string);
+        playAmbient(data.location as string, (data.ambientFile as string | null | undefined) ?? null);
       }
 
       // Apply AI-granted items, then consume used items

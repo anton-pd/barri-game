@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import type { Scenario } from '@/types';
+import { getScenariosDir, listScenarioFiles } from '@/lib/scenarioFiles';
 
 export async function GET() {
   try {
-    const scenariosDir = path.join(process.cwd(), 'scenarios');
-    const files = fs.readdirSync(scenariosDir).filter((f) => f.endsWith('.json'));
+    const scenariosDir = getScenariosDir();
+    const files = listScenarioFiles();
 
     const scenarios: Scenario[] = files.map((file) => {
       const content = fs.readFileSync(path.join(scenariosDir, file), 'utf-8');
