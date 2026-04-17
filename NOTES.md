@@ -1,5 +1,15 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
+
+### Проблема
+- Після попереднього фіксу в деяких сесіях fullscreen-превʼю все одно відкривалось усередині сайдбара.
+- Причина: `DynamicImage` (використовується і в чаті, і для «Сесійних матеріалів» у сайдбарі) тримав свій оверлей як сусідній `<div class="fixed inset-0 z-50">` у тому ж фрагменті. Обгортка сайдбара має `transform` (`translate-x-0 / translate-x-full`), а це робить її containing block для `position: fixed` нащадків — тож оверлей обмежувався шириною сайдбара.
+- Попередній фікс (0.3.12) розвʼязав це лише для оверлея `CaseFilesPanel` (статичні сценарні зображення), але не для `DynamicImage`, тому сесії з dynamic session images лишались зламаними.
+
+### Рішення
+- `src/components/GameChat.tsx`: оверлей у `DynamicImage` загорнуто в `createPortal(..., document.body)`, z підвищено до `z-[100]` — той самий патерн, що і в `CaseFilesPanel`.
+
 ## [2026-04-17 · Codex] — ANT-24: fullscreen preview для матеріалів справи
 
 ### Що змінено

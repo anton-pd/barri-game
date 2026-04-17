@@ -87,13 +87,14 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
         className="mt-2 rounded-xl w-full object-cover cursor-zoom-in border border-stone-600"
         style={{ maxHeight: 220 }}
       />
-      {fullscreen && (
+      {fullscreen && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setFullscreen(false)}
         >
           <img src={src} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
