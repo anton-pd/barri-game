@@ -5,6 +5,23 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.7] — 2026-04-17
+
+### Added
+- **Admin → Scenarios tab**: таблиця зі статистикою всіх сценаріїв — кількість сесій, завершень (з відсотком), середня кількість повідомлень, середня та загальна вартість (ANT-25, ANT-26).
+
+### Fixed
+- **Usage tracking**: тепер зберігаються output tokens для Gemini image generation (`totalTokenCount - promptTokenCount`) — раніше трекувались лише input tokens (ANT-27).
+
+---
+
+## [0.3.6] — 2026-04-17
+
+### Changed
+- **Docs: `LINEAR.md`** — синхронізовано з фактичною структурою проекту Linear: додано Codex ID, всі 11 workflow-станів (включно з `Ideas`, `Improvements`, `AI Improvements`, `Canceled`, `Duplicate`), нові лейбли `Bug`/`Improvement`/`Feature`. Виправлено назву стану на `Ready for deploy` (було `Ready for Deployment`). Додано fallback-доступ через `LINEAR_API_KEY` з `.env` для read-only запитів.
+
+---
+
 ## [0.3.5] — 2026-04-16
 
 ### Added

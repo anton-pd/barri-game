@@ -322,6 +322,42 @@ export interface AccountRow {
   models: AccountModelRow[];
 }
 
+export interface ScenarioRow {
+  scenario_id: string;
+  session_count: number;
+  completed_count: number;
+  avg_messages: number;
+  total_cost: number;
+  avg_cost_per_session: number;
+}
+
+export async function getScenarioBreakdown(): Promise<ScenarioRow[]> {
+  const rows = await sql`
+    SELECT
+      gs.scenario_id,
+      COUNT(DISTINCT gs.id)::int                                             AS session_count,
+      COUNT(DISTINCT CASE WHEN gs.status = 'completed' THEN gs.id END)::int AS completed_count,
+      COALESCE(AVG(msg_agg.message_count), 0)::float                        AS avg_messages,
+      COALESCE(SUM(au_agg.session_cost), 0)::float                          AS total_cost,
+      COALESCE(AVG(au_agg.session_cost), 0)::float                          AS avg_cost_per_session
+    FROM game_sessions gs
+    LEFT JOIN (
+      SELECT session_id, SUM(cost_usd) AS session_cost
+      FROM api_usage
+      WHERE session_id IS NOT NULL
+      GROUP BY session_id
+    ) au_agg ON au_agg.session_id = gs.id
+    LEFT JOIN (
+      SELECT session_id, COUNT(*) AS message_count
+      FROM messages
+      GROUP BY session_id
+    ) msg_agg ON msg_agg.session_id = gs.id
+    GROUP BY gs.scenario_id
+    ORDER BY total_cost DESC NULLS LAST
+  `;
+  return rows as unknown as ScenarioRow[];
+}
+
 export async function getAccountsBreakdown(period: Period = 'month', date?: string): Promise<AccountRow[]> {
   const pf = periodFilter(period, date);
 

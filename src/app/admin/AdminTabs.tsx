@@ -5,6 +5,7 @@ import Link from 'next/link';
 import RoleToggle from './RoleToggle';
 import KeeperSettings from './KeeperSettings';
 import ScenarioGenerator from './ScenarioGenerator';
+import ScenarioStats from './ScenarioStats';
 import UsageTab from './UsageTab';
 import PricingEditor from './PricingEditor';
 
@@ -169,7 +170,12 @@ export default function AdminTabs({
       )}
 
       {activeTab === 'usage'     && <UsageTab />}
-      {activeTab === 'scenarios' && <ScenarioGenerator />}
+      {activeTab === 'scenarios' && (
+        <div className="space-y-10">
+          <ScenarioStats />
+          <ScenarioGenerator />
+        </div>
+      )}
       {activeTab === 'settings'  && (
         <div className="space-y-10">
           <KeeperSettings />

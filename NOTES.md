@@ -530,3 +530,74 @@ LLM починав відповіді з `[Anton]:` — наприклад `[Ant
 ### Рішення прийняті
 - База даних залишається спільною. Усі асети (картинки, сценарії) також спільні через Volume мапінг на `/opt/apps/shared_data`.
 - AI працює в `cthulhu` папці, щоб не втрачати контекст NOTES/CHANGELOG.
+
+---
+
+## ANT-32: Покращення відображення сесій (2026-04-16)
+### Що змінено
+- `src/components/SessionList.tsx`: видалено відображення `Акт X` зі списку сесій на головній сторінці.
+- `src/components/SessionList.tsx`: додано лічильник сесій для кампаній (`Сесія: перша`, `друга` тощо) з використанням українських порядкових числівників.
+- Використовується `session_number` та `campaign_id` з об'єкта сесії.
+### Рішення прийняті
+- Для перших 10 сесій використовуються слова (`перша`, `друга`...), далі — цифровий формат (`11-та`).
+- One-shot сесії тепер не мають додаткових міток біля назви, що робить UI чистішим.
+
+---
+
+## [2026-04-17 · Claude] — Docs · Синхронізація LINEAR.md з фактичною структурою Linear
+
+### Problem
+LINEAR.md був розсинхронізований з реальною структурою проекту у Linear:
+- Codex ID був `TBD`, хоча в команді Codex уже з ID `3f8713c1-72d2-4781-b3c0-1ed4e1017a4b`.
+- Стан називався "Ready for Deployment" у доках, але у Linear — "Ready for deploy".
+- Не були згадані стани `Ideas`, `Improvements`, `AI Imprtovements`, `Canceled`, `Duplicate`.
+- Відсутні нові лейбли `Bug`, `Improvement`, `Feature`.
+- Workflow-таблиця була у зламаному форматі (5 колонок без заголовка).
+
+### Solution
+Переписано `/opt/apps/barri-dev/LINEAR.md`:
+- Додано ID для всіх 11 станів workflow (з фактичними назвами, включаючи тайпо `AI Imprtovements` — він реально так називається в Linear).
+- Додано Codex ID у identity-таблицю.
+- Додано всі 6 поточних лейблів.
+- Переписано lifecycle-таблицю як читабельний крок-за-кроком процес.
+- Додано окрему секцію про backlog-стани (`Ideas`/`Improvements`/`AI Imprtovements`/`Canceled`/`Duplicate`).
+- Додано fallback-доступ через `LINEAR_API_KEY` з `/opt/apps/.env` для випадків, коли MCP OAuth недоступний (як цього разу на VPS).
+
+### Key decisions
+- Залишено точну назву стану `AI Imprtovements` з тайпо — інструкція мусить відповідати Linear, інакше state-transitions зламаються. Варто виправити на стороні Linear окремо.
+- Не правили назви інших станів / лейблів — source of truth у Linear.
+- Додано fallback через прямий GraphQL, бо MCP OAuth на VPS не завжди доступний (OAuth flow вимагає браузера). Це read-only паттерн; state-changes все одно через MCP, коли можливо.
+
+---
+
+## [2026-04-17 12:00] Claude — ANT-25/26/27: Scenario stats + image output tokens
+
+### Problem
+- ANT-25/26: В адмін-панелі на вкладці Scenarios не було таблиці зі статистикою сценаріїв (кількість сесій, завершень, середня кількість повідомлень, вартість).
+- ANT-27: Gemini image API повертає `totalTokenCount` у `usageMetadata`, але ми зберігали тільки `promptTokenCount`. Output tokens не трекувались.
+
+### Solution
+- **ANT-27**: `src/app/api/image/route.ts` — обчислюємо `outputTokens = totalTokenCount - promptTokenCount` і передаємо в `trackAPICall()`.
+- **ANT-25/26**: `src/lib/costTracker.ts` — нова функція `getScenarioBreakdown()`: JOIN game_sessions + api_usage + messages, GROUP BY scenario_id. Повертає session_count, completed_count, avg_messages, total_cost, avg_cost_per_session.
+- `src/app/api/admin/costs/route.ts` — додано `breakdown=scenarios`.
+- `src/app/admin/ScenarioStats.tsx` — новий `use client` компонент з таблицею сценаріїв.
+- `src/app/admin/AdminTabs.tsx` — `ScenarioStats` додано вгорі Scenarios-вкладки.
+
+### Key decisions
+- Completed = `game_sessions.status = 'completed'`, відсоток завершення — поряд із кількістю.
+- Avg cost per session = AVG від per-session суми (не від окремих записів api_usage).
+- Scenario stats не фільтруються за period — показуємо all-time дані.
+
+---
+
+## [2026-04-17 · Claude] — Docs · Виправлено `AI Improvements` в LINEAR.md
+
+### Problem
+Anton виправив тайпо на стороні Linear: стан `AI Imprtovements` тепер називається `AI Improvements` (UUID незмінний: `c1749d1a-916d-456b-8338-ecd14f360754`).
+
+### Solution
+- `LINEAR.md`: замінено всі згадки `AI Imprtovements` → `AI Improvements`, видалено warning-блок про тайпо.
+- `CHANGELOG.md`: оновлено запис `[0.3.6]` (версія ще не задеплоєна, тому можна правити на місці).
+
+### Key decisions
+- Історичні записи в цьому журналі (вище) залишено з оригінальним написанням — NOTES.md append-only, редагувати минулі записи не можна.

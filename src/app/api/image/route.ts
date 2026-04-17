@@ -137,8 +137,10 @@ async function handleGemini(
     const buf = Buffer.from(b64, 'base64');
     if (cacheKey) saveImageToCache(cacheKey, buf);
 
-    // Track Gemini image cost: perImage + prompt input tokens
+    // Track Gemini image cost: perImage + prompt input tokens + output tokens
     if (userId) {
+      const promptTok = data.usageMetadata?.promptTokenCount;
+      const totalTok  = data.usageMetadata?.totalTokenCount;
       trackAPICall({
         sessionId,
         userId,
@@ -146,7 +148,8 @@ async function handleGemini(
         type: 'image',
         model: 'gemini-2.5-flash-image',
         imageCount: 1,
-        inputTokens: data.usageMetadata?.promptTokenCount,
+        inputTokens: promptTok,
+        outputTokens: totalTok && promptTok ? totalTok - promptTok : undefined,
       }).catch(console.error);
     }
 

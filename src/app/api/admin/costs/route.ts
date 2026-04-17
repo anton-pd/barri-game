@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import {
   getAdminOverview, getUserCosts, getSessionCosts,
-  getModelBreakdown, getSessionBreakdownEnhanced, getAccountsBreakdown,
+  getModelBreakdown, getSessionBreakdownEnhanced, getAccountsBreakdown, getScenarioBreakdown,
   type Period,
 } from '@/lib/costTracker';
 
@@ -27,6 +27,7 @@ export async function GET(request: Request) {
     if (breakdown === 'model')             return NextResponse.json(await getModelBreakdown(period, date));
     if (breakdown === 'sessions-enhanced') return NextResponse.json(await getSessionBreakdownEnhanced());
     if (breakdown === 'accounts')          return NextResponse.json(await getAccountsBreakdown(period, date));
+    if (breakdown === 'scenarios')         return NextResponse.json(await getScenarioBreakdown());
 
     if (sessionId) return NextResponse.json(await getSessionCosts(sessionId));
 
