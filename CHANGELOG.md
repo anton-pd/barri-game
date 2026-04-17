@@ -5,6 +5,27 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.12] — 2026-04-17
+
+### Fixed
+- **CaseFiles sidebar**: fullscreen preview for static scenario images now opens outside the transformed sidebar wrapper, so it covers the full viewport on mobile and desktop (ANT-24).
+
+---
+
+## [0.3.11] — 2026-04-17
+
+### Changed
+- **Docs sync**: `AGENTS.md` доповнено окремим розділом `Codex-Specific Rules` для Linear workflow та пріоритету MCP/plugin над API.
+
+---
+
+## [0.3.10] — 2026-04-17
+
+### Changed
+- **Docs sync**: `AGENTS.md` приведено у відповідність до фактичної структури проєкту та `LINEAR.md`; додано коротку карту репозиторію й зафіксовано Linear MCP/plugin як preferred path.
+
+---
+
 ## [0.3.9] — 2026-04-17
 
 ### Changed

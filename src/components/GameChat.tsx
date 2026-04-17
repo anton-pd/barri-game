@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
 import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
@@ -163,185 +164,192 @@ function CaseFilesPanel({
     ...(dynamicNpcs ?? []).filter((d) => !(metNpcs.some((n) => n.id === d.id))).map((d) => ({ ...d, isDynamic: true })),
   ];
 
-  return (
-    <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
-        {onClose && (
-          <button
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 transition-colors text-base font-bold"
-            title="Закрити"
-          >✕</button>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b border-stone-700">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 text-xs py-2 transition-colors ${
-              tab === t.id
-                ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
-                : 'text-stone-500 hover:text-stone-300'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto">
-
-        {/* ── Briefing ── */}
-        {tab === 'briefing' && (
-          <div className="p-4 space-y-4">
-            {!briefing ? (
-              <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
-            ) : (
-              <>
-                <div>
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
-                  <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
-                </div>
-                <div className="border-t border-stone-700 pt-3">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
-                  <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
-                </div>
-                <div className="border-t border-stone-700 pt-3">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
-                  <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ── Players ── */}
-        {tab === 'players' && (
-          <div className="p-3 space-y-4">
-            {players.map((p, i) => (
-              <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm font-semibold text-stone-100">{p.name}</span>
-                  <span className="text-xs text-amber-600">{p.role}</span>
-                </div>
-                {p.background && (
-                  <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
-                )}
-                <div className="flex gap-3 text-xs pt-1">
-                  <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
-                  <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
-                  <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
-                </div>
-                {Object.keys(p.skills).length > 0 && (
-                  <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                    {Object.entries(p.skills).map(([skill, val]) => (
-                      <div key={skill} className="flex justify-between">
-                        <span className="text-xs text-stone-500 truncate">{skill}</span>
-                        <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── Images ── */}
-        {tab === 'images' && (
-          <div className="p-3 space-y-3">
-            {/* Session-generated images */}
-            {Object.keys(dynamicImages).length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сесійні матеріали</p>
-                <div className="space-y-2">
-                  {Object.entries(dynamicImages).map(([msgId, meta]) => (
-                    <div key={msgId}>
-                      <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
-                      <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
-                        {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* Static scenario images */}
-            {Object.keys(dynamicImages).length > 0 && (images.length > 0 || loadingImgs) && (
-              <div className="border-t border-stone-800 pt-3">
-                <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
-              </div>
-            )}
-            {loadingImgs && (
-              <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
-            )}
-            {!loadingImgs && images.length === 0 && Object.keys(dynamicImages).length === 0 && (
-              <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
-            )}
-            {images.map((img) => (
-              <div key={img.id}>
-                <img
-                  src={img.url}
-                  alt={img.label}
-                  onClick={() => setFullscreen(img.url)}
-                  className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
-                  style={{ maxHeight: 160 }}
-                />
-                <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* ── NPCs ── */}
-        {tab === 'npcs' && (
-          <div className="p-3 space-y-3">
-            {allNpcs.length === 0 ? (
-              <p className="text-xs text-stone-500 text-center py-6">Персонажі ще не зустрічались</p>
-            ) : (
-              allNpcs.map((npc) => {
-                const relation = npcRelations[npc.id];
-                const relColor =
-                  relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
-                  relation === 'hostile'  ? 'text-red-400 bg-red-900/30'   :
-                  relation === 'neutral'  ? 'text-stone-400 bg-stone-700'  :
-                                           'text-amber-400 bg-amber-900/30';
-                const relLabel =
-                  relation === 'friendly' ? 'Дружній'    :
-                  relation === 'hostile'  ? 'Ворожий'    :
-                  relation === 'neutral'  ? 'Нейтральний': 'Невідомо';
-                return (
-                  <div key={npc.id} className="bg-stone-800 rounded-lg p-3 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
-                    </div>
-                    {npc.description && (
-                      <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-
-      {fullscreen && (
+  const fullscreenOverlay = fullscreen && typeof document !== 'undefined'
+    ? createPortal(
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setFullscreen(null)}
         >
           <img src={fullscreen} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
+        </div>,
+        document.body
+      )
+    : null;
+
+  return (
+    <>
+      <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 transition-colors text-base font-bold"
+              title="Закрити"
+            >✕</button>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Tabs */}
+        <div className="flex border-b border-stone-700">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 text-xs py-2 transition-colors ${
+                tab === t.id
+                  ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── Briefing ── */}
+          {tab === 'briefing' && (
+            <div className="p-4 space-y-4">
+              {!briefing ? (
+                <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
+                  </div>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
+                    <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
+                  </div>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Players ── */}
+          {tab === 'players' && (
+            <div className="p-3 space-y-4">
+              {players.map((p, i) => (
+                <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-semibold text-stone-100">{p.name}</span>
+                    <span className="text-xs text-amber-600">{p.role}</span>
+                  </div>
+                  {p.background && (
+                    <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
+                  )}
+                  <div className="flex gap-3 text-xs pt-1">
+                    <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
+                    <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
+                    <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
+                  </div>
+                  {Object.keys(p.skills).length > 0 && (
+                    <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                      {Object.entries(p.skills).map(([skill, val]) => (
+                        <div key={skill} className="flex justify-between">
+                          <span className="text-xs text-stone-500 truncate">{skill}</span>
+                          <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Images ── */}
+          {tab === 'images' && (
+            <div className="p-3 space-y-3">
+              {/* Session-generated images */}
+              {Object.keys(dynamicImages).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сесійні матеріали</p>
+                  <div className="space-y-2">
+                    {Object.entries(dynamicImages).map(([msgId, meta]) => (
+                      <div key={msgId}>
+                        <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
+                        <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
+                          {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Static scenario images */}
+              {Object.keys(dynamicImages).length > 0 && (images.length > 0 || loadingImgs) && (
+                <div className="border-t border-stone-800 pt-3">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
+                </div>
+              )}
+              {loadingImgs && (
+                <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
+              )}
+              {!loadingImgs && images.length === 0 && Object.keys(dynamicImages).length === 0 && (
+                <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
+              )}
+              {images.map((img) => (
+                <div key={img.id}>
+                  <img
+                    src={img.url}
+                    alt={img.label}
+                    onClick={() => setFullscreen(img.url)}
+                    className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
+                    style={{ maxHeight: 160 }}
+                  />
+                  <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── NPCs ── */}
+          {tab === 'npcs' && (
+            <div className="p-3 space-y-3">
+              {allNpcs.length === 0 ? (
+                <p className="text-xs text-stone-500 text-center py-6">Персонажі ще не зустрічались</p>
+              ) : (
+                allNpcs.map((npc) => {
+                  const relation = npcRelations[npc.id];
+                  const relColor =
+                    relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
+                    relation === 'hostile'  ? 'text-red-400 bg-red-900/30'   :
+                    relation === 'neutral'  ? 'text-stone-400 bg-stone-700'  :
+                                             'text-amber-400 bg-amber-900/30';
+                  const relLabel =
+                    relation === 'friendly' ? 'Дружній'    :
+                    relation === 'hostile'  ? 'Ворожий'    :
+                    relation === 'neutral'  ? 'Нейтральний': 'Невідомо';
+                  return (
+                    <div key={npc.id} className="bg-stone-800 rounded-lg p-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
+                      </div>
+                      {npc.description && (
+                        <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {fullscreenOverlay}
+    </>
   );
 }
 

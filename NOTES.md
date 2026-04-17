@@ -1,5 +1,14 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Codex] — ANT-24: fullscreen preview для матеріалів справи
+
+### Що змінено
+- `src/components/GameChat.tsx`: fullscreen-превʼю статичних матеріалів із вкладки `Матеріали` тепер рендериться через `portal` у `document.body`.
+- Це прибирає обмеження від трансформованого sidebar wrapper на мобільному та дозволяє превʼю відкриватись на весь екран.
+
+### Примітка
+- Зміна точкова, без впливу на dynamic image preview у чаті.
+
 ## Статус фаз
 - [x] Фаза 0: Підготовка
 - [x] Фаза 1: Типи і схема БД
@@ -640,3 +649,25 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 
 ### Key decisions
 - Історичні записи в цьому журналі (вище) залишено з оригінальним написанням — NOTES.md append-only, редагувати минулі записи не можна.
+
+---
+
+## [2026-04-17 13:10] Codex — Docs sync: AGENTS/Linear
+
+### Що змінено
+- `AGENTS.md`: додано коротку карту структури проєкту (`src/app`, `src/components`, `src/lib`, `scenarios/`, `public/scenarios/`) і вирівняно wording Linear workflow з `LINEAR.md`.
+- `AGENTS.md`: зафіксовано, що для Linear краще спочатку використовувати MCP/plugin шлях, а API залишити як fallback.
+- `AGENTS.md`: виправлено назву фінального стану на `Ready for deploy`, щоб збігатися з фактичним Linear workflow.
+
+### Причина
+- Потрібно було оновити агентські інструкції під реальну структуру репо та прибрати дрібні розбіжності з Linear workflow.
+
+---
+
+## [2026-04-17 13:30] Codex — AGENTS: Codex-specific Linear rules
+
+### Що змінено
+- `AGENTS.md`: додано окремий розділ `Codex-Specific Rules` з короткими правилами для вибору задач, використання `small-task`, переходу в `Planned`/`In Review`, і роботи через MCP/plugin.
+
+### Примітка
+- У цій сесії Linear tools не були доступні, тому практично взяти Todo-задачу й перевести її по workflow не вдалося.
