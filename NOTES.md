@@ -1,5 +1,18 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Claude] — ANT-29: динамічна версія у футері
+
+### Проблема
+- Футер головної сторінки показував зашиту `v0.2.0`, хоча в `CHANGELOG.md` вже 0.3.14. `package.json` теж лишався на 0.2.0.
+
+### Рішення
+- `src/components/SessionList.tsx`: `v0.2.0` замінено на імпорт `version` з `package.json` (`import { version as appVersion } from '../../package.json'`). `resolveJsonModule` у tsconfig вже увімкнено.
+- `package.json`: bumped `version` до 0.3.15 (актуальний реліз).
+
+### Рішення прийняті
+- Small-task — без окремого Planned-етапу.
+- Сам текст змін у лог не виводиться, як і просив Anton у описі таски — лише номер версії.
+
 ## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
 
 ### Проблема
