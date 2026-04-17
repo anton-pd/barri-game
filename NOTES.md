@@ -671,3 +671,30 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 
 ### Примітка
 - У цій сесії Linear tools не були доступні, тому практично взяти Todo-задачу й перевести її по workflow не вдалося.
+
+---
+
+## [2026-04-17 19:28] Codex — Docs: фіналізовано єдиний Linear workflow (Claude + Codex, API-only)
+
+### Problem
+- Інструкції по Linear були розкидані між `LINEAR.md`, `AGENTS.md`, `CLAUDE.md` і частково розходилися:
+  - різні формулювання по етапах workflow;
+  - згадки про MCP/OAuth разом із API fallback;
+  - залишкова назва стану `Ready for Deployment` в `PROJECT_CONTEXT.md`.
+
+### Solution
+- `LINEAR.md` переписано як **single source of truth** для обох агентів:
+  - фінальний lifecycle (Selection → Complexity gate → Setup → Dev → Pre-review → In Review → Deploy/Done);
+  - чіткий порядок для complex/small tasks;
+  - mandatory pre-review checklist;
+  - критерії `small-task`;
+  - правила для backlog-станів;
+  - доступ до Linear тільки через GraphQL API (`LINEAR_API_KEY`), без MCP.
+- `AGENTS.md` синхронізовано до короткого чекліста, який посилається на `LINEAR.md`.
+- `CLAUDE.md` оновлено: зафіксовано shared workflow і policy `API-only`.
+- `PROJECT_CONTEXT.md` виправлено на фактичний стан `Ready for deploy`.
+
+### Key decisions
+- Для зменшення “зоопарку” інструкцій детальний процес залишено тільки в `LINEAR.md`, а інші файли мають короткий узгоджений summary.
+- Воркфлоу уніфіковано для Claude і Codex; розділяється лише identity rule по assigned задачах.
+- MCP шлях прибрано з операційного процесу цього проєкту: працюємо тільки через Linear API.

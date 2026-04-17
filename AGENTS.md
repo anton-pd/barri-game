@@ -25,36 +25,25 @@ This project uses **Next.js 16.2** (App Router, standalone output). APIs, conven
 
 ---
 
-## Linear Workflow (Parallel-Safe)
+## Linear Workflow (Final for Claude + Codex)
 
-Full workflow details in **LINEAR.md**. Summary:
+Canonical workflow lives in **LINEAR.md**. This section is only a short checklist.
 
-Use the Linear MCP/plugin path first when it is available. Fall back to the API only when auth is blocked or you only need a read-only query.
+- **Access policy**: Linear is **API-only** (`LINEAR_API_KEY`), no MCP/OAuth path.
+- **Identity**: Claude takes only Claude tasks, Codex takes only Codex tasks (unless Anton explicitly asks otherwise).
+- **Project scope**: all issues must be in **Barri** (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) / team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
 
-1. **Selection**: Take task from **Todo** (assigned to you), move to **In Progress**, assignee → **Self**.
-2. **Setup**: Create `feature/ANT-XXX` from `staging` branch.
-3. **Plan**: Post technical plan (if complex). Move to **Planned**, assignee → **Anton**.
-4. **Dev**: Implement and test on [staging.barrigame.es](https://staging.barrigame.es). Assignee → **Self**.
-5. **Review**: Merge to `staging`, move issue to **In Review**, assignee → **Anton**.
-6. **Deploy**: When user moves to **Ready for deploy** and assigns back to **Self**: merge to `main`, push to GitHub, update prod folder.
-7. **Finalize**: Move task to **Done**, keep on **Self**.
+1. **Selection**: `Todo` → `In Progress`, assignee → self.
+2. **Complexity gate**: if complex, move to `Planned`, assignee → Anton, post plan and wait; if small, add `small-task` + short reasoning comment and continue.
+3. **Setup**: create `feature/ANT-XXX` from `staging` (for complex tasks only after `Planned` approval).
+4. **Dev**: implement and verify on [staging.barrigame.es](https://staging.barrigame.es), assignee stays self.
+5. **Pre-review**: update `NOTES.md` + `CHANGELOG.md`, use commit format `ANT-XXX: summary`, post mandatory Linear review comment.
+6. **Review handoff**: `In Progress` → `In Review`, assignee → Anton.
+7. **Deploy**: when Anton moves to `Ready for deploy` and assigns back, deploy (`staging` → `main`) and close as `Done`.
 
-**AI Improvements**: When asked for plans/audits, create issues in **AI Improvements** column (1 per fix/feature) and assign to self.
-**Small tasks**: Add `small-task` label, skip step 3. Document reasoning.
-**Identity**: Claude takes "Claude" tasks, Codex takes "Codex" tasks.
-**Project**: All tasks MUST be created in the **Barri** project (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) using team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
+If API access is broken, stop and ask Anton to restore API access. Do not switch to MCP flow.
 
-Assignee is always **Anton** for reviews. AI moves to Review — Anton moves to Ready for deploy.
-
-### Codex-Specific Rules
-
-- Take only issues assigned to **Codex** unless Anton explicitly tells you to help on something else.
-- If Linear tools are unavailable, stop and reconnect the Linear app rather than guessing or using an unsafe workaround.
-- Prefer the Linear MCP/plugin path for reads, writes, comments, and state transitions; keep API fallback for read-only checks.
-- For complex work, move the issue to `Planned` and assign Anton before implementation starts.
-- For obvious fixes or tiny docs-only work, use `small-task` and skip the plan gate.
-- Before moving to `In Review`, ensure the task has the mandatory Linear comment and that `NOTES.md` / `CHANGELOG.md` were updated.
-- If Anton asks for a plan or audit, create separate issues in `AI Improvements` instead of burying the work inside the current task.
+When Anton asks for a plan/audit, create separate issues in `AI Improvements` (one issue per fix/feature), assigned to self.
 
 ---
 

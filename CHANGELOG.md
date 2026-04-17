@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.13] — 2026-04-17
+
+### Changed
+- **Linear workflow finalization**: `LINEAR.md` перетворено на єдине джерело правди для Claude/Codex з фінальним lifecycle, mandatory pre-review checklist, `small-task` критеріями та review comment шаблоном.
+- **Linear access policy**: закріплено режим **API-only** (`LINEAR_API_KEY`) без MCP/OAuth fallback у `LINEAR.md`, `AGENTS.md`, `CLAUDE.md`.
+- **Docs sync**: `PROJECT_CONTEXT.md` приведено до фактичного статусу `Ready for deploy` (було `Ready for Deployment`).
+
+---
+
 ## [0.3.12] — 2026-04-17
 
 ### Fixed
