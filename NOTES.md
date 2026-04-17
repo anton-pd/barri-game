@@ -748,3 +748,8 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Rating/comment винесено в окрему таблицю `session_feedback`, щоб не текти через публічний session payload.
 - Для кампаній використано модель “completed old session + create next session”, а не “paused one row forever”.
 - Read-only захист зроблено на сервері (`/api/ai`, `PATCH /api/sessions/[id]`) і на клієнті (`GameChat`), щоб UI не був єдиною лінією захисту.
+
+### Follow-up
+- Виявився важливий staging-specific нюанс: `barri-dev` монтує `/opt/apps/shared_data/scenarios` поверх `/app/scenarios`, тому нові scenario JSON з repo не з’являються автоматично в live API без окремого sync у shared volume.
+- `the-last-cup.json` вручну досинхронізовано в `/opt/apps/shared_data/scenarios`, після чого `https://staging.barrigame.es/api/scenarios` почав віддавати `the-last-cup`.
+- `src/app/admin/AdminTabs.tsx`: feedback cell змінено з `truncate + title` на `details/summary`, щоб comment можна було реально прочитати в адмінці.
