@@ -5,6 +5,22 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.14] — 2026-04-17
+
+### Fixed
+- **Dynamic image fullscreen**: `DynamicImage` fullscreen overlay now renders via `createPortal` to `document.body`, escaping the transformed sidebar wrapper that was trapping the preview inside the sidebar for sessions with dynamic session images.
+
+---
+
+## [0.3.13] — 2026-04-17
+
+### Changed
+- **Linear workflow finalization**: `LINEAR.md` перетворено на єдине джерело правди для Claude/Codex з фінальним lifecycle, mandatory pre-review checklist, `small-task` критеріями та review comment шаблоном.
+- **Linear access policy**: закріплено режим **API-only** (`LINEAR_API_KEY`) без MCP/OAuth fallback у `LINEAR.md`, `AGENTS.md`, `CLAUDE.md`.
+- **Docs sync**: `PROJECT_CONTEXT.md` приведено до фактичного статусу `Ready for deploy` (було `Ready for Deployment`).
+
+---
+
 ## [0.3.12] — 2026-04-17
 
 ### Fixed
@@ -245,6 +261,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - iOS Safari auto-zoom при фокусі на input/textarea
 - 300ms затримка тапу на мобільних браузерах
+
+## [0.2.1] — 2026-04-17
+
+### Added
+- **Session completion flow**: новий endpoint `POST /api/sessions/[id]/complete` для завершення one-shot/campaign session з фінальним read-only станом.
+- **Campaign finish evening**: кампанії тепер можна завершувати “по вечорах” — зберігається короткий summary, а наступна session створюється автоматично.
+- **Player feedback**: rating `1–5` і коментарі до завершеної сесії зберігаються окремо в `session_feedback`.
+- **Test scenario**: новий мікро-сценарій `Остання Чашка` (`the-last-cup`) для швидкого ручного тесту flow завершення.
+
+### Changed
+- **GameChat**: додані статусна панель, кнопки `Завершити сесію` / `Завершити вечір` / `Завершити кампанію`, completion modal і read-only review mode.
+- **Session list**: сесії тепер розділені на active / paused / completed замість жорсткого показу тільки активних.
+- **AI prompt flow for campaigns**: нові кампанійні сесії підхоплюють summaries попередніх вечорів через `campaignContext`.
+- **Admin**: у списку всіх сесій тепер видно status і feedback; у статистиці сценаріїв — середній rating і кількість оцінок.
+
+### Fixed
+- Завершені сесії більше не приймають нові ходи через `/api/ai`.
+- Completed sessions більше не зникають із користувацького списку та адмінки.
 
 ---
 

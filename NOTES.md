@@ -1,5 +1,15 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-17 · Claude] — ANT-24 follow-up: fullscreen для dynamic-зображень
+
+### Проблема
+- Після попереднього фіксу в деяких сесіях fullscreen-превʼю все одно відкривалось усередині сайдбара.
+- Причина: `DynamicImage` (використовується і в чаті, і для «Сесійних матеріалів» у сайдбарі) тримав свій оверлей як сусідній `<div class="fixed inset-0 z-50">` у тому ж фрагменті. Обгортка сайдбара має `transform` (`translate-x-0 / translate-x-full`), а це робить її containing block для `position: fixed` нащадків — тож оверлей обмежувався шириною сайдбара.
+- Попередній фікс (0.3.12) розвʼязав це лише для оверлея `CaseFilesPanel` (статичні сценарні зображення), але не для `DynamicImage`, тому сесії з dynamic session images лишались зламаними.
+
+### Рішення
+- `src/components/GameChat.tsx`: оверлей у `DynamicImage` загорнуто в `createPortal(..., document.body)`, z підвищено до `z-[100]` — той самий патерн, що і в `CaseFilesPanel`.
+
 ## [2026-04-17 · Codex] — ANT-24: fullscreen preview для матеріалів справи
 
 ### Що змінено
@@ -671,3 +681,70 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 
 ### Примітка
 - У цій сесії Linear tools не були доступні, тому практично взяти Todo-задачу й перевести її по workflow не вдалося.
+
+---
+
+## [2026-04-17 19:28] Codex — Docs: фіналізовано єдиний Linear workflow (Claude + Codex, API-only)
+
+### Problem
+- Інструкції по Linear були розкидані між `LINEAR.md`, `AGENTS.md`, `CLAUDE.md` і частково розходилися:
+  - різні формулювання по етапах workflow;
+  - згадки про MCP/OAuth разом із API fallback;
+  - залишкова назва стану `Ready for Deployment` в `PROJECT_CONTEXT.md`.
+
+### Solution
+- `LINEAR.md` переписано як **single source of truth** для обох агентів:
+  - фінальний lifecycle (Selection → Complexity gate → Setup → Dev → Pre-review → In Review → Deploy/Done);
+  - чіткий порядок для complex/small tasks;
+  - mandatory pre-review checklist;
+  - критерії `small-task`;
+  - правила для backlog-станів;
+  - доступ до Linear тільки через GraphQL API (`LINEAR_API_KEY`), без MCP.
+- `AGENTS.md` синхронізовано до короткого чекліста, який посилається на `LINEAR.md`.
+- `CLAUDE.md` оновлено: зафіксовано shared workflow і policy `API-only`.
+- `PROJECT_CONTEXT.md` виправлено на фактичний стан `Ready for deploy`.
+
+### Key decisions
+- Для зменшення “зоопарку” інструкцій детальний процес залишено тільки в `LINEAR.md`, а інші файли мають короткий узгоджений summary.
+- Воркфлоу уніфіковано для Claude і Codex; розділяється лише identity rule по assigned задачах.
+- MCP шлях прибрано з операційного процесу цього проєкту: працюємо тільки через Linear API.
+
+---
+
+## [2026-04-17 20:32] Codex — ANT-28/31: завершення сесії, кампанійний “finish evening”, feedback і тестовий сценарій
+
+### Problem
+- `ANT-28`: не було повного flow завершення сесії — без read-only режиму, без rating/comment, без адмінської видимості feedback.
+- `ANT-31`: кампанійний flow існував лише фрагментами (`session_summaries`, `closeSession()`, `campaignContext`), але не був підключений end-to-end.
+- Completed sessions випадали зі списків, а `POST /api/ai` дозволяв писати навіть у завершену сесію.
+
+### Solution
+- Додано доменний endpoint `POST /api/sessions/[id]/complete`:
+  - `mode: "complete-session"` — завершує сесію, ставить `completed_at`, опційно зберігає feedback;
+  - `mode: "finish-evening"` — для кампаній: генерує session summary, оновлює campaign state, створює наступну сесію і зберігає попередню як completed.
+- Додано `game_sessions.completed_at` і нову таблицю `session_feedback` (`session_id`, `rating`, `comment`, `submitted_by_user_id`, timestamps).
+- `src/app/api/ai/route.ts`: completed sessions тепер server-side read-only (`409`), а campaign sessions отримують `campaignContext` з попередніх summaries.
+- `src/app/api/sessions/route.ts`: при створенні campaign scenario автоматично створюється `campaign` і перша `game_session` прив’язується до нього.
+- `src/lib/queries.ts`:
+  - `createSession()` розширено підтримкою `campaignId`, `sessionNumber`, `initialWorldState`;
+  - списки сесій більше не фільтрують лише `active`;
+  - `getAllSessionsWithOwner()` тепер підтягує status + feedback;
+  - додано `updateCampaignRecord()`, `getSessionSummaryBySessionId()`, `upsertSessionFeedback()`.
+- `GameChat.tsx`:
+  - нова status-панель для `active/completed/paused`;
+  - `Завершити сесію`, `Завершити вечір`, `Завершити кампанію`;
+  - completion modal з rating/comment;
+  - completed/paused session = read-only review mode без composer/queue/send, але з доступом до chat/TTS/case files.
+- `SessionList.tsx`: розділення на Active / Paused / Completed, статусні бейджі, cache fallback для щойно завершених сесій.
+- Admin/UI:
+  - `AdminTabs.tsx`: усі сесії, статус, feedback;
+  - `ScenarioStats.tsx` і `UsageTab.tsx`: avg rating + rating count по сценаріях.
+- Додано тестовий сценарій `scenarios/the-last-cup.json` — короткий one-shot для швидкої ручної перевірки flow завершення.
+
+### Verification
+- `npm run build` — успішно.
+
+### Key decisions
+- Rating/comment винесено в окрему таблицю `session_feedback`, щоб не текти через публічний session payload.
+- Для кампаній використано модель “completed old session + create next session”, а не “paused one row forever”.
+- Read-only захист зроблено на сервері (`/api/ai`, `PATCH /api/sessions/[id]`) і на клієнті (`GameChat`), щоб UI не був єдиною лінією захисту.

@@ -12,6 +12,7 @@ import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
+import { getCampaignContext } from '@/lib/campaigns';
 import type { Scenario, WorldState, NPC, Player, InventoryItem } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
@@ -206,7 +207,7 @@ function parseInventoryTags(
   players: Player[]
 ): { cleanText: string; mutatedPlayers: Player[] } {
   // CHANGED: Full inventory lifecycle — USE, REMOVE, EQUIP, BREAK tags
-  let mutated = players.map((p) => ({
+  const mutated = players.map((p) => ({
     ...p,
     inventory: (p.inventory ?? []).map((it) => ({ ...it })),
   }));
@@ -327,6 +328,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  if (session.status === 'completed') {
+    return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });
+  }
+
   // ── Prompt preparation (before stream — fast, no AI call) ─────────────────
 
   const scenario = loadScenario(session.scenario_id);
@@ -360,7 +365,11 @@ export async function POST(request: Request) {
     eventDecision.shouldFire && eventDecision.eventType
       ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
       : '';
+  const campaignContext = session.campaign_id
+    ? await getCampaignContext(session.campaign_id)
+    : undefined;
   const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
+    campaignContext,
     keeperActivitySection: activitySection,
     eventInstruction,
     language: (session.language ?? 'uk') as 'uk' | 'en',
@@ -706,4 +715,3 @@ export async function POST(request: Request) {
     },
   });
 }
-

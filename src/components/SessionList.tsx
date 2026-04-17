@@ -1,10 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import type { GameSession, Scenario, Player } from '@/types';
 // CHANGED: Use getRolesForScenario to get scenario-specific roles
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import AuthBar from './AuthBar';
+
+const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
 
 interface DraftPlayer {
   name: string;
@@ -15,8 +18,124 @@ const emptyDraft = (): DraftPlayer => ({ name: '', preset: null });
 
 const sessionLabelsUk = ['перша', 'друга', 'третя', 'четверта', 'п’ята', 'шоста', 'сьома', 'восьма', 'дев’ята', 'десята'];
 
+type SessionListEntry = GameSession & { last_message?: string };
+type RawSession = Partial<GameSession> & {
+  players?: GameSession['players'] | string;
+  world_state?: GameSession['world_state'] | string;
+  last_message?: string;
+};
+
+function stripMessagePreview(content?: string) {
+  if (!content) return '';
+
+  return content
+    .replace(/\[NPC:[^\]]+\]([\s\S]*?)\[\/NPC\]/g, '$1')
+    .replace(/\[IMAGE:[^\]]+\]/g, '')
+    .replace(/\[(?:DELTA|ITEM|USE_ITEM|REMOVE_ITEM|EQUIP|BREAK_ITEM|LOCATION|NEW_LOCATION|SET_PENDING_ROLL|CLEAR_PENDING_ROLL|RANDOM_EVENT):[^\]]+\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeSession(session: RawSession): SessionListEntry {
+  let players = session.players;
+  if (typeof players === 'string') {
+    try { players = JSON.parse(players); } catch { players = []; }
+  }
+
+  let worldState = session.world_state;
+  if (typeof worldState === 'string') {
+    try { worldState = JSON.parse(worldState) as GameSession['world_state']; } catch { worldState = undefined; }
+  }
+
+  return {
+    ...(session as GameSession),
+    players: (players ?? []) as Player[],
+    world_state: (worldState ?? {}) as GameSession['world_state'],
+    status: (session.status ?? 'active') as GameSession['status'],
+    last_message: stripMessagePreview(session.last_message),
+  };
+}
+
+function loadCachedReadOnlySessions(): SessionListEntry[] {
+  if (typeof window === 'undefined') return [];
+
+  try {
+    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
+    if (!raw) return [];
+
+    const cached = JSON.parse(raw) as SessionListEntry[];
+    return cached
+      .map((session) => normalizeSession(session))
+      .filter((session) => session.status === 'completed' || session.status === 'paused');
+  } catch {
+    return [];
+  }
+}
+
+function removeCachedSession(id: string) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
+    if (!raw) return;
+    const cached = JSON.parse(raw) as SessionListEntry[];
+    const next = cached.filter((session) => session.id !== id);
+    window.sessionStorage.setItem(READ_ONLY_SESSION_CACHE_KEY, JSON.stringify(next));
+  } catch {
+    // Ignore cache cleanup failures.
+  }
+}
+
+function mergeSessions(primary: SessionListEntry[], fallback: SessionListEntry[]) {
+  const byId = new Map<string, SessionListEntry>();
+
+  for (const session of fallback) {
+    byId.set(session.id, session);
+  }
+
+  for (const session of primary) {
+    byId.set(session.id, session);
+  }
+
+  return [...byId.values()].sort((a, b) => (
+    new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+  ));
+}
+
+function getSessionStatusMeta(session: SessionListEntry) {
+  const isCampaign = Boolean(session.campaign_id);
+
+  if (session.status === 'completed') {
+    return {
+      badge: isCampaign ? 'Вечір завершено' : 'Завершено',
+      badgeClass: 'border-emerald-900/60 bg-emerald-950/50 text-emerald-200',
+      cardClass: 'bg-stone-950/70 border-stone-800 hover:border-emerald-900/60',
+      arrowClass: 'text-emerald-700 group-hover:text-emerald-500',
+      subtitle: isCampaign ? 'Кампанійний вечір завершено' : 'Сесія доступна лише для перегляду',
+    };
+  }
+
+  if (session.status === 'paused') {
+    return {
+      badge: 'На паузі',
+      badgeClass: 'border-amber-900/60 bg-amber-950/50 text-amber-200',
+      cardClass: 'bg-stone-900 border-amber-900/50 hover:border-amber-800/70',
+      arrowClass: 'text-amber-700 group-hover:text-amber-500',
+      subtitle: 'Нові ходи тимчасово вимкнено',
+    };
+  }
+
+  return {
+    badge: isCampaign ? 'Кампанія' : 'Активна',
+    badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
+    cardClass: 'bg-stone-900 hover:bg-stone-800 border-stone-800 hover:border-stone-700',
+    arrowClass: 'text-amber-700 group-hover:text-amber-500',
+    subtitle: isCampaign ? 'Активний вечір кампанії' : 'Готова до продовження',
+  };
+}
+
 export default function SessionList() {
-  const [sessions, setSessions] = useState<(GameSession & { last_message?: string })[]>([]);
+  const [sessions, setSessions] = useState<SessionListEntry[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [showNewGame, setShowNewGame] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
@@ -49,20 +168,10 @@ export default function SessionList() {
 
         const [s, sc] = await Promise.all([sessionsRes.json(), scenariosRes.json()]);
         
-        let parsedSessions = Array.isArray(s) ? s : [];
-        parsedSessions = parsedSessions.map((session: any) => {
-          let players = session.players;
-          if (typeof players === 'string') {
-            try { players = JSON.parse(players); } catch (e) { players = []; }
-          }
-          let world_state = session.world_state;
-          if (typeof world_state === 'string') {
-            try { world_state = JSON.parse(world_state); } catch (e) { world_state = {}; }
-          }
-          return { ...session, players, world_state };
-        });
+        const parsedSessions = (Array.isArray(s) ? s : []).map((session) => normalizeSession(session as RawSession));
+        const cachedSessions = loadCachedReadOnlySessions();
 
-        setSessions(parsedSessions);
+        setSessions(mergeSessions(parsedSessions, cachedSessions));
         setScenarios(Array.isArray(sc) ? sc : []);
       } catch (err) {
         console.error('Network error loading data', err);
@@ -122,6 +231,7 @@ export default function SessionList() {
     if (!confirm('Видалити цю сесію?')) return;
     await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
     setSessions((prev) => prev.filter((s) => s.id !== id));
+    removeCachedSession(id);
   }
 
   function closeModal() {
@@ -138,6 +248,15 @@ export default function SessionList() {
     if (d === 'intermediate') return { text: 'Середній',    color: 'text-yellow-400', bg: 'bg-yellow-900/30 border-yellow-800/40' };
     return                           { text: 'Складний',    color: 'text-red-400',    bg: 'bg-red-900/30 border-red-800/40'       };
   };
+
+  const activeSessions = sessions.filter((session) => session.status === 'active');
+  const pausedSessions = sessions.filter((session) => session.status === 'paused');
+  const completedSessions = sessions.filter((session) => session.status === 'completed');
+  const sessionSections = [
+    { id: 'active', title: 'Активні сесії', sessions: activeSessions },
+    { id: 'paused', title: 'На паузі', sessions: pausedSessions },
+    { id: 'completed', title: 'Завершені сесії', sessions: completedSessions },
+  ].filter((section) => section.sessions.length > 0);
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
@@ -182,48 +301,75 @@ export default function SessionList() {
             <p>Немає активних сесій. Почніть нову гру!</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            <h2 className="text-[11px] text-stone-600 uppercase tracking-widest mb-3 px-1">Активні сесії</h2>
-            {sessions.map((s) => (
-              <a
-                key={s.id}
-                href={`/session/${s.id}`}
-                className="group flex items-center gap-3 bg-stone-900 hover:bg-stone-800 active:bg-stone-800 border border-stone-800 hover:border-stone-700 rounded-2xl p-4 transition-all"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 mb-0.5">
-                    <h3 className="font-semibold text-stone-200 truncate">{s.name}</h3>
-                    {s.campaign_id && (
-                      <span className="text-xs text-stone-600 shrink-0">
-                        Сесія: {sessionLabelsUk[(s.session_number || 1) - 1] || `${s.session_number}-та`}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-xs text-stone-600 mb-2">
-                    {s.scenario_id} · {new Date(s.updated_at).toLocaleDateString('uk-UA')}
-                  </p>
-                  {s.last_message && (
-                    <p className="text-xs text-stone-600 truncate italic mb-2">«{s.last_message}»</p>
-                  )}
-                  <div className="flex flex-wrap gap-1">
-                    {(s.players as Player[]).map((p, i) => (
-                      <span key={i} className="text-xs bg-stone-800 group-hover:bg-stone-700 text-stone-400 rounded-full px-2 py-0.5 transition-colors">
-                        {p.name} · {p.role}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-2 shrink-0">
-                  <button
-                    onClick={(e) => deleteSession(s.id, e)}
-                    className="text-stone-700 hover:text-red-500 active:text-red-400 text-sm p-1.5 transition-colors"
-                    title="Видалити сесію"
-                  >
-                    🗑
-                  </button>
-                  <span className="text-amber-700 group-hover:text-amber-500 transition-colors">→</span>
-                </div>
-              </a>
+          <div className="space-y-6">
+            <div className="flex flex-wrap gap-2 px-1">
+              <span className="text-xs rounded-full border border-stone-800 bg-stone-900 px-2.5 py-1 text-stone-400">
+                Активні: {activeSessions.length}
+              </span>
+              {pausedSessions.length > 0 && (
+                <span className="text-xs rounded-full border border-amber-900/60 bg-amber-950/30 px-2.5 py-1 text-amber-300">
+                  На паузі: {pausedSessions.length}
+                </span>
+              )}
+              {completedSessions.length > 0 && (
+                <span className="text-xs rounded-full border border-emerald-900/60 bg-emerald-950/30 px-2.5 py-1 text-emerald-300">
+                  Завершені: {completedSessions.length}
+                </span>
+              )}
+            </div>
+
+            {sessionSections.map((section) => (
+              <div key={section.id} className="space-y-2">
+                <h2 className="text-[11px] text-stone-600 uppercase tracking-widest mb-3 px-1">{section.title}</h2>
+                {section.sessions.map((s) => {
+                  const statusMeta = getSessionStatusMeta(s);
+
+                  return (
+                    <Link
+                      key={s.id}
+                      href={`/session/${s.id}`}
+                      className={`group flex items-center gap-3 border rounded-2xl p-4 transition-all ${statusMeta.cardClass}`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-stone-200 truncate">{s.name}</h3>
+                          <span className={`text-[11px] rounded-full border px-2 py-0.5 uppercase tracking-[0.16em] ${statusMeta.badgeClass}`}>
+                            {statusMeta.badge}
+                          </span>
+                          {s.campaign_id && (
+                            <span className="text-xs text-stone-600 shrink-0">
+                              Сесія: {sessionLabelsUk[(s.session_number || 1) - 1] || `${s.session_number}-та`}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-stone-500 mb-1.5">
+                          {s.scenario_id} · {new Date(s.updated_at).toLocaleDateString('uk-UA')} · {statusMeta.subtitle}
+                        </p>
+                        {s.last_message && (
+                          <p className="text-xs text-stone-500 truncate italic mb-2">«{s.last_message}»</p>
+                        )}
+                        <div className="flex flex-wrap gap-1">
+                          {(s.players as Player[]).map((p, i) => (
+                            <span key={i} className="text-xs bg-stone-800/80 group-hover:bg-stone-700 text-stone-400 rounded-full px-2 py-0.5 transition-colors">
+                              {p.name} · {p.role}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center gap-2 shrink-0">
+                        <button
+                          onClick={(e) => deleteSession(s.id, e)}
+                          className="text-stone-700 hover:text-red-500 active:text-red-400 text-sm p-1.5 transition-colors"
+                          title="Видалити сесію"
+                        >
+                          🗑
+                        </button>
+                        <span className={`transition-colors ${statusMeta.arrowClass}`}>→</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
             ))}
           </div>
         )}

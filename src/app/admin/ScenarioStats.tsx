@@ -9,6 +9,8 @@ interface ScenarioRow {
   avg_messages: number;
   total_cost: number;
   avg_cost_per_session: number;
+  avg_rating: number | null;
+  rating_count: number;
 }
 
 export default function ScenarioStats() {
@@ -36,6 +38,7 @@ export default function ScenarioStats() {
                 <th className="text-right px-4 py-3">Sessions</th>
                 <th className="text-right px-4 py-3">Completed</th>
                 <th className="text-right px-4 py-3">Avg msgs</th>
+                <th className="text-right px-4 py-3">Rating</th>
               </tr>
             </thead>
             <tbody>
@@ -54,11 +57,17 @@ export default function ScenarioStats() {
                   <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
                     {Math.round(row.avg_messages)}
                   </td>
+                  <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
+                    {row.avg_rating != null ? `${row.avg_rating.toFixed(1)} / 5` : '—'}
+                    {row.rating_count > 0 && (
+                      <span className="ml-1 text-stone-600">({row.rating_count})</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-stone-600">No scenario data yet</td>
+                  <td colSpan={5} className="px-4 py-8 text-center text-stone-600">No scenario data yet</td>
                 </tr>
               )}
             </tbody>

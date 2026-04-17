@@ -64,13 +64,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    if (session.status === 'completed') {
+      return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });
+    }
+
     const body = await request.json();
-    const updates: { world_state?: WorldState; act?: number; players?: Player[]; status?: string } = {};
+    const updates: { world_state?: WorldState; act?: number; players?: Player[]; status?: 'active' | 'completed' | 'paused' } = {};
 
     if (body.world_state !== undefined) updates.world_state = body.world_state;
     if (body.act !== undefined) updates.act = body.act;
     if (body.players !== undefined) updates.players = body.players;
-    if (body.status !== undefined) updates.status = body.status;
+    if (body.status !== undefined) {
+      if (!['active', 'completed', 'paused'].includes(body.status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
+      updates.status = body.status;
+    }
 
     const updated = await updateSession(id, updates);
     return NextResponse.json(updated);

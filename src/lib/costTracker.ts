@@ -338,6 +338,8 @@ export interface ScenarioRow {
   avg_messages: number;
   total_cost: number;
   avg_cost_per_session: number;
+  avg_rating: number | null;
+  rating_count: number;
 }
 
 export async function getScenarioBreakdown(): Promise<ScenarioRow[]> {
@@ -348,8 +350,11 @@ export async function getScenarioBreakdown(): Promise<ScenarioRow[]> {
       COUNT(DISTINCT CASE WHEN gs.status = 'completed' THEN gs.id END)::int AS completed_count,
       COALESCE(AVG(msg_agg.message_count), 0)::float                        AS avg_messages,
       COALESCE(SUM(au_agg.session_cost), 0)::float                          AS total_cost,
-      COALESCE(AVG(au_agg.session_cost), 0)::float                          AS avg_cost_per_session
+      COALESCE(AVG(au_agg.session_cost), 0)::float                          AS avg_cost_per_session,
+      AVG(sf.rating)::float                                                 AS avg_rating,
+      COUNT(sf.session_id)::int                                             AS rating_count
     FROM game_sessions gs
+    LEFT JOIN session_feedback sf ON sf.session_id = gs.id
     LEFT JOIN (
       SELECT session_id, SUM(cost_usd) AS session_cost
       FROM api_usage

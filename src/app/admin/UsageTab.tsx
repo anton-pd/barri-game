@@ -46,6 +46,8 @@ interface ScenarioUsageRow {
   avg_messages: number;
   total_cost: number;
   avg_cost_per_session: number;
+  avg_rating: number | null;
+  rating_count: number;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -399,11 +401,12 @@ export default function UsageTab() {
                 <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
                   <th className="text-left px-4 py-3">Scenario</th>
                   <th className="text-right px-4 py-3">Sessions</th>
-                  <th className="text-right px-4 py-3">Completed</th>
-                  <th className="text-right px-4 py-3">Avg msgs</th>
-                  <th className="text-right px-4 py-3">Avg cost $</th>
-                  <th className="text-right px-4 py-3">Total cost $</th>
-                </tr>
+                <th className="text-right px-4 py-3">Completed</th>
+                <th className="text-right px-4 py-3">Avg msgs</th>
+                <th className="text-right px-4 py-3">Rating</th>
+                <th className="text-right px-4 py-3">Avg cost $</th>
+                <th className="text-right px-4 py-3">Total cost $</th>
+              </tr>
               </thead>
               <tbody>
                 {scenarioRows.map(row => (
@@ -421,6 +424,12 @@ export default function UsageTab() {
                     <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
                       {Math.round(row.avg_messages)}
                     </td>
+                    <td className="px-4 py-2.5 text-right text-stone-500 text-xs">
+                      {row.avg_rating != null ? `${row.avg_rating.toFixed(1)} / 5` : '—'}
+                      {row.rating_count > 0 && (
+                        <span className="text-stone-600 text-xs ml-1">({row.rating_count})</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-right text-amber-700 text-xs">
                       {fmtCost(row.avg_cost_per_session)}
                     </td>
@@ -430,7 +439,7 @@ export default function UsageTab() {
                   </tr>
                 ))}
                 {scenarioRows.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-stone-600">No data yet</td></tr>
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-stone-600">No data yet</td></tr>
                 )}
               </tbody>
             </table>

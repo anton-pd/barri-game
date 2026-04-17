@@ -29,7 +29,13 @@ export default function AdminTabs({
   }[];
   sessions: {
     id: string; name: string; scenario_id: string;
-    owner_email?: string; act: number; updated_at: string;
+    owner_email?: string;
+    act: number;
+    status: string;
+    updated_at: string;
+    completed_at?: string | null;
+    feedback_rating?: number | null;
+    feedback_comment?: string | null;
   }[];
   currentUserId: string;
 }) {
@@ -127,7 +133,9 @@ export default function AdminTabs({
                     <th className="text-left px-4 py-3">Name</th>
                     <th className="text-left px-4 py-3">Scenario</th>
                     <th className="text-left px-4 py-3">Owner</th>
+                    <th className="text-left px-4 py-3">Status</th>
                     <th className="text-left px-4 py-3">Act</th>
+                    <th className="text-left px-4 py-3">Feedback</th>
                     <th className="text-left px-4 py-3">Updated</th>
                     <th className="px-4 py-3"></th>
                   </tr>
@@ -140,9 +148,34 @@ export default function AdminTabs({
                       <td className="px-4 py-3 text-stone-500 text-xs">
                         {session.owner_email ?? <span className="text-stone-700">anonymous</span>}
                       </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          session.status === 'completed'
+                            ? 'bg-emerald-900/50 text-emerald-300'
+                            : session.status === 'paused'
+                              ? 'bg-amber-900/50 text-amber-300'
+                              : 'bg-stone-800 text-stone-400'
+                        }`}>
+                          {session.status}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-stone-400">{session.act}</td>
+                      <td className="px-4 py-3 text-stone-500 text-xs max-w-60">
+                        {session.feedback_rating ? (
+                          <div>
+                            <div className="text-stone-300">{session.feedback_rating}/5</div>
+                            {session.feedback_comment && (
+                              <div className="truncate text-stone-600" title={session.feedback_comment}>
+                                {session.feedback_comment}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-stone-700">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-stone-500 text-xs">
-                        {new Date(session.updated_at).toLocaleDateString()}
+                        {new Date(session.completed_at ?? session.updated_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
                         <Link
@@ -156,8 +189,8 @@ export default function AdminTabs({
                   ))}
                   {sessions.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-stone-600">
-                        No active sessions
+                      <td colSpan={8} className="px-4 py-8 text-center text-stone-600">
+                        No sessions yet
                       </td>
                     </tr>
                   )}

@@ -246,7 +246,7 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 ---
 
 1. **Staging Dev**: Work on `feature/ANT-XXX` from `staging`. Review at `staging.barrigame.es`.
-2. **Approval**: User moves Linear task to **Ready for Deployment**.
+2. **Approval**: User moves Linear task to **Ready for deploy**.
 3. **Deploy**: 
    ```bash
    # AI/Dev folder (/opt/apps/cthulhu):

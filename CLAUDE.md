@@ -5,7 +5,9 @@ Live at **barrigame.es** (Prod) and **staging.barrigame.es** (Staging).
 Repo `/opt/apps/cthulhu` (Staging/AI) and `/opt/apps/cthulhu-prod` (Prod).
 
 **Identity**: You are **Claude**. Only take tasks assigned to **Claude** in Linear.
-Codex take tasks assigned to **Codex**.
+Codex takes tasks assigned to **Codex**.
+
+**Workflow policy**: Shared Claude/Codex workflow is defined in `LINEAR.md` and Linear access is API-only (`LINEAR_API_KEY`), no MCP path.
 
 @AGENTS.md
 @PROJECT_CONTEXT.md

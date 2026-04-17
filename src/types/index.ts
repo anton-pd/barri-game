@@ -93,7 +93,7 @@ export interface GameSession {
   scenario_id: string;
   name: string;
   act: number;
-  status: string;
+  status: 'active' | 'completed' | 'paused';
   world_state: WorldState;
   players: Player[];
   user_id: string | null;
@@ -106,6 +106,16 @@ export interface GameSession {
   keeper_style?: 'passive' | 'balanced' | 'active';
   // Language selection (ANT-14)
   language?: 'uk' | 'en';
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SessionFeedback {
+  session_id: string;
+  rating: 1 | 2 | 3 | 4 | 5;
+  comment: string | null;
+  submitted_by_user_id: string | null;
   created_at: string;
   updated_at: string;
 }
