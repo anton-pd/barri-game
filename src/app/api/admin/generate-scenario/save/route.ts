@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import { getUserById } from '@/lib/queries';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
+import type { Scenario } from '@/types';
+import { writeScenarioFile } from '@/lib/scenarioFiles';
 
 export async function POST(req: NextRequest) {
   // Admin-only
@@ -28,11 +28,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid id format — use kebab-case only' }, { status: 400 });
   }
 
-  const filePath = join(process.cwd(), 'scenarios', `${id}.json`);
-
   try {
-    writeFileSync(filePath, JSON.stringify(json, null, 2), 'utf-8');
-    return NextResponse.json({ saved: filePath });
+    writeScenarioFile(id, json as Scenario);
+    return NextResponse.json({ saved: id });
   } catch (err) {
     console.error('Failed to save scenario:', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

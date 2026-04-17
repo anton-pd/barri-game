@@ -395,14 +395,23 @@ ID першої локації де починається гра. Має бут
 POST /api/scenarios/<id>/images
 ```
 
-Або відкрий сторінку сценарію в UI — там є кнопка генерації.
-
 Зображення зберігаються у `/opt/apps/cthulhu/public/scenarios/<id>/`.  
 Після додавання нових файлів у `public/` — потрібен рестарт:
 
 ```bash
 docker compose restart cthulhu
 ```
+
+Щоб згенерувати ambient-звуки для сценарних локацій:
+
+```bash
+POST /api/scenarios/<id>/ambient
+```
+
+- Генерується **один seamless loop на `locationGroup`**. Якщо локація має `soundPrompt`, але не входить у жодну групу, тоді генерується окремий loop для самої локації.
+- Route оновлює `ambientFile` у самому `scenario.json`, тому наступні сесії вже тільки перевикористовують готові URL.
+- У live-середовищі файли лежать у shared storage (`/opt/apps/shared_data/public/scenarios/<id>/ambient/`), тож одна генерація доступна і для staging, і для prod.
+- Під час старту сесії цей route викликається автоматично у фоні, так само як і генерація статичних матеріалів.
 
 ---
 

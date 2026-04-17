@@ -1,10 +1,9 @@
-import fs from 'fs';
-import path from 'path';
 import { notFound, redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import GameChat from '@/components/GameChat';
 import { verifyJwt } from '@/lib/auth';
 import { getUserById, getAllAppSettings } from '@/lib/queries';
+import { buildAmbientByLocation, readScenarioFile } from '@/lib/scenarioFiles';
 import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
 import type { AiProvider } from '@/app/api/ai/route';
 
@@ -30,15 +29,11 @@ function loadScenarioMeta(
 ): {
   briefing: ScenarioBriefing | null;
   locationNames: Record<string, string>;
+  ambientByLocation: Record<string, string>;
   npcs: NPC[];
 } {
   try {
-    const filePath = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
-    const scenario = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as {
-      briefing?: ScenarioBriefing;
-      locations?: { id: string; name: string }[];
-      npcs?: NPC[];
-    };
+    const scenario = readScenarioFile(scenarioId);
     const locationNames: Record<string, string> = {};
     for (const loc of scenario.locations ?? []) {
       locationNames[loc.id] = loc.name;
@@ -47,9 +42,14 @@ function loadScenarioMeta(
     for (const [id, loc] of Object.entries(dynamicLocations ?? {})) {
       locationNames[id] = loc.name;
     }
-    return { briefing: scenario.briefing ?? null, locationNames, npcs: scenario.npcs ?? [] };
+    return {
+      briefing: scenario.briefing ?? null,
+      locationNames,
+      ambientByLocation: buildAmbientByLocation(scenario),
+      npcs: scenario.npcs ?? [],
+    };
   } catch {
-    return { briefing: null, locationNames: {}, npcs: [] };
+    return { briefing: null, locationNames: {}, ambientByLocation: {}, npcs: [] };
   }
 }
 
@@ -80,11 +80,25 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  const { briefing, locationNames, npcs } = loadScenarioMeta(data.session.scenario_id, data.session.world_state.dynamicLocations);
+  const { briefing, locationNames, ambientByLocation, npcs } = loadScenarioMeta(
+    data.session.scenario_id,
+    data.session.world_state.dynamicLocations
+  );
 
   const settings = await getAllAppSettings();
   const defaultAiProvider  = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
   const defaultTtsProvider = (settings.tts_provider ?? 'gemini') as 'openai' | 'gemini';
 
-  return <GameChat session={data.session} initialMessages={data.messages} briefing={briefing} locationNames={locationNames} scenarioNpcs={npcs} defaultAiProvider={defaultAiProvider} defaultTtsProvider={defaultTtsProvider} />;
+  return (
+    <GameChat
+      session={data.session}
+      initialMessages={data.messages}
+      briefing={briefing}
+      locationNames={locationNames}
+      ambientByLocation={ambientByLocation}
+      scenarioNpcs={npcs}
+      defaultAiProvider={defaultAiProvider}
+      defaultTtsProvider={defaultTtsProvider}
+    />
+  );
 }

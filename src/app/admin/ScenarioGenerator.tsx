@@ -214,11 +214,9 @@ export default function ScenarioGenerator() {
             </div>
           )}
 
-          <label className="flex items-center gap-2 cursor-not-allowed select-none opacity-40" title="Phase 10 — not yet implemented">
-            <input type="checkbox" className="w-4 h-4" disabled />
-            <span className="text-sm text-stone-400">Generate ambient audio</span>
-            <span className="text-xs text-stone-600">(Phase 10)</span>
-          </label>
+          <div className="text-xs text-stone-500 max-w-xs leading-relaxed">
+            Ambient audio is generated later during scenario materials generation and then reused from shared VPS storage.
+          </div>
         </div>
 
         {/* Generate button */}

@@ -238,7 +238,6 @@ Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `e
 | Item | Notes |
 |------|-------|
 | `generateImageExternal()` in `assets.ts` | Placeholder — throws; not yet needed |
-| Phase 10: ElevenLabs ambient generation | Deferred; `ambientFile` field exists in scenarios but generation pipeline not built |
 | SSE client-side error recovery | Basic retry only |
 | DiceRoller visuals | Currently slot-machine animation. 3D physics (dice-box/Babylon.js) tried but incompatible with Next.js standalone. Revisit with raw Three.js or Babylon.js canvas. |
 | English scenario content | `language='en'` sessions get English system prompt, but scenario JSON (NPCs, locations, clues) is Ukrainian — AI auto-translates but native English scenario files would improve quality |
