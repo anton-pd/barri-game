@@ -11,8 +11,8 @@ import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
 import { getCampaignContext } from '@/lib/campaigns';
-import { readScenarioFile, resolveAmbientFileForLocation } from '@/lib/scenarioFiles';
-import type { WorldState, NPC, Player, InventoryItem } from '@/types';
+import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
+import type { WorldState, Player } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
 
@@ -20,7 +20,7 @@ const GEMINI_MODELS: Record<string, string> = {
   'gemini-flash': 'gemini-2.5-flash',
 };
 
-function detectVoiceStyle(_text: string, _npcs: NPC[]): string {
+function detectVoiceStyle(): string {
   // Keeper narrator always uses the same voice. NPC voices are handled
   // per-segment in multi-speaker Gemini TTS, not via the message-level voiceStyle.
   return 'keeper';
@@ -50,7 +50,7 @@ async function summarizeAndUpdateWorldState(
       });
       text = response.content[0].type === 'text' ? response.content[0].text : '';
     } else {
-      text = await callGeminiText('gemini-2.5-flash', summarizePrompt, '');
+      text = await callGeminiText('gemini-2.5-flash', summarizePrompt);
     }
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -125,7 +125,7 @@ async function callGeminiChat(
   };
 }
 
-async function callGeminiText(modelId: string, prompt: string, _system: string): Promise<string> {
+async function callGeminiText(modelId: string, prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
@@ -618,6 +618,15 @@ export async function POST(request: Request) {
           };
         }
 
+        const resolvedLocationGroup = resolveLocationGroupIdForLocation(
+          scenario,
+          updatedWorldState.currentLocation
+        );
+        updatedWorldState = {
+          ...updatedWorldState,
+          currentLocationGroup: resolvedLocationGroup ?? undefined,
+        };
+
         // ── Clear one-time variant hint after intro ─────────────────────────
         if (isIntro && updatedWorldState.variantHint) {
           updatedWorldState = { ...updatedWorldState, variantHint: undefined };
@@ -657,19 +666,14 @@ export async function POST(request: Request) {
 
         // ── Ambient ─────────────────────────────────────────────────────────
 
-        const prevGroup = session.world_state.currentLocationGroup;
-        const newGroup = updatedWorldState.currentLocationGroup;
-        const groupChanged = newGroup && newGroup !== prevGroup;
-        const ambientFile = groupChanged
-          ? resolveAmbientFileForLocation(
-              scenario,
-              (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
-            )
-          : null;
+        const ambientFile = resolveAmbientFileForLocation(
+          scenario,
+          (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
+        );
 
         // ── TTS prefetch ────────────────────────────────────────────────────
 
-        const voiceStyle = detectVoiceStyle(cleanText, scenario.npcs ?? []);
+        const voiceStyle = detectVoiceStyle();
         if (autoVoiceEnabled) {
           prefetchGemini(cleanText, voiceStyle, segments);
         }

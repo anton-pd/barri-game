@@ -33,6 +33,14 @@ export function findLocationGroupForLocation(
   return group ? { id: group.id, ambientFile: group.ambientFile ?? null } : null;
 }
 
+export function resolveLocationGroupIdForLocation(
+  scenario: Scenario,
+  locationId: string | null | undefined
+): string | null {
+  if (!locationId) return null;
+  return scenario.locationGroups?.find((candidate) => candidate.locationIds.includes(locationId))?.id ?? null;
+}
+
 export function resolveAmbientFileForLocation(
   scenario: Scenario,
   locationId: string | null | undefined

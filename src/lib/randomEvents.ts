@@ -1,6 +1,7 @@
 // CHANGED: New file — server-side random event probability engine.
 // Server decides if event fires. LLM only receives inject instruction.
 import type { WorldState, Scenario, LocationRiskState } from '@/types';
+import { resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 
 const BASE_CHANCE = 5;
 const MAX_CHANCE = 60;
@@ -187,9 +188,7 @@ function resolveLocationGroup(
   locationId: string | undefined,
   scenario: Scenario
 ): string | undefined {
-  if (!locationId || !scenario.locationGroups) return undefined;
-  const group = scenario.locationGroups.find((g) => g.locationIds.includes(locationId));
-  return group?.id;
+  return resolveLocationGroupIdForLocation(scenario, locationId) ?? undefined;
 }
 
 function getOrInitRisk(worldState: WorldState, groupId: string): LocationRiskState {
