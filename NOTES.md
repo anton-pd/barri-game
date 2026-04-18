@@ -1,5 +1,23 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
+
+### Problem
+- **ANT-58**: відповіді Keeper іноді обриваються на пів слова, особливо перше intro-повідомлення.
+- **ANT-60**: intro треба зробити довшим, щоб гравці зрозуміли сетинг.
+- У проду й staging немає жодного логу `finishReason` / `safetyRatings` / довжини відповіді — причину обриву ретроспективно неможливо встановити. `callGeminiChat` (non-streaming) лише кидає помилку на порожній відповіді й нічого не логує на коротких.
+
+### Solution (Фаза 1 — діагностика)
+- `src/app/api/ai/route.ts` — `callGeminiChat` отримав опційний `diag: { sessionId, isIntro }`. Логується `finishReason`, `promptFeedback.blockReason`, `candidatesTokenCount`, довжина тексту, перші/останні 120 символів і `safetyRatings` у випадках: intro, не-`STOP` фініш або довжина < 200. Виклик у головному handler-і передає `{ sessionId, isIntro }`.
+- Дозволяє підтвердити гіпотезу про `SAFETY`/`MAX_TOKENS` у `finishReason`, перш ніж чіпати `safetySettings` чи prompt для intro.
+
+### Next steps
+- Деплой гілки `feature/ANT-58-60` на staging.
+- Anton відтворює intro + кілька ходів на сценарії 2 (uk) → аналізуємо логи `apps-barri-dev-1`.
+- Фаза 2 (виправлення) — окремим комітом після логів.
+
+---
+
 ## [2026-04-18 · Claude] — ANT-61/62/63/64: Keeper/GameChat audit fixes
 
 ### Problem

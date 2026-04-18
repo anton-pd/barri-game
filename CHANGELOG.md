@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.24] — 2026-04-18
+
+### Changed
+- **Gemini діагностика (ANT-58/60, Фаза 1)**: `callGeminiChat` у `/api/ai` тепер логує `finishReason`, `safetyRatings`, `promptFeedback.blockReason`, довжину та межі тексту для intro-запитів, коротких відповідей (< 200 символів) і будь-якого не-`STOP` фінішу. Поведінка не змінюється — тільки логування для з'ясування причини обривів.
+
+---
+
 ## [0.3.23] — 2026-04-18
 
 ### Changed
