@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
+import { resolvePlayerStats } from '@/lib/statUtils';
 import type { AiProvider } from '@/app/api/ai/route';
 import VoiceButton from './VoiceButton';
 import DiceRoller from './DiceRoller';
@@ -141,6 +142,7 @@ interface GameChatProps {
   locationNames?: Record<string, string>;
   ambientByLocation?: Record<string, string>;
   scenarioNpcs?: NPC[];
+  rulesetId?: string;
   defaultAiProvider?: AiProvider;
   defaultTtsProvider?: 'openai' | 'gemini';
 }
@@ -221,6 +223,7 @@ function renderText(text: string) {
 // Case files panel — sidebar: always-visible on desktop, overlay on mobile
 function CaseFilesPanel({
   scenarioId,
+  rulesetId,
   players,
   briefing,
   npcs,
@@ -233,6 +236,7 @@ function CaseFilesPanel({
   onClose,
 }: {
   scenarioId: string;
+  rulesetId: string;
   players: Player[];
   briefing?: ScenarioBriefing | null;
   npcs: NPC[];
@@ -357,10 +361,12 @@ function CaseFilesPanel({
                   {p.background && (
                     <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
                   )}
-                  <div className="flex gap-3 text-xs pt-1">
-                    <span className="text-red-400">HP {p.hp}/{p.maxHp}</span>
-                    <span className="text-purple-400">SAN {p.sanity}/{p.maxSanity}</span>
-                    <span className="text-amber-400">LCK {p.luck}/{p.maxLuck}</span>
+                  <div className="flex gap-3 text-xs pt-1 flex-wrap">
+                    {resolvePlayerStats(p, rulesetId).map((s) => (
+                      <span key={s.id} style={{ color: s.color }}>
+                        {s.label} {s.value}{s.hasMax && s.max !== null ? `/${s.max}` : ''}
+                      </span>
+                    ))}
                   </div>
                   {Object.keys(p.skills).length > 0 && (
                     <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
@@ -504,7 +510,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -544,7 +550,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [showSettings, setShowSettings]       = useState(false);
   const [showSidebar, setShowSidebar]         = useState(false);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
-  const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
   const canManuallyEndSession = !sessionIsReadOnly;
@@ -891,32 +896,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
   // ── Item use ─────────────────────────────────────────────────────────────────
 
-  function handleUseItem(playerIdx: number, itemId: string, itemName: string) {
+  function handleUseItem(playerIdx: number, _itemId: string, itemName: string) {
     if (sessionIsReadOnly) return;
-    // Track for post-send decrement
-    pendingItemUsesRef.current = [...pendingItemUsesRef.current, { playerIdx, itemId }];
-    // Switch to that player and insert text into input
+    // Inventory mutation is authoritative on the server: when the keeper emits
+    // [USE_ITEM:idx:itemId] the /api/ai route decrements uses and returns the
+    // updated players array. The client only nudges the prompt so the keeper
+    // knows which item to reference.
     setActivePlayer(playerIdx);
     setInput((prev) => prev ? `${prev} (використовує: ${itemName})` : `(використовує: ${itemName}) `);
     textareaRef.current?.focus();
-  }
-
-  function consumePendingItems(players: Player[]): Player[] {
-    const uses = pendingItemUsesRef.current;
-    if (uses.length === 0) return players;
-    pendingItemUsesRef.current = [];
-    return players.map((p, pIdx) => {
-      const itemsToConsume = uses.filter((u) => u.playerIdx === pIdx);
-      if (itemsToConsume.length === 0) return p;
-      const updatedInventory = (p.inventory ?? []).reduce<typeof p.inventory>((acc, item) => {
-        const consumed = itemsToConsume.some((u) => u.itemId === item.id);
-        if (!consumed) return [...acc, item];
-        if (item.uses === -1) return [...acc, item]; // infinite — don't decrement
-        if (item.uses <= 1) return acc;              // 1 use left — remove
-        return [...acc, { ...item, uses: item.uses - 1 }];
-      }, []);
-      return { ...p, inventory: updatedInventory };
-    });
   }
 
   // ── Queue action ─────────────────────────────────────────────────────────────
@@ -1022,17 +1010,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         playAmbient(data.location as string, (data.ambientFile as string | null | undefined) ?? null);
       }
 
-      // Apply AI-granted items, then consume used items
-      const playersAfterAI = (data.players as typeof session.players) ?? session.players;
-      const playersAfterConsume = consumePendingItems(playersAfterAI);
-      if (playersAfterConsume !== session.players) {
-        setSession((s) => ({ ...s, players: playersAfterConsume }));
-        await fetch(`/api/sessions/${session.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ players: playersAfterConsume }),
-        });
-      } else if (data.players) {
+      // Server is the source of truth for inventory/stats — just mirror its players.
+      if (data.players) {
         setSession((s) => ({ ...s, players: data.players as typeof s.players }));
       }
 
@@ -1672,6 +1651,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       `}>
         <CaseFilesPanel
           scenarioId={session.scenario_id}
+          rulesetId={rulesetId}
           players={session.players}
           briefing={briefing}
           npcs={scenarioNpcs}

@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.23] — 2026-04-18
+
+### Changed
+- **Ruleset-driven stats (ANT-63)**: DELTA-контракт і рендеринг статів перероблено на ruleset-driven. Player `stats` map тепер canonical source; legacy HP/SAN/LCK поля лишаються як backward-compat dзеркало. `StatsBar`/`CaseFilesPanel` і keeper-prompt генерують stat-лінію з `RULESETS[…].stats`, тому non-CoC системи підтримуються end-to-end.
+- **Localized keeper prompt (ANT-64)**: коли сесія `language='en'`, весь системний prompt (plot guardrails, inventory/stat/image/location/NPC/completion sections, dice rules для CoC 7e та Kids on Bikes, intro instruction) тепер повністю англійською. Tag syntax незмінний.
+
+### Fixed
+- **Multi-action attribution (ANT-61)**: `/api/ai` більше не додає додатковий `[Name]:` префікс над уже відформатованим multi-player batch від клієнта, тому кіпер коректно адресує реплики по гравцях.
+- **Double item consumption (ANT-62)**: сервер став єдиним authoritative джерелом inventory; клієнтське подвійне списання по `pendingItemUsesRef` прибрано. Одна дія тепер списує рівно 1 заряд, 1-use предмети зникають вчасно, не раніше.
+
+---
+
 ## [0.3.22] — 2026-04-18
 
 ### Changed

@@ -31,6 +31,7 @@ function loadScenarioMeta(
   locationNames: Record<string, string>;
   ambientByLocation: Record<string, string>;
   npcs: NPC[];
+  rulesetId: string;
 } {
   try {
     const scenario = readScenarioFile(scenarioId);
@@ -47,9 +48,10 @@ function loadScenarioMeta(
       locationNames,
       ambientByLocation: buildAmbientByLocation(scenario),
       npcs: scenario.npcs ?? [],
+      rulesetId: scenario.rulesetId ?? 'coc_7e',
     };
   } catch {
-    return { briefing: null, locationNames: {}, ambientByLocation: {}, npcs: [] };
+    return { briefing: null, locationNames: {}, ambientByLocation: {}, npcs: [], rulesetId: 'coc_7e' };
   }
 }
 
@@ -80,7 +82,7 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  const { briefing, locationNames, ambientByLocation, npcs } = loadScenarioMeta(
+  const { briefing, locationNames, ambientByLocation, npcs, rulesetId } = loadScenarioMeta(
     data.session.scenario_id,
     data.session.world_state.dynamicLocations
   );
@@ -97,6 +99,7 @@ export default async function SessionPage({ params }: PageProps) {
       locationNames={locationNames}
       ambientByLocation={ambientByLocation}
       scenarioNpcs={npcs}
+      rulesetId={rulesetId}
       defaultAiProvider={defaultAiProvider}
       defaultTtsProvider={defaultTtsProvider}
     />

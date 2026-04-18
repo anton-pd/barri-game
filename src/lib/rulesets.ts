@@ -1,4 +1,6 @@
 // CHANGED: New file — ruleset configurations for different RPG systems
+// ANT-64: buildRulesetPromptBlock now accepts a language ('uk' | 'en') so the
+// dice-rules section matches the session language.
 import type { RulesetConfig } from '@/types';
 
 export const RULESETS: Record<string, RulesetConfig> = {
@@ -48,10 +50,63 @@ export function getRuleset(id: string): RulesetConfig {
   return ruleset;
 }
 
+type Lang = 'uk' | 'en';
+
 // Generates the ruleset rules block for the system prompt.
 // This block is cached separately from scenario content.
-export function buildRulesetPromptBlock(rulesetId: string): string {
+export function buildRulesetPromptBlock(rulesetId: string, lang: Lang = 'uk'): string {
   if (rulesetId === 'coc_7e') {
+    if (lang === 'en') {
+      return `## DICE RULES (Call of Cthulhu 7e)
+
+### When to ask for a roll
+Ask ONLY when the player clearly attempts something with a risk of failure:
+- Searches for something hidden → Spot Hidden
+- Listens → Listen
+- Persuades/intimidates an NPC → Persuade/Intimidate/Fast Talk
+- Analyzes NPC behavior → Psychology
+- Searches archives → Library Use
+- Specialist knowledge → Occult/History/Medicine/Law etc.
+- Sneaking → Stealth
+- Picking locks → Locksmith
+- First aid → First Aid
+- Combat → Fighting/Firearms (ALWAYS)
+Do NOT ask for: normal conversation, walking, trivial actions.
+
+### How to ask for a roll — MANDATORY order
+EVERY roll (skill, SAN, Luck, combat) requires a tag. Plain "Roll X" without a tag is not enough.
+
+1. Write the text: "Roll [Skill] (1d100, need X or less)"
+2. Immediately at the end of the response place the tag: [SET_PENDING_ROLL:playerIdx:Skill:value:threshold:context]
+   - playerIdx: 0, 1, 2… (player index)
+   - Skill: name (e.g. Psychology)
+   - value: exact skill number
+   - threshold: the same number (for Regular success)
+   - context: one sentence describing what this roll decides
+3. Stop. Do not describe consequences until you get a number from the player.
+4. After the number — branch: ≤ threshold = success, > threshold = failure.
+
+### Results
+- ≤ X/5 → Extreme success: maximum detail, reveals an NPC secret
+- ≤ X/2 → Hard success: extra detail, advantage
+- ≤ X   → Regular success
+- > X   → Fail: nothing or a wrong interpretation
+- 96-100 → Fumble: complication, new danger
+
+### SAN checks
+- Corpse/violence: "Roll Stability (1d100, need X or less)" + [SET_PENDING_ROLL:idx:Stability:X:X:SAN check — corpse/violence]
+- Supernatural: same with context "SAN check — supernatural"
+- Mythos: same with context "SAN check — Mythos"
+On the result → [DELTA] with the appropriate SAN loss.
+
+### Luck roll
+"Roll Luck (1d100, need X or less)" + [SET_PENDING_ROLL:idx:Luck:X:X:Luck check]
+On failure → [DELTA] with Luck spend.
+
+### Pushed roll
+On failure (not a fumble): "You can try again — but if you fail, [consequences]."
+A pushed roll is IMPOSSIBLE in combat.`;
+    }
     return `## ПРАВИЛА КУБИКІВ (Call of Cthulhu 7e)
 
 ### Коли питати кидок
@@ -104,6 +159,38 @@ Pushed roll НЕМОЖЛИВИЙ у бою.`;
   }
 
   if (rulesetId === 'kids_on_bikes') {
+    if (lang === 'en') {
+      return `## DICE RULES (Kids on Bikes)
+
+### Stats and dice
+Each stat is tied to a die (d4/d6/d8/d10/d12/d20). Bigger die = better in that area.
+
+### When to ask for a roll
+Only in dramatic situations with an uncertain outcome:
+- Brains: analysis, search, memory, solving puzzles
+- Brawn: physical strength, lifting, swimming
+- Fight: combat, intimidation, threats
+- Flight: running, dodging, driving, speed
+- Charm: persuasion, deception, social interaction
+- Grit: resisting fear, endurance, willpower
+
+### Roll format
+"Roll [Stat]. Need X or more." — where X is the difficulty (usually 5–15).
+
+### Results
+- Roll >= difficulty → Success
+- Roll < difficulty → Failure
+- Natural max on the die → Lucky Break: roll again, add the result
+
+### Adversity Tokens
+Players start with 3 tokens.
+- Spend: +1 to a roll per token
+- Gain: on failure +1 token (on Flaw-driven failure +2)
+Keep the player informed of their current token count.
+
+### Injuries
+3 failures in a row → the character is drained; the next roll takes a penalty.`;
+    }
     return `## ПРАВИЛА КУБИКІВ (Kids on Bikes)
 
 ### Характеристики і кубики

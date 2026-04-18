@@ -1,5 +1,36 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Claude] — ANT-61/62/63/64: Keeper/GameChat audit fixes
+
+### Problem
+Codex запропонував 4 баги в `AI Improvements` після аудиту `audits/gamechat-keeper-audit-2026-04-18.md`:
+
+- **ANT-61** `/api/ai` завжди обгортав `message` у `[Name]: ...`, тому multi-action payload від клієнта (уже префіксований) отримував подвійний префікс → incorrect attribution batched turns.
+- **ANT-62** `[USE_ITEM:]` обробляється і на сервері (authoritative inventory mutation), і на клієнті (`consumePendingItems` через `pendingItemUsesRef`) → одна дія списувала заряд двічі, 1-use предмети зникали передчасно.
+- **ANT-63** Тип `Player.stats?: Record<string, StatEntry>` існував, але prompt, DELTA-парсер і UI все ще хардкодили `hp/sanity/luck` → non-CoC ruleset підтримано тільки частково.
+- **ANT-64** `language=en` перемикало тільки footer (LANGUAGE + RESPONSE_STYLE). Усі контрольні секції (ІНВЕНТАР, СТАТИ, ЗОБРАЖЕННЯ, ЛОКАЦІЇ, NPC, ЗАВЕРШЕННЯ, dice rules, player line) залишались українською.
+
+### Solution
+- **ANT-61** `src/app/api/ai/route.ts` — у `userContent` для `allActions.length > 1` повідомлення передається як-є; single-action шлях залишає додавання `[Name]:` префіксу.
+- **ANT-62** `src/components/GameChat.tsx` — видалено `pendingItemUsesRef` + `consumePendingItems`; клієнт тепер тільки вставляє `(використовує: …)` в input і дзеркалить `data.players` із серверної відповіді. Сервер став authoritative єдиним джерелом inventory truth.
+- **ANT-63** Новий helper `src/lib/statUtils.ts` з `resolvePlayerStats/formatStatLine/buildDeltaTemplate/applyDeltaToPlayer`:
+  - резолвить stat-values через ruleset defs з fallback на legacy CoC поля;
+  - при DELTA мутації одразу оновлює і `p.stats[id]`, і дзеркало legacy поля (hp/sanity/luck) → existing code, що читає legacy, продовжує працювати;
+  - DELTA instruction тепер генерується з `buildDeltaTemplate(rulesetId)` → LLM бачить ключі, актуальні для поточної системи.
+  - `prompts.ts` рендерить player-line через `formatStatLine`; `GameChat`/`StatsBar` рендерять стати з `resolvePlayerStats` і передаваного `rulesetId`. `session/[id]/page.tsx` прокидає `rulesetId` з `readScenarioFile`.
+- **ANT-64** `src/lib/prompts.ts` — увесь static/dynamic блок локалізовано через `COPY` lookup (`uk`/`en`): заголовки ЗАХИСТ СЮЖЕТУ/КРИТИЧНІ УСПІХИ/ІНВЕНТАР/СТАТИ/ЗОБРАЖЕННЯ/ПЕРЕХОДИ/NPC/ЗАВЕРШЕННЯ, inventory status labels, поточний стан, гравці, railguard/skill rule. `src/lib/rulesets.ts` — `buildRulesetPromptBlock(rulesetId, lang)` з англійськими перекладами CoC 7e та Kids on Bikes правил кубиків. Intro-текст теж локалізовано через `getIntroUserContent(lang)`.
+
+### Key decisions
+- Legacy hp/sanity/luck поля залишаються — UI/DB back-compat, а `stats` мапа — canonical. Мутатор пише в обидва канали для узгодженості.
+- DELTA контракт розширено: ключі тепер довільні stat ids (для CoC лишається `{hp, sanity, luck}` — це ж stat ids ruleset-у, так що old LLM output валідний).
+- Прибрано client-side inventory mutation повністю, а не «gate» — подвійне списання неможливе за визначенням.
+- Для багатослов’яних рулсетів `buildDeltaTemplate` виводить тільки stat ids з ruleset defs, без legacy-хлоп fallback у prompt — це не заважає LLM, бо ruleset stats для CoC — це й є hp/sanity/luck.
+
+### Verification
+- `npx tsc --noEmit` — без помилок.
+- `npx next build` — білд пройшов чисто (27 routes).
+- Тест на staging заплановано: (1) multi-player batch через UI → перевірити що відповідь кіпера не приписує весь батч першому гравцю; (2) використати одноразовий предмет → переконатись що `uses` зменшується на 1, не на 2; (3) сесія з `language='en'` → перевірити що весь системний prompt англійською; (4) створити CoC сесію → HP/SAN/LCK UI, DELTA, stat adjustments працюють як раніше.
+
 ## [2026-04-18 · Codex] — ANT-44: generated scenario appears immediately in admin scenario list
 
 ### Problem
