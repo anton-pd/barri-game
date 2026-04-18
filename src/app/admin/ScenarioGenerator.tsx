@@ -39,7 +39,7 @@ const DEFAULT: FormState = {
   language: 'uk',
 };
 
-export default function ScenarioGenerator() {
+export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void }) {
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -119,6 +119,7 @@ export default function ScenarioGenerator() {
     } else {
       setSaved(true);
       setSaveMeta(data);
+      onSaved?.();
     }
   }
 
