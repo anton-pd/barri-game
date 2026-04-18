@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.20] — 2026-04-18
+
+### Fixed
+- **Lint cleanup (ANT-57)**: прибрано застарілі warnings у `src/app/api/ai/route.ts` після попередніх рефакторів. Поведінка не змінена; targeted lint по файлу тепер чистий.
+
+---
+
 ## [0.3.19] — 2026-04-18
 
 ### Changed

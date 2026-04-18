@@ -1,5 +1,27 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Codex] — ANT-57: targeted lint cleanup for AI route
+
+### Problem
+- `src/app/api/ai/route.ts` мав 4 stale lint warnings після попередніх рефакторів:
+  - unused import `InventoryItem`
+  - unused import `NPC`
+  - `detectVoiceStyle(_text, _npcs)` з невикористаними параметрами
+  - `callGeminiText(..., _system)` з невикористаним параметром
+- Це не ламало runtime, але створювало шум саме в одному з найризикованіших файлів проєкту.
+
+### Solution
+- Прибрано невикористані imports.
+- `detectVoiceStyle()` спрощено до безаргументної helper-функції.
+- `callGeminiText()` прибрано невикористаний `_system` параметр, а call site у summarize-flow оновлено.
+- Поведінку не змінювали: keeper voice як і раніше жорстко повертає `keeper`.
+
+### Verification
+- `npm run lint -- src/app/api/ai/route.ts`
+  - без warnings
+- `npm run build`
+  - успішно пройшов
+
 ## [2026-04-18 · Codex] — ANT-45 + ANT-41: scenario materials flow and ambient runtime sync
 
 ### Problem
