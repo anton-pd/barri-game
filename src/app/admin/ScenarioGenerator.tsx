@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { ScenarioGeneratedBy } from '@/types';
 
 interface FormState {
   title: string;
@@ -13,6 +14,18 @@ interface FormState {
   isCampaign: boolean;
   estimatedSessions: number;
   language: 'uk' | 'en';
+}
+
+interface SaveResponse {
+  saved?: string;
+  error?: string;
+  generatedBy?: ScenarioGeneratedBy | null;
+  images?: { id: string; url: string; label: string }[];
+  generatedImageIds?: string[];
+  imageFailures?: { id: string; error: string }[];
+  ambientByLocation?: Record<string, string>;
+  generatedAmbientIds?: string[];
+  materialErrors?: { stage: 'images' | 'ambient'; error: string }[];
 }
 
 const DEFAULT: FormState = {
@@ -32,11 +45,18 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [meta, setMeta] = useState<{ provider?: string; model?: string; inputTokens?: number; outputTokens?: number; fallbackReason?: string } | null>(null);
+  const [meta, setMeta] = useState<{
+    provider?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    fallbackReason?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveMeta, setSaveMeta] = useState<SaveResponse | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -48,6 +68,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
     setMeta(null);
     setError(null);
     setSaved(false);
+    setSaveMeta(null);
 
     try {
       const res = await fetch('/api/admin/generate-scenario', {
@@ -91,19 +112,29 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
     if (!result) return;
     const id = result.id as string;
     if (!id) { setError('Scenario has no id field'); return; }
+    const generatedBy = (meta?.provider === 'anthropic' || meta?.provider === 'gemini') && meta?.model
+      ? {
+          provider: meta.provider,
+          model: meta.model,
+          generatedAt: new Date().toISOString(),
+          fallbackFrom: meta.fallbackReason ? 'claude-opus-4-7' : null,
+        } satisfies ScenarioGeneratedBy
+      : undefined;
 
     setSaving(true);
+    setError(null);
     const res = await fetch('/api/admin/generate-scenario/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, json: result }),
+      body: JSON.stringify({ id, json: result, generatedBy }),
     });
-    const data = await res.json() as { saved?: string; error?: string };
+    const data = await res.json() as SaveResponse;
     setSaving(false);
     if (!res.ok || data.error) {
       setError(data.error ?? 'Save failed');
     } else {
       setSaved(true);
+      setSaveMeta(data);
       onSaved?.();
     }
   }
@@ -236,7 +267,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
           )}
 
           <div className="text-xs text-stone-500 max-w-xs leading-relaxed">
-            Scenario materials are generated separately after the JSON is saved and then reused from shared VPS storage.
+            Saving now also kicks off static image and ambient generation, then reuses the files from shared VPS storage.
           </div>
         </div>
 
@@ -276,7 +307,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
                     {meta.fallbackReason && <span className="text-amber-500"> · fallback</span>}
                   </span>
                 )}
-                {saved && <span className="text-emerald-500 ml-3">Saved to disk ✓</span>}
+                {saved && <span className="text-emerald-500 ml-3">Saved + materials generated ✓</span>}
               </p>
               <div className="flex gap-2">
                 <button
@@ -290,10 +321,29 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
                   disabled={saving || saved}
                   className="px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/60 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-700 text-emerald-300 text-xs rounded-lg transition-colors"
                 >
-                  {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save to scenarios/'}
+                  {saving ? 'Saving + generating…' : saved ? 'Saved ✓' : 'Save + generate materials'}
                 </button>
               </div>
             </div>
+            {saveMeta && (
+              <div className="rounded-xl border border-stone-800 bg-stone-950/70 p-4 text-xs text-stone-300 space-y-2">
+                <p>
+                  Saved scenario and generated materials from the admin flow.
+                  {typeof saveMeta.generatedImageIds?.length === 'number' && ` New images: ${saveMeta.generatedImageIds.length}.`}
+                  {typeof saveMeta.generatedAmbientIds?.length === 'number' && ` Ambient tracks: ${saveMeta.generatedAmbientIds.length}.`}
+                </p>
+                {Boolean(saveMeta.materialErrors?.length) && (
+                  <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-amber-200 whitespace-pre-wrap">
+                    {`Some material stages failed:\n${saveMeta.materialErrors!.map((item) => `- ${item.stage}: ${item.error}`).join('\n')}`}
+                  </div>
+                )}
+                {Boolean(saveMeta.imageFailures?.length) && (
+                  <div className="rounded-lg border border-amber-800 bg-amber-950/40 p-3 text-amber-200 whitespace-pre-wrap">
+                    {`Some images failed to generate:\n${saveMeta.imageFailures!.map((item) => `- ${item.id}: ${item.error}`).join('\n')}`}
+                  </div>
+                )}
+              </div>
+            )}
             <pre className="bg-stone-950 border border-stone-800 rounded-xl p-4 text-xs text-stone-300 overflow-auto max-h-96 leading-relaxed">
               {JSON.stringify(result, null, 2)}
             </pre>

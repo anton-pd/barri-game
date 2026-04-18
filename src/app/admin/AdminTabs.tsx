@@ -18,6 +18,37 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'settings',  label: 'Settings' },
 ];
 
+function getSessionStatusMeta(session: {
+  status: string;
+  ended_early?: boolean | null;
+  completion_trigger?: string | null;
+}) {
+  if (session.status === 'completed') {
+    if (session.ended_early) {
+      return {
+        label: 'closed early',
+        className: 'bg-amber-900/50 text-amber-300',
+      };
+    }
+    return {
+      label: session.completion_trigger === 'keeper' ? 'completed by keeper' : 'completed',
+      className: 'bg-emerald-900/50 text-emerald-300',
+    };
+  }
+
+  if (session.status === 'paused') {
+    return {
+      label: 'paused',
+      className: 'bg-amber-900/50 text-amber-300',
+    };
+  }
+
+  return {
+    label: 'active',
+    className: 'bg-stone-800 text-stone-400',
+  };
+}
+
 export default function AdminTabs({
   users,
   sessions,
@@ -32,6 +63,8 @@ export default function AdminTabs({
     owner_email?: string;
     act: number;
     status: string;
+    ended_early?: boolean | null;
+    completion_trigger?: 'keeper' | 'manual' | null;
     updated_at: string;
     completed_at?: string | null;
     feedback_rating?: number | null;
@@ -142,7 +175,9 @@ export default function AdminTabs({
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map(session => (
+                  {sessions.map(session => {
+                    const statusMeta = getSessionStatusMeta(session);
+                    return (
                     <tr key={session.id} className="border-b border-stone-800/50 hover:bg-stone-800/30">
                       <td className="px-4 py-3 text-stone-200">{session.name}</td>
                       <td className="px-4 py-3 text-stone-400 text-xs">{session.scenario_id}</td>
@@ -150,14 +185,8 @@ export default function AdminTabs({
                         {session.owner_email ?? <span className="text-stone-700">anonymous</span>}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          session.status === 'completed'
-                            ? 'bg-emerald-900/50 text-emerald-300'
-                            : session.status === 'paused'
-                              ? 'bg-amber-900/50 text-amber-300'
-                              : 'bg-stone-800 text-stone-400'
-                        }`}>
-                          {session.status}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${statusMeta.className}`}>
+                          {statusMeta.label}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-stone-400">{session.act}</td>
@@ -192,7 +221,7 @@ export default function AdminTabs({
                         </Link>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                   {sessions.length === 0 && (
                     <tr>
                       <td colSpan={8} className="px-4 py-8 text-center text-stone-600">

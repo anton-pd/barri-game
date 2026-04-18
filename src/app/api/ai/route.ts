@@ -466,6 +466,8 @@ export async function POST(request: Request) {
         const imageMatch       = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
         const locationMatch    = assistantText.match(/\[LOCATION:([\w-]+)\]/);
         const newLocationMatch = assistantText.match(/\[NEW_LOCATION:(\w+):([^:]+):([^\]]+)\]/);
+        const shouldCompleteSession = /\[COMPLETE_SESSION\]/.test(assistantText);
+        const shouldFinishEvening = /\[FINISH_EVENING\]/.test(assistantText);
 
         const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
           assistantText,
@@ -525,6 +527,8 @@ export async function POST(request: Request) {
           .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
           .replace(/\s*\[NEW_LOCATION:\w+:[^:]+:[^\]]+\]/g, '')
+          .replace(/\s*\[COMPLETE_SESSION\]/g, '')
+          .replace(/\s*\[FINISH_EVENING\]/g, '')
           .trim();
 
         // cleanText is used only for SSE streaming (already rendered in client) and TTS
@@ -692,6 +696,11 @@ export async function POST(request: Request) {
           location,
           locationName,
           ambientFile,
+          completionAction: shouldFinishEvening
+            ? 'finish-evening'
+            : shouldCompleteSession
+              ? 'complete-session'
+              : null,
         });
 
       } catch (error) {

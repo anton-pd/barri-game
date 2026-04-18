@@ -1,5 +1,90 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Codex] — ANT-44: generated scenario appears immediately in admin scenario list
+
+### Problem
+- У staging root cause підтвердився не в save-path, а в admin list semantics:
+  - `ScenarioGenerator` зберігав новий `scenario.json` у shared storage коректно;
+  - `/api/scenarios` уже віддавав новий сценарій;
+  - але `ScenarioStats` рендерив “Scenario List” лише з `/api/admin/costs?breakdown=scenarios`, тобто тільки сценарії, які вже мають session/cost rows.
+- Через це freshly generated scenario не з’являвся в admin UI, поки хтось не створить по ньому сесію.
+
+### Solution
+- **`src/app/admin/ScenarioStats.tsx`**
+  - тепер паралельно завантажує `/api/admin/costs?breakdown=scenarios` і `/api/scenarios`;
+  - мержить всі file-backed scenario ids зі stats rows;
+  - для нових сценаріїв без usage даних показує нульові counters замість повної відсутності в таблиці.
+- **`src/app/admin/AdminTabs.tsx`**
+  - додано `scenarioRefreshToken`, який дозволяє сценарному табу форсувати reload списку після save.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - після успішного save викликає `onSaved()`, щоб `ScenarioStats` одразу підтягнув новий сценарій без ручного reload сторінки.
+
+### Verification
+- `npm run lint -- src/app/admin/AdminTabs.tsx src/app/admin/ScenarioGenerator.tsx src/app/admin/ScenarioStats.tsx`
+  - без помилок
+- `npm run build`
+  - успішно пройшов
+- На staging підтверджено, що новий сценарій `barcelona-sagrada-mystery.json` уже є в shared storage і доступний через `/api/scenarios`; цей фікс закриває саме admin-list gap, через який він не з’являвся в таблиці одразу.
+
+## [2026-04-18 · Codex] — ANT-57: targeted lint cleanup for AI route
+
+### Problem
+- `src/app/api/ai/route.ts` мав 4 stale lint warnings після попередніх рефакторів:
+  - unused import `InventoryItem`
+  - unused import `NPC`
+  - `detectVoiceStyle(_text, _npcs)` з невикористаними параметрами
+  - `callGeminiText(..., _system)` з невикористаним параметром
+- Це не ламало runtime, але створювало шум саме в одному з найризикованіших файлів проєкту.
+
+### Solution
+- Прибрано невикористані imports.
+- `detectVoiceStyle()` спрощено до безаргументної helper-функції.
+- `callGeminiText()` прибрано невикористаний `_system` параметр, а call site у summarize-flow оновлено.
+- Поведінку не змінювали: keeper voice як і раніше жорстко повертає `keeper`.
+
+### Verification
+- `npm run lint -- src/app/api/ai/route.ts`
+  - без warnings
+- `npm run build`
+  - успішно пройшов
+
+## [2026-04-18 · Codex] — ANT-45 + ANT-41: scenario materials flow and ambient runtime sync
+
+### Problem
+- `ANT-45`: admin scenario generator після `Save` лише записував `scenario.json`; static images та ambient жили в окремих routes і не були надійно прив’язані до save-flow. У UI не було видно, що саме згенерувалося, а що впало частково.
+- `ANT-41`: runtime ambient мав окремий дефект у `/api/ai` — `currentLocationGroup` оновлювався з pre-response location ще до розбору `[LOCATION]`, а після реального переходу на нову локацію не перераховувався. Через це transition-aware ambient міг розсинхронюватися із фактичним місцем гри.
+
+### Solution
+- **`src/lib/staticImages.ts`**
+  - винесено static image generation в shared helper, який тепер використовується і route-ом `/api/scenarios/[id]/images`, і admin save-flow;
+  - helper повертає не тільки `images`, а й `generated` / `failed`, щоб не губити partial failures.
+- **`src/app/api/admin/generate-scenario/save/route.ts`**
+  - route переведено на `runtime = 'nodejs'` + `maxDuration = 300`;
+  - після `writeScenarioFile()` тепер окремо запускаються static images і ambient generation;
+  - save-route більше не завалює весь запит, якщо впала тільки одна material stage: повертає `materialErrors`, `imageFailures`, `generatedImageIds`, `generatedAmbientIds`.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - кнопка і copy оновлені під реальний flow: `Save + generate materials`;
+  - після save показуються counters і warnings по partial failures, замість сліпого `Saved to disk`.
+- **`src/lib/scenarioFiles.ts` / `src/lib/randomEvents.ts` / `src/app/api/ai/route.ts`**
+  - додано shared helper `resolveLocationGroupIdForLocation()`;
+  - після `[LOCATION]` / `[NEW_LOCATION]` сервер одразу синхронізує `currentLocationGroup` із новою `currentLocation`;
+  - у SSE `done` ambient URL тепер віддається для кожного location transition, а не тільки коли спрацьовує крихкий `groupChanged` heuristic.
+
+### Related Linear context
+- Пошук по Linear показав, що баг розбитий щонайменше на два окремі planned issues:
+  - `ANT-45` — generation/materialization path
+  - `ANT-41` — runtime ambient dropout після старту сесії
+- Обидві задачі переведено в `In Progress` на Codex з різними коментарями:
+  - у `ANT-45` описано save/materials track
+  - у `ANT-41` описано runtime/group-sync track
+- Дублікати типу `ANT-49` / `ANT-52` не рухалися окремо, щоб не засмічувати workflow.
+
+### Verification
+- `npm run lint -- src/app/api/ai/route.ts src/app/api/admin/generate-scenario/save/route.ts src/app/admin/ScenarioGenerator.tsx src/lib/scenarioFiles.ts src/lib/randomEvents.ts src/lib/staticImages.ts src/app/api/scenarios/[id]/images/route.ts`
+  - без помилок; лишилися старі warnings у `src/app/api/ai/route.ts` про невикористані параметри, не пов’язані з цими змінами.
+- `npm run build`
+  - успішно пройшов.
+
 ## [2026-04-17 · Codex] — ANT-30: ElevenLabs ambient для сценарних матеріалів
 
 ### Problem
@@ -895,3 +980,153 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Користувач підтвердив, що генератор працює (Opus 4.7 → fallback Gemini 2.5 Pro). Дрібні правки по якості — окремі таски.
 - Linear `ANT-23` → `Done`, feature-гілку `feature/ANT-23` та worktree видалено.
 - Версію бампнуто до `0.3.17` разом з ANT-30 changelog-записом.
+
+---
+
+## [2026-04-18 · Codex] — ANT-39 + ANT-42: completion CTA gating і тексти генератора
+
+### Problem
+- `GameChat` показував primary CTA завершення прямо в статусній панелі для будь-якої активної сесії. Це виглядало як пропозиція завершити гру посеред проходження сценарію.
+- `ScenarioGenerator` мав зашитий текст `Calling Claude Sonnet`, хоча primary model у генераторі зараз Opus 4.7.
+- У generator UI лишався зайвий текст про ambient audio, хоча цей екран генерує лише scenario JSON, а матеріали/asset-и створюються окремим кроком.
+
+### Solution
+- **`src/components/GameChat.tsx`**
+  - прибрано completion CTA з основної статусної панелі активної сесії;
+  - summary для active session переписано так, щоб не підштовхувати до завершення посеред гри;
+  - ручне завершення перенесено в settings-panel як окремий manual control, щоб CTA не з'являвся в центрі ігрового потоку.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - статус генерації змінено на `Generating with Claude Opus 4.7 — this can take 1–3 min`;
+  - текст про ambient generation замінено на нейтральний опис окремого кроку генерації scenario materials.
+
+### Verification
+- `npm run lint -- src/app/admin/ScenarioGenerator.tsx src/components/GameChat.tsx`
+  - без помилок; лишилися старі warnings `@next/next/no-img-element` у `GameChat`, не пов'язані з цими задачами.
+- `npm run build`
+  - успішно пройшов на `feature/ANT-39-42`.
+
+---
+
+## [2026-04-18 · Codex] — ANT-43: Opus streaming fix + scenario provenance labels
+
+### Problem
+- `ANT-43`: новий сценарій згенерувався через fallback на Gemini, хоча primary path мав іти через `claude-opus-4-7`.
+- Повторна перевірка staging-логів показала точну причину fallback:
+  - `[scenarioGenerator] Opus failed, falling back to Gemini: Streaming is required for operations that may take longer than 10 minutes`
+- Окремо з’ясувалося, що навіть після виправлення Opus-path зовнішній виклик через `https://staging.barrigame.es/api/admin/generate-scenario` може завершуватися `524` через proxy/CDN timeout, хоча внутрішній route продовжує працювати.
+- Для вже збережених generated scenarios не було жодної persisted-позначки, якою моделлю вони створені.
+
+### What changed
+- `src/lib/scenarioGenerator.ts`
+  - `generateWithOpus()` переведено з `client.messages.create()` на `client.messages.stream(...).finalMessage()`.
+  - Це прибирає Anthropic SDK failure на довгих non-streaming Opus-запитах і дозволяє дочекатися повного JSON для великих сценаріїв.
+- `src/types/index.ts`
+  - додано optional `Scenario.generatedBy` з полями `provider`, `model`, `generatedAt`, `fallbackFrom`.
+- `src/app/api/admin/generate-scenario/save/route.ts`
+  - save-flow тепер приймає `generatedBy` і вшиває provenance прямо в збережений scenario JSON.
+  - у response повертається `generatedBy`, щоб UI міг підтвердити persisted metadata.
+- `src/app/admin/ScenarioGenerator.tsx`
+  - при `Save + generate materials` у save-route передається provenance поточної генерації.
+  - якщо був fallback, у metadata зберігається `fallbackFrom: 'claude-opus-4-7'`.
+- `src/app/admin/ScenarioStats.tsx`
+  - у `Scenario List` додано колонку `Source` з мітками `Opus`, `Gemini`, `Claude`, `legacy`.
+  - також показується `title/titleUk`, щоб список сценаріїв у адмінці був читабельнішим.
+- Shared scenario backfill
+  - `barcelona-sagrada-mystery.json` у `/opt/apps/shared_data/scenarios/` вручну доповнено `generatedBy = { provider: 'gemini', model: 'gemini-2.5-pro', fallbackFrom: 'claude-opus-4-7' }`.
+  - Це робив через контейнер, бо файл у shared volume належав `root:root`.
+
+### Verification
+- `npm run lint -- src/lib/scenarioGenerator.ts src/app/admin/ScenarioGenerator.tsx src/app/admin/ScenarioStats.tsx src/app/api/admin/generate-scenario/save/route.ts src/types/index.ts`
+  - без помилок.
+- `npm run build`
+  - успішно.
+- `docker compose -f /opt/apps/docker-compose.yml up -d --build barri-dev`
+  - staging container перебілджено й піднято.
+- Повторний external POST на `https://staging.barrigame.es/api/admin/generate-scenario`
+  - повернув `524`; це вже зовнішній proxy timeout.
+- Повторний internal POST всередині `apps-barri-dev-1` на `http://127.0.0.1:3001/api/admin/generate-scenario`
+  - `200 OK`
+  - `provider=anthropic`
+  - `model=claude-opus-4-7`
+  - `fallbackReason=null`
+  - `scenarioId=barcelona-stone-whispers`
+- Актуальні staging-логи після rebuild:
+  - `[generate-scenario] ok provider=anthropic model=claude-opus-4-7 stop=end_turn ...`
+
+### Key conclusions
+- Початковий fallback на Gemini був не через відсутній ключ і не через недоступну модель Opus.
+- Реальна причина: старий non-streaming Anthropic SDK path для довгого Opus generation request.
+- Після переходу на streaming сам генератор на staging уже виконується на Opus.
+- Якщо потрібен стабільний запуск саме через публічний `staging.barrigame.es`, окремо треба вирішувати CDN/proxy timeout (`524`) для дуже довгих admin POST-запитів.
+
+---
+
+## [2026-04-18 · Codex] — Linear review triage + selective prod deploy for ANT-42 / ANT-44
+
+### Review triage
+- Після review Anton повернув фактичний scope для `ANT-39`:
+  - прибрати верхню active-session плашку повністю;
+  - залишити лише компактний тег біля назви сесії / локації;
+  - manual early finish залишити в settings;
+  - окремо доробити auto-completion від Keeper та роздільну статистику normal completion vs early close в адмінці.
+- `ANT-39` переведено з `In Review` назад у `In Progress` на Codex з коментарем про новий accepted scope.
+- `ANT-45` також повернуто з `In Review` у `In Progress`, бо Anton повторно підтвердив: на сценарії, згенерованому Opus, зображення й ambient досі не зʼявилися; у Gemini-path усе ок.
+
+### Deploy
+- `Ready for deploy` містив `ANT-42` і `ANT-44`.
+- Простий `staging -> main` merge був ризикований, бо `staging` уже включав незатверджені `ANT-39` / `ANT-45`.
+- Тому на prod checkout `/opt/apps/barri` зроблено **selective deploy**:
+  - `7bc3a70` — `ANT-42: update generator UI copy`
+  - `0a6eb79` — `ANT-44: refresh scenario list after generator save`
+- Prod rebuilt successfully:
+  - `docker compose -f /opt/apps/docker-compose.yml up -d --build barri`
+  - build пройшов успішно (`next build` усередині Docker)
+  - `curl -I https://barrigame.es` → `307 /auth/login`
+
+### Operational note
+- `git push origin main` з VPS не спрацював через відсутні GitHub credentials (`fatal: could not read Username for 'https://github.com'`).
+- Тобто live prod checkout оновлений локально і контейнер задеплоєний, але remote `origin/main` з цього хоста не був запушений.
+
+---
+
+## [2026-04-18 · Codex] — ANT-39: session completion UX + keeper auto-complete + end-state analytics
+
+### Problem
+- Верхня active-session плашка в грі лишалась нав'язливою і займала надто багато простору.
+- Ручне завершення сесії було змішане з основним ігровим UI замість того, щоб лишатися аварійною дією в settings.
+- В адмінці не було поділу між сесіями, завершеними нормально, і сесіями, закритими достроково.
+- Ідеальний flow вимагав, щоб у природному фіналі саме Кіпер міг тригернути завершення сесії / вечора кампанії.
+
+### What changed
+- `src/components/GameChat.tsx`
+  - прибрано великий верхній status panel;
+  - лишено компактні статусні теги біля назви сесії та поточної локації;
+  - manual end у settings тепер оформлено як дострокове закриття;
+  - read-only summary/stats лишаються доступними в компактному форматі;
+  - completion modal тепер знає різницю між normal completion і early close;
+  - keeper-triggered completion обробляється без фальшивого user feedback.
+- `src/lib/prompts.ts`
+  - додано інструкції для фінальних тегів `[COMPLETE_SESSION]` і `[FINISH_EVENING]`.
+- `src/app/api/ai/route.ts`
+  - фінальні completion tags парсяться, прибираються з persisted text і віддаються клієнту як окрема completion action.
+- `src/app/api/sessions/[id]/complete/route.ts`
+  - completion endpoint приймає `trigger` (`keeper` / `manual`) і `endedEarly`.
+- `src/lib/queries.ts`, `src/types/index.ts`
+  - `game_sessions` тепер зберігає `completion_trigger` і `ended_early`.
+- `src/lib/costTracker.ts`, `src/app/admin/ScenarioStats.tsx`, `src/app/admin/UsageTab.tsx`, `src/app/admin/AdminTabs.tsx`, `src/app/admin/page.tsx`
+  - адмінка й usage breakdown тепер окремо показують normal completions vs early-closed sessions;
+  - all sessions table показує читабельний status label (`completed by keeper`, `closed early`, etc.).
+
+### Verification
+- `npm run lint -- src/components/GameChat.tsx src/app/api/ai/route.ts src/lib/prompts.ts src/app/api/sessions/[id]/complete/route.ts src/lib/queries.ts src/lib/costTracker.ts src/app/admin/AdminTabs.tsx src/app/admin/page.tsx src/app/admin/ScenarioStats.tsx src/app/admin/UsageTab.tsx src/types/index.ts`
+  - без errors; лишились старі `@next/next/no-img-element` warnings у `GameChat`
+- `npm run build`
+  - успішно
+- `docker compose -f /opt/apps/docker-compose.yml up -d --build barri-dev`
+  - staging container успішно перебілджено й піднято
+- `curl -I https://staging.barrigame.es`
+  - `307 /auth/login` після rebuild
+
+### ANT-45 status
+- Додатковий ручний repro через shared storage більше не підтвердив явний missing-materials стан для Opus-generated сценарію.
+- У shared data Opus-generated scenario assets уже присутні, і Anton окремо підтвердив, що зображення на Opus scenario вже видно.

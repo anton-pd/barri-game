@@ -5,11 +5,39 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [0.3.18] — 2026-04-18
+## [0.3.22] — 2026-04-18
+
+### Changed
+- **Session completion UX (ANT-39)**: верхню active-session плашку прибрано. Замість неї статус сесії тепер показується компактними тегами біля назви та локації, а ручне завершення лишається тільки в settings як дострокове закриття.
 
 ### Fixed
-- **Scenario generator UI copy (ANT-42)**: admin generator now shows the correct primary model (`Claude Opus 4.7`), updated runtime expectation, and no longer mentions ambient audio in the initial generation step.
-- **Scenario list refresh (ANT-44)**: admin `Scenario List` now includes file-backed scenarios even before they have any session/cost stats and refreshes immediately after a successful generator save.
+- **Keeper-triggered completion (ANT-39)**: AI prompt/API flow тепер підтримують фінальні теги `[COMPLETE_SESSION]` та `[FINISH_EVENING]`, щоб Кіпер міг завершити сесію або вечір кампанії у природному фіналі без окремого in-flow CTA.
+- **Completion analytics (ANT-39)**: у БД та адмінці тепер окремо видно нормально завершені сесії і сесії, закриті достроково.
+
+---
+
+## [0.3.21] — 2026-04-18
+
+### Fixed
+- **Scenario list refresh (ANT-44)**: адмінський `Scenario List` тепер показує всі сценарії з файлового сховища, навіть якщо по них ще немає session/cost stats, і оновлюється одразу після успішного save в генераторі.
+
+---
+
+## [0.3.20] — 2026-04-18
+
+### Fixed
+- **Lint cleanup (ANT-57)**: прибрано застарілі warnings у `src/app/api/ai/route.ts` після попередніх рефакторів. Поведінка не змінена; targeted lint по файлу тепер чистий.
+
+---
+
+## [0.3.19] — 2026-04-18
+
+### Changed
+- **Scenario generator save flow**: `Save` в адмінському генераторі тепер одразу запускає static image + ambient materialization і повертає явний статус по кожному етапу, замість “тихого” запису JSON без end-to-end feedback.
+
+### Fixed
+- **Scenario materials generation (ANT-45)**: save-route більше не падає всім запитом через одну asset-помилку. Static images та ambient обробляються окремо, а partial failures повертаються в UI як diagnostics.
+- **Ambient runtime sync (ANT-41)**: після `[LOCATION]`/`[NEW_LOCATION]` сервер тепер одразу синхронізує `currentLocationGroup` з реальною новою локацією і віддає `ambientFile` для кожного переходу, щоб loop не губився через застарілий group-tracking.
 
 ---
 
@@ -33,6 +61,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Scenario generator (ANT-23)**: перестав падати на великих сценаріях. Raised `max_tokens` 10 000 → 32 000 і переведено primary-модель на Claude Opus 4.7 з prompt caching на system prompt (~90% економії input на повторних викликах). Додано fallback на Gemini 2.5 Pro з `responseMimeType: application/json`, якщо Opus впав (timeout / parse error / 5xx).
 - **Scenario generator — JSON parsing**: шукаємо text-блок у відповіді (а не припускаємо `content[0]`), знімаємо markdown fences надійнішим regex, на парсі-фейлі витягаємо підрядок від першого `{` до останнього `}`. Сервер логує `stop_reason` + `input/output_tokens`.
 - **Scenario generator — timeouts**: `/api/admin/generate-scenario` тепер `runtime: 'nodejs'` + `maxDuration: 300`, щоб довга генерація не отримувала HTML 504 від reverse proxy (що давало `SyntaxError: Unexpected token '<'` у клієнта).
+- **Scenario generator — Opus streaming**: Opus-path переведено на Anthropic streaming API, тому великі сценарії більше не падають у fallback на Gemini через SDK-помилку `Streaming is required for operations that may take longer than 10 minutes`.
+- **Scenario provenance labels**: збережені generated scenarios тепер мають `generatedBy` metadata (`provider/model/fallbackFrom`), а в admin `Scenario List` з’явилась колонка `Source` з мітками `Opus`, `Gemini`, `Claude` або `legacy`.
 - **Scenario generator UI**: клієнт парсить тіло як текст і акуратно показує HTTP-статус + перші 500 символів, якщо відповідь не JSON. Додано meta-рядок (`provider`, `model`, `input/output tokens`, `fallback`) над згенерованим JSON.
 
 ### Changed
@@ -354,3 +384,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Два сценарії: «Примарний Будинок» та «Останній Телеграм»
 - Авто-збереження стану сесії в PostgreSQL
 - Підсумовування world state кожні 20 повідомлень (Claude Haiku)
+
+---
+
+## [0.3.18] — 2026-04-18
+
+### Changed
+- **Scenario generator UI**: статус генерації тепер показує актуальну primary model (`Claude Opus 4.7`) замість застарілого hardcoded `Claude Sonnet`.
+- **Scenario generator copy**: прибрано зайву згадку про ambient audio з JSON-generation екрана; materials/asset generation тепер описано як окремий крок.
+- **Game session UI**: completion CTA прибрано з основної статусної панелі активної сесії, щоб завершення не пропонувалось посеред проходження сценарію.
+
+### Fixed
+- Ручне завершення сесії/кампанії більше не вискакує як primary action у центрі активної гри; доступ до нього перенесено в settings panel.

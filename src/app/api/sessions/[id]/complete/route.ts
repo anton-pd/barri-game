@@ -15,6 +15,7 @@ import {
 import type { GameSession, SessionFeedback, WorldState } from '@/types';
 
 type CompleteMode = 'complete-session' | 'finish-evening';
+type CompletionTrigger = 'keeper' | 'manual';
 
 function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
   if (role === 'admin') return true;
@@ -83,9 +84,15 @@ export async function POST(
     const body = await request.json().catch(() => ({}));
     const mode = (body.mode ?? 'complete-session') as CompleteMode;
     const feedback = body.feedback as { rating?: number; comment?: string } | undefined;
+    const trigger = (body.trigger ?? 'manual') as CompletionTrigger;
+    const endedEarly = Boolean(body.endedEarly);
 
     if (mode !== 'complete-session' && mode !== 'finish-evening') {
       return NextResponse.json({ error: 'Invalid completion mode' }, { status: 400 });
+    }
+
+    if (trigger !== 'keeper' && trigger !== 'manual') {
+      return NextResponse.json({ error: 'Invalid completion trigger' }, { status: 400 });
     }
 
     if (mode === 'finish-evening' && !session.campaign_id) {
@@ -125,7 +132,7 @@ export async function POST(
     };
 
     let savedFeedback: SessionFeedback | null = null;
-    if (mode === 'complete-session' && feedback?.rating !== undefined) {
+    if (feedback?.rating !== undefined) {
       savedFeedback = await upsertSessionFeedback(
         session.id,
         feedback.rating,
@@ -166,6 +173,8 @@ export async function POST(
     const updatedSession = await updateSession(session.id, {
       status: 'completed',
       completed_at: completedAt,
+      completion_trigger: trigger,
+      ended_early: endedEarly,
       world_state: finalizedWorldState,
     });
 
