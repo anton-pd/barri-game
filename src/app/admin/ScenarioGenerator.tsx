@@ -28,7 +28,7 @@ const DEFAULT: FormState = {
   language: 'uk',
 };
 
-export default function ScenarioGenerator() {
+export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void }) {
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
@@ -104,6 +104,7 @@ export default function ScenarioGenerator() {
       setError(data.error ?? 'Save failed');
     } else {
       setSaved(true);
+      onSaved?.();
     }
   }
 
@@ -235,7 +236,7 @@ export default function ScenarioGenerator() {
           )}
 
           <div className="text-xs text-stone-500 max-w-xs leading-relaxed">
-            Ambient audio is generated later during scenario materials generation and then reused from shared VPS storage.
+            Scenario materials are generated separately after the JSON is saved and then reused from shared VPS storage.
           </div>
         </div>
 
@@ -249,7 +250,7 @@ export default function ScenarioGenerator() {
             {status === 'generating' ? 'Generating…' : 'Generate Scenario'}
           </button>
           {status === 'generating' && (
-            <span className="text-xs text-stone-500">Calling Claude Sonnet — this takes ~15–25s</span>
+            <span className="text-xs text-stone-500">Generating with Claude Opus 4.7 — this can take 1–3 min</span>
           )}
         </div>
 
