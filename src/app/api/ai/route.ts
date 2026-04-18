@@ -94,7 +94,14 @@ async function callGeminiChat(
   const body: Record<string, unknown> = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: history,
-    generationConfig: { maxOutputTokens: 900, temperature: 1.0 },
+    generationConfig: {
+      maxOutputTokens: 900,
+      temperature: 1.0,
+      // Gemini 2.5 thinking tokens consume maxOutputTokens budget but aren't
+      // returned as visible text → narrative replies get truncated. Disable
+      // thinking for game chat (we want creative output, not reasoning).
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   };
 
   const res = await fetch(
@@ -115,7 +122,12 @@ async function callGeminiChat(
       safetyRatings?: { category: string; probability: string; blocked?: boolean }[];
     }[];
     promptFeedback?: { blockReason?: string; safetyRatings?: unknown };
-    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      thoughtsTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -123,6 +135,7 @@ async function callGeminiChat(
   const safetyRatings = data.candidates?.[0]?.safetyRatings;
   const blockReason = data.promptFeedback?.blockReason;
   const outTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
+  const thoughtTokens = data.usageMetadata?.thoughtsTokenCount ?? 0;
 
   // [ANT-58 diag] always log finishReason + safety for intro and short replies
   const textLen = text?.length ?? 0;
@@ -130,7 +143,7 @@ async function callGeminiChat(
     console.log(
       `[ANT-58] Gemini ${modelId} session=${diag?.sessionId ?? '?'} intro=${diag?.isIntro ?? false} ` +
       `finishReason=${finishReason ?? 'null'} blockReason=${blockReason ?? 'null'} ` +
-      `outTokens=${outTokens} textLen=${textLen} ` +
+      `outTokens=${outTokens} thoughtTokens=${thoughtTokens} textLen=${textLen} ` +
       `head=${JSON.stringify(text?.slice(0, 120) ?? '')} tail=${JSON.stringify(text?.slice(-120) ?? '')} ` +
       `safety=${JSON.stringify(safetyRatings ?? [])}`
     );

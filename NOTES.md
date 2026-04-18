@@ -16,6 +16,11 @@
 - Anton відтворює intro + кілька ходів на сценарії 2 (uk) → аналізуємо логи `apps-barri-dev-1`.
 - Фаза 2 (виправлення) — окремим комітом після логів.
 
+### Фаза 2 — root cause + fix (ANT-58)
+- Лог staging-сесії `798842bb-24e1-4010-81f2-736cb9eed3b6` показав `finishReason=MAX_TOKENS` при `outTokens=36`, `safety=[]`. Причина — **Gemini 2.5 "thinking" tokens** жеруть `maxOutputTokens` але не повертаються в `candidatesTokenCount`.
+- `callGeminiChat` → `generationConfig.thinkingConfig: { thinkingBudget: 0 }` — вимикає reasoning для game chat (narrative output не виграє від thinking, але платить токенами і обрізаний finish).
+- Діагностику розширено `usageMetadata.thoughtsTokenCount` — тепер видно, чи thinking справді вимкнувся.
+
 ---
 
 ## [2026-04-18 · Claude] — ANT-61/62/63/64: Keeper/GameChat audit fixes
