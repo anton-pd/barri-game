@@ -11,7 +11,7 @@ import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
 import { getCampaignContext } from '@/lib/campaigns';
-import { readScenarioFile, resolveAmbientFileForLocation } from '@/lib/scenarioFiles';
+import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 import type { WorldState, NPC, Player, InventoryItem } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
@@ -614,6 +614,15 @@ export async function POST(request: Request) {
           };
         }
 
+        const resolvedLocationGroup = resolveLocationGroupIdForLocation(
+          scenario,
+          updatedWorldState.currentLocation
+        );
+        updatedWorldState = {
+          ...updatedWorldState,
+          currentLocationGroup: resolvedLocationGroup ?? undefined,
+        };
+
         // ── Clear one-time variant hint after intro ─────────────────────────
         if (isIntro && updatedWorldState.variantHint) {
           updatedWorldState = { ...updatedWorldState, variantHint: undefined };
@@ -653,15 +662,10 @@ export async function POST(request: Request) {
 
         // ── Ambient ─────────────────────────────────────────────────────────
 
-        const prevGroup = session.world_state.currentLocationGroup;
-        const newGroup = updatedWorldState.currentLocationGroup;
-        const groupChanged = newGroup && newGroup !== prevGroup;
-        const ambientFile = groupChanged
-          ? resolveAmbientFileForLocation(
-              scenario,
-              (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
-            )
-          : null;
+        const ambientFile = resolveAmbientFileForLocation(
+          scenario,
+          (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
+        );
 
         // ── TTS prefetch ────────────────────────────────────────────────────
 

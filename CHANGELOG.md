@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.19] — 2026-04-18
+
+### Changed
+- **Scenario generator save flow**: `Save` в адмінському генераторі тепер одразу запускає static image + ambient materialization і повертає явний статус по кожному етапу, замість “тихого” запису JSON без end-to-end feedback.
+
+### Fixed
+- **Scenario materials generation (ANT-45)**: save-route більше не падає всім запитом через одну asset-помилку. Static images та ambient обробляються окремо, а partial failures повертаються в UI як diagnostics.
+- **Ambient runtime sync (ANT-41)**: після `[LOCATION]`/`[NEW_LOCATION]` сервер тепер одразу синхронізує `currentLocationGroup` з реальною новою локацією і віддає `ambientFile` для кожного переходу, щоб loop не губився через застарілий group-tracking.
+
+---
+
 ## [0.3.17] — 2026-04-18
 
 ### Added
