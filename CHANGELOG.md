@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.24] — 2026-04-18
+
+### Fixed
+- **Обрив intro/відповідей Keeper на Gemini (ANT-58)**: Gemini 2.5 витрачав `maxOutputTokens` на приховані "thinking" токени, лишаючи на видимий текст ~30-40 токенів → `finishReason=MAX_TOKENS` при коротенькій відповіді. `callGeminiChat` тепер передає `thinkingConfig: { thinkingBudget: 0 }`, вимикаючи reasoning для game chat. Narrative output більше не обрізається.
+
+### Changed
+- **Gemini діагностика (ANT-58/60, Фаза 1)**: `callGeminiChat` у `/api/ai` тепер логує `finishReason`, `safetyRatings`, `promptFeedback.blockReason`, `thoughtsTokenCount`, довжину та межі тексту для intro-запитів, коротких відповідей (< 200 символів) і будь-якого не-`STOP` фінішу.
+
+---
+
 ## [0.3.23] — 2026-04-18
 
 ### Changed

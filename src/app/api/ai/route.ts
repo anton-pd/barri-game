@@ -85,7 +85,8 @@ interface GeminiMessage {
 async function callGeminiChat(
   modelId: string,
   systemPrompt: string,
-  history: GeminiMessage[]
+  history: GeminiMessage[],
+  diag?: { sessionId: string; isIntro: boolean }
 ): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
@@ -93,7 +94,14 @@ async function callGeminiChat(
   const body: Record<string, unknown> = {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: history,
-    generationConfig: { maxOutputTokens: 900, temperature: 1.0 },
+    generationConfig: {
+      maxOutputTokens: 900,
+      temperature: 1.0,
+      // Gemini 2.5 thinking tokens consume maxOutputTokens budget but aren't
+      // returned as visible text → narrative replies get truncated. Disable
+      // thinking for game chat (we want creative output, not reasoning).
+      thinkingConfig: { thinkingBudget: 0 },
+    },
   };
 
   const res = await fetch(
@@ -108,21 +116,48 @@ async function callGeminiChat(
   }
 
   const data = await res.json() as {
-    candidates?: { content?: { parts?: { text: string }[] }; finishReason?: string }[];
-    promptFeedback?: { blockReason?: string };
-    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    candidates?: {
+      content?: { parts?: { text: string }[] };
+      finishReason?: string;
+      safetyRatings?: { category: string; probability: string; blocked?: boolean }[];
+    }[];
+    promptFeedback?: { blockReason?: string; safetyRatings?: unknown };
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      thoughtsTokenCount?: number;
+      totalTokenCount?: number;
+    };
   };
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const finishReason = data.candidates?.[0]?.finishReason;
+  const safetyRatings = data.candidates?.[0]?.safetyRatings;
+  const blockReason = data.promptFeedback?.blockReason;
+  const outTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
+  const thoughtTokens = data.usageMetadata?.thoughtsTokenCount ?? 0;
+
+  // [ANT-58 diag] always log finishReason + safety for intro and short replies
+  const textLen = text?.length ?? 0;
+  if (diag?.isIntro || finishReason !== 'STOP' || textLen < 200) {
+    console.log(
+      `[ANT-58] Gemini ${modelId} session=${diag?.sessionId ?? '?'} intro=${diag?.isIntro ?? false} ` +
+      `finishReason=${finishReason ?? 'null'} blockReason=${blockReason ?? 'null'} ` +
+      `outTokens=${outTokens} thoughtTokens=${thoughtTokens} textLen=${textLen} ` +
+      `head=${JSON.stringify(text?.slice(0, 120) ?? '')} tail=${JSON.stringify(text?.slice(-120) ?? '')} ` +
+      `safety=${JSON.stringify(safetyRatings ?? [])}`
+    );
+  }
+
   if (!text) {
-    const reason = data.candidates?.[0]?.finishReason ?? data.promptFeedback?.blockReason ?? 'unknown';
-    console.error(`Gemini ${modelId} empty response. finishReason=${reason}`, JSON.stringify(data).slice(0, 300));
+    const reason = finishReason ?? blockReason ?? 'unknown';
+    console.error(`Gemini ${modelId} empty response. finishReason=${reason}`, JSON.stringify(data).slice(0, 500));
     throw new Error(`Gemini returned no text (${reason})`);
   }
   return {
     text,
     inputTokens:  data.usageMetadata?.promptTokenCount     ?? 0,
-    outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    outputTokens: outTokens,
   };
 }
 
@@ -449,7 +484,7 @@ export async function POST(request: Request) {
           }).catch(console.error);
 
         } else {
-          const geminiResult = await callGeminiChat(modelId, systemPrompt, geminiHistory);
+          const geminiResult = await callGeminiChat(modelId, systemPrompt, geminiHistory, { sessionId, isIntro });
           assistantText = geminiResult.text;
           inputTokens   = geminiResult.inputTokens;
           outputTokens  = geminiResult.outputTokens;
