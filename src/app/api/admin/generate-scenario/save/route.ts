@@ -4,6 +4,16 @@ import { verifyJwt } from '@/lib/auth';
 import { getUserById } from '@/lib/queries';
 import type { Scenario } from '@/types';
 import { writeScenarioFile } from '@/lib/scenarioFiles';
+import { ensureScenarioAmbientGenerated } from '@/lib/ambient';
+import { ensureScenarioStaticImagesGenerated } from '@/lib/staticImages';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
+
+interface SaveMaterialError {
+  stage: 'images' | 'ambient';
+  error: string;
+}
 
 export async function POST(req: NextRequest) {
   // Admin-only
@@ -29,8 +39,47 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    writeScenarioFile(id, json as Scenario);
-    return NextResponse.json({ saved: id });
+    const scenario = json as Scenario;
+    writeScenarioFile(id, scenario);
+
+    let imageResult = {
+      images: [] as { id: string; url: string; label: string }[],
+      generated: [] as string[],
+      failed: [] as { id: string; error: string }[],
+    };
+    let ambientResult = {
+      ambientByLocation: {} as Record<string, string>,
+      generated: [] as { id: string; kind: 'group' | 'location'; url: string; locationIds: string[] }[],
+    };
+    const materialErrors: SaveMaterialError[] = [];
+
+    try {
+      imageResult = await ensureScenarioStaticImagesGenerated({ scenarioId: id, scenario });
+    } catch (error) {
+      materialErrors.push({
+        stage: 'images',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: payload.sub });
+    } catch (error) {
+      materialErrors.push({
+        stage: 'ambient',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return NextResponse.json({
+      saved: id,
+      images: imageResult.images,
+      generatedImageIds: imageResult.generated,
+      imageFailures: imageResult.failed,
+      ambientByLocation: ambientResult.ambientByLocation,
+      generatedAmbientIds: ambientResult.generated.map((item) => item.id),
+      materialErrors,
+    });
   } catch (err) {
     console.error('Failed to save scenario:', err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

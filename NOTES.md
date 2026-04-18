@@ -1,5 +1,42 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Codex] — ANT-45 + ANT-41: scenario materials flow and ambient runtime sync
+
+### Problem
+- `ANT-45`: admin scenario generator після `Save` лише записував `scenario.json`; static images та ambient жили в окремих routes і не були надійно прив’язані до save-flow. У UI не було видно, що саме згенерувалося, а що впало частково.
+- `ANT-41`: runtime ambient мав окремий дефект у `/api/ai` — `currentLocationGroup` оновлювався з pre-response location ще до розбору `[LOCATION]`, а після реального переходу на нову локацію не перераховувався. Через це transition-aware ambient міг розсинхронюватися із фактичним місцем гри.
+
+### Solution
+- **`src/lib/staticImages.ts`**
+  - винесено static image generation в shared helper, який тепер використовується і route-ом `/api/scenarios/[id]/images`, і admin save-flow;
+  - helper повертає не тільки `images`, а й `generated` / `failed`, щоб не губити partial failures.
+- **`src/app/api/admin/generate-scenario/save/route.ts`**
+  - route переведено на `runtime = 'nodejs'` + `maxDuration = 300`;
+  - після `writeScenarioFile()` тепер окремо запускаються static images і ambient generation;
+  - save-route більше не завалює весь запит, якщо впала тільки одна material stage: повертає `materialErrors`, `imageFailures`, `generatedImageIds`, `generatedAmbientIds`.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - кнопка і copy оновлені під реальний flow: `Save + generate materials`;
+  - після save показуються counters і warnings по partial failures, замість сліпого `Saved to disk`.
+- **`src/lib/scenarioFiles.ts` / `src/lib/randomEvents.ts` / `src/app/api/ai/route.ts`**
+  - додано shared helper `resolveLocationGroupIdForLocation()`;
+  - після `[LOCATION]` / `[NEW_LOCATION]` сервер одразу синхронізує `currentLocationGroup` із новою `currentLocation`;
+  - у SSE `done` ambient URL тепер віддається для кожного location transition, а не тільки коли спрацьовує крихкий `groupChanged` heuristic.
+
+### Related Linear context
+- Пошук по Linear показав, що баг розбитий щонайменше на два окремі planned issues:
+  - `ANT-45` — generation/materialization path
+  - `ANT-41` — runtime ambient dropout після старту сесії
+- Обидві задачі переведено в `In Progress` на Codex з різними коментарями:
+  - у `ANT-45` описано save/materials track
+  - у `ANT-41` описано runtime/group-sync track
+- Дублікати типу `ANT-49` / `ANT-52` не рухалися окремо, щоб не засмічувати workflow.
+
+### Verification
+- `npm run lint -- src/app/api/ai/route.ts src/app/api/admin/generate-scenario/save/route.ts src/app/admin/ScenarioGenerator.tsx src/lib/scenarioFiles.ts src/lib/randomEvents.ts src/lib/staticImages.ts src/app/api/scenarios/[id]/images/route.ts`
+  - без помилок; лишилися старі warnings у `src/app/api/ai/route.ts` про невикористані параметри, не пов’язані з цими змінами.
+- `npm run build`
+  - успішно пройшов.
+
 ## [2026-04-17 · Codex] — ANT-30: ElevenLabs ambient для сценарних матеріалів
 
 ### Problem
