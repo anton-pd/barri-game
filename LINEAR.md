@@ -11,8 +11,8 @@
 - **Project:** Barri — ID `ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`
 - **Team:** Anton_ux (key `ANT`) — ID `c5959f1e-2ee7-4087-a234-20a44b69d8f0`
 - **Linear API:** `https://api.linear.app/graphql`
-- **API key source:** `LINEAR_API_KEY` (local `.env` / server env)
-- **Operational assumption:** `LINEAR_API_KEY` should be available in both the local Barri environment and the VPS Codex environment. If the current shell does not expose it, verify the project env sources before treating Linear access as unavailable.
+- **API key source:** Claude uses `LINEAR_API_KEY` (repo/local `.env`). Codex uses `CODEX_LINEAR_API_KEY` (host/server env, currently `/opt/apps/.env`).
+- **Operational assumption:** do not reuse Claude's key for Codex work. If the current shell does not expose the right key for the current agent, verify the expected env source before treating Linear access as unavailable.
 
 ## Identities (team members)
 
@@ -132,10 +132,10 @@ If any condition is not true, treat as complex and go through `Planned`.
 Use GraphQL API directly for reads and writes:
 
 ```bash
-curl -s -H "Authorization: $LINEAR_API_KEY" \
+curl -s -H "Authorization: $CODEX_LINEAR_API_KEY" \
   -H "Content-Type: application/json" \
   https://api.linear.app/graphql \
   -d '{"query":"query { viewer { id name } }"}'
 ```
 
-If API access appears unavailable, first verify the expected Barri env sources for `LINEAR_API_KEY` (local env / VPS env). Only if the key is still unavailable or auth fails after that should you ask Anton to restore API access. Do not switch to MCP.
+If API access appears unavailable, first verify the expected Barri env source for the current agent: Claude → `LINEAR_API_KEY` in repo/local env, Codex → `CODEX_LINEAR_API_KEY` in host env (`/opt/apps/.env`). Only if the correct key is still unavailable or auth fails after that should you ask Anton to restore API access. Do not switch to MCP.

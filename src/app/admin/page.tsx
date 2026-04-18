@@ -39,6 +39,8 @@ export default async function AdminPage() {
           owner_email?: string;
           act: number;
           status: string;
+          ended_early?: boolean | null;
+          completion_trigger?: 'keeper' | 'manual' | null;
           updated_at: string;
           completed_at?: string | null;
           feedback_rating?: number | null;

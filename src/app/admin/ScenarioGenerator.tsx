@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { ScenarioGeneratedBy } from '@/types';
 
 interface FormState {
   title: string;
@@ -18,6 +19,7 @@ interface FormState {
 interface SaveResponse {
   saved?: string;
   error?: string;
+  generatedBy?: ScenarioGeneratedBy | null;
   images?: { id: string; url: string; label: string }[];
   generatedImageIds?: string[];
   imageFailures?: { id: string; error: string }[];
@@ -43,7 +45,13 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
   const [form, setForm] = useState<FormState>(DEFAULT);
   const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
-  const [meta, setMeta] = useState<{ provider?: string; model?: string; inputTokens?: number; outputTokens?: number; fallbackReason?: string } | null>(null);
+  const [meta, setMeta] = useState<{
+    provider?: string;
+    model?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    fallbackReason?: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -104,13 +112,21 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
     if (!result) return;
     const id = result.id as string;
     if (!id) { setError('Scenario has no id field'); return; }
+    const generatedBy = (meta?.provider === 'anthropic' || meta?.provider === 'gemini') && meta?.model
+      ? {
+          provider: meta.provider,
+          model: meta.model,
+          generatedAt: new Date().toISOString(),
+          fallbackFrom: meta.fallbackReason ? 'claude-opus-4-7' : null,
+        } satisfies ScenarioGeneratedBy
+      : undefined;
 
     setSaving(true);
     setError(null);
     const res = await fetch('/api/admin/generate-scenario/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, json: result }),
+      body: JSON.stringify({ id, json: result, generatedBy }),
     });
     const data = await res.json() as SaveResponse;
     setSaving(false);

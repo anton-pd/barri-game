@@ -94,6 +94,8 @@ export interface GameSession {
   name: string;
   act: number;
   status: 'active' | 'completed' | 'paused';
+  completion_trigger?: 'keeper' | 'manual' | null;
+  ended_early?: boolean | null;
   world_state: WorldState;
   players: Player[];
   user_id: string | null;
@@ -303,6 +305,13 @@ export interface ScenarioVariant {
   introHint?: string;     // one-time note to Keeper about this variant's setup
 }
 
+export interface ScenarioGeneratedBy {
+  provider: 'anthropic' | 'gemini';
+  model: string;
+  generatedAt?: string;
+  fallbackFrom?: string | null;
+}
+
 export interface Scenario {
   id: string;
   title: string;
@@ -338,4 +347,5 @@ export interface Scenario {
     neutral: string[];
     roll_event: string[];
   };
+  generatedBy?: ScenarioGeneratedBy;
 }

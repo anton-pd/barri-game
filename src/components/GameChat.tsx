@@ -14,6 +14,13 @@ const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
 
 type ReadOnlySessionSnapshot = GameSession & { last_message?: string };
 type CompletionMode = 'complete-session' | 'finish-evening';
+type CompletionTrigger = 'keeper' | 'manual';
+
+interface CompletionRequest {
+  mode: CompletionMode;
+  endedEarly: boolean;
+  trigger: CompletionTrigger;
+}
 
 interface CompletionStats {
   startedAt: string;
@@ -36,20 +43,24 @@ function isSessionReadOnly(status: string | undefined) {
 
 function getStatusMeta(session: GameSession) {
   const isCampaign = Boolean(session.campaign_id);
+  const wasEndedEarly = Boolean(session.ended_early);
 
   if (session.status === 'completed') {
     return {
       isReadOnly: true,
-      badge: isCampaign ? 'Вечір кампанії завершено' : 'Сесію завершено',
+      badge: wasEndedEarly
+        ? (isCampaign ? 'Вечір закрито достроково' : 'Сесію закрито достроково')
+        : (isCampaign ? 'Вечір кампанії завершено' : 'Сесію завершено'),
       summary: isCampaign
-        ? 'Вечір завершено. Історія, матеріали справи та озвучення лишаються доступними для перегляду.'
-        : 'Сесію завершено. Чат збережено в режимі лише для перегляду.',
-      completeLabel: '',
-      finishLabel: '',
-      panelClass: 'border-emerald-900/60 bg-emerald-950/20',
+        ? (wasEndedEarly
+            ? 'Поточний вечір закрито вручну достроково. Історія лишається доступною для перегляду.'
+            : 'Вечір завершено. Історія, матеріали справи та озвучення лишаються доступними для перегляду.')
+        : (wasEndedEarly
+            ? 'Сесію закрито вручну достроково. Чат збережено в режимі лише для перегляду.'
+            : 'Сесію завершено. Чат збережено в режимі лише для перегляду.'),
+      completeLabel: isCampaign ? 'Завершити кампанію достроково' : 'Закрити сесію достроково',
+      finishLabel: isCampaign ? 'Завершити вечір достроково' : '',
       badgeClass: 'border-emerald-800/70 bg-emerald-950/60 text-emerald-200',
-      primaryActionClass: '',
-      secondaryActionClass: '',
     };
   }
 
@@ -60,10 +71,7 @@ function getStatusMeta(session: GameSession) {
       summary: 'Нові ходи тимчасово вимкнено. Поточну історію можна спокійно переглядати.',
       completeLabel: '',
       finishLabel: '',
-      panelClass: 'border-amber-900/60 bg-amber-950/20',
       badgeClass: 'border-amber-800/70 bg-amber-950/60 text-amber-200',
-      primaryActionClass: '',
-      secondaryActionClass: '',
     };
   }
 
@@ -71,14 +79,11 @@ function getStatusMeta(session: GameSession) {
     isReadOnly: false,
     badge: isCampaign ? 'Кампанійна сесія' : 'Активна сесія',
     summary: isCampaign
-      ? 'Сесія триває. Коли історія дійде до природного фіналу, ручне завершення буде доступне в налаштуваннях.'
-      : 'Сесія триває. Після проходження сценарію її можна буде завершити вручну з налаштувань.',
-    completeLabel: isCampaign ? 'Завершити кампанію' : 'Завершити сесію',
-    finishLabel: isCampaign ? 'Завершити вечір' : '',
-    panelClass: 'border-stone-800 bg-stone-900/80',
+      ? 'Сесія триває. Кіпер має завершити вечір, коли історія природно дійде до фіналу.'
+      : 'Сесія триває. Кіпер має завершити сесію, коли сценарій справді пройдено.',
+    completeLabel: isCampaign ? 'Завершити кампанію достроково' : 'Закрити сесію достроково',
+    finishLabel: isCampaign ? 'Завершити вечір достроково' : '',
     badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
-    primaryActionClass: 'bg-amber-800 hover:bg-amber-700 active:bg-amber-900 text-amber-100',
-    secondaryActionClass: 'border border-stone-700 bg-stone-900 text-stone-200 hover:border-stone-600 hover:bg-stone-800',
   };
 }
 
@@ -503,7 +508,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
-  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [completionRequest, setCompletionRequest] = useState<CompletionRequest | null>(null);
   const [feedbackRating, setFeedbackRating] = useState<number>(5);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [completionStats, setCompletionStats] = useState<CompletionStats | null>(
@@ -542,6 +547,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const pendingItemUsesRef = useRef<{ playerIdx: number; itemId: string }[]>([]);
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
+  const canManuallyEndSession = !sessionIsReadOnly;
   const lastMessagePreview = (() => {
     const lastMessage = [...messages].reverse().find((message) => message.content.trim().length > 0);
     return lastMessage?.content;
@@ -1034,6 +1040,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         ...prev, [realId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
       }));
 
+      if (data.completionAction === 'complete-session' || data.completionAction === 'finish-evening') {
+        await submitCompletion(data.completionAction as CompletionMode, {
+          endedEarly: false,
+          trigger: 'keeper',
+          requireConfirmation: false,
+        });
+      }
+
       if (autoVoiceEnabled) {
         speakMsg(realId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       }
@@ -1054,31 +1068,52 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   }
 
-  function openCompletionModal(mode: CompletionMode) {
+  function openCompletionModal(mode: CompletionMode, options?: { endedEarly?: boolean; trigger?: CompletionTrigger }) {
     setStatusError(null);
-    if (mode === 'complete-session') {
-      setShowCompletionModal(true);
-      return;
-    }
-    submitCompletion(mode);
+    setFeedbackRating(5);
+    setFeedbackComment('');
+    setCompletionRequest({
+      mode,
+      endedEarly: options?.endedEarly ?? false,
+      trigger: options?.trigger ?? 'manual',
+    });
   }
 
-  async function submitCompletion(mode: CompletionMode) {
+  async function submitCompletion(
+    mode: CompletionMode,
+    options?: {
+      endedEarly?: boolean;
+      trigger?: CompletionTrigger;
+      requireConfirmation?: boolean;
+      closeModal?: boolean;
+      includeFeedback?: boolean;
+    }
+  ) {
     if (isUpdatingStatus) return;
+    const trigger = options?.trigger ?? 'manual';
+    const endedEarly = options?.endedEarly ?? false;
+    const requireConfirmation = options?.requireConfirmation ?? true;
 
-    if (mode === 'complete-session' && !feedbackRating) {
-      setStatusError('Постав оцінку від 1 до 5, щоб завершити сесію.');
+    if (options?.includeFeedback && (!Number.isInteger(feedbackRating) || feedbackRating < 1 || feedbackRating > 5)) {
+      setStatusError('Оцінка має бути від 1 до 5.');
       return;
     }
 
-    const confirmText = mode === 'finish-evening'
-      ? 'Завершити цей вечір кампанії та створити наступну сесію?'
-      : session.campaign_id
-        ? 'Завершити кампанію? Після цього чат залишиться доступним лише для перегляду.'
-        : 'Завершити цю сесію? Після цього чат залишиться доступним лише для перегляду.';
-
-    if (typeof window !== 'undefined' && !window.confirm(confirmText)) {
-      return;
+    if (requireConfirmation && typeof window !== 'undefined') {
+      const confirmText = endedEarly
+        ? (mode === 'finish-evening'
+            ? 'Достроково завершити цей вечір кампанії та створити наступну сесію?'
+            : session.campaign_id
+              ? 'Достроково завершити кампанію? Після цього чат лишиться доступним лише для перегляду.'
+              : 'Достроково закрити цю сесію? Після цього чат лишиться доступним лише для перегляду.')
+        : (mode === 'finish-evening'
+            ? 'Кіпер завершує цей вечір кампанії та створює наступну сесію.'
+            : session.campaign_id
+              ? 'Кіпер завершує кампанію.'
+              : 'Кіпер завершує цю сесію.');
+      if (!window.confirm(confirmText)) {
+        return;
+      }
     }
 
     setStatusError(null);
@@ -1090,8 +1125,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode,
-          feedback: mode === 'complete-session'
-            ? { rating: feedbackRating, comment: feedbackComment.trim() }
+          trigger,
+          endedEarly,
+          feedback: options?.includeFeedback
+            ? { rating: feedbackRating, comment: feedbackComment.trim() || null }
             : undefined,
         }),
       });
@@ -1107,7 +1144,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       setCompletionStats(data.stats ?? buildLocalCompletionStats(updatedSession, messages));
       setPendingActions([]);
       setInput('');
-      setShowCompletionModal(false);
+      if (options?.closeModal !== false) {
+        setCompletionRequest(null);
+      }
       upsertReadOnlySessionCache({ ...updatedSession, last_message: lastMessagePreview });
 
       if (mode === 'finish-evening' && data.nextSession?.id) {
@@ -1136,7 +1175,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           >←</Link>
           <div className="min-w-0">
             <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
-            <p className="text-[11px] text-stone-500 truncate leading-tight">{currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}</p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-tight">
+              <span className="truncate text-stone-500">
+                {currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}
+              </span>
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 uppercase tracking-[0.16em] ${statusMeta.badgeClass}`}>
+                {statusMeta.badge}
+              </span>
+              {session.campaign_id && (
+                <span className="inline-flex items-center rounded-full border border-stone-700 bg-stone-900 px-2 py-0.5 uppercase tracking-[0.16em] text-stone-400">
+                  Сесія {session.session_number || 1}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -1204,15 +1255,33 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             </div>
           )}
 
-          {!sessionIsReadOnly && (
+          {sessionIsReadOnly && completionStats && (
+            <>
+              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+                <span>{statusMeta.summary}</span>
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
+                  Повідомлень: {completionStats.messageCount}
+                </span>
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
+                  Від кіпера: {completionStats.keeperMessageCount}
+                </span>
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
+                  Тривалість: {completionStats.durationMinutes} хв
+                </span>
+              </div>
+            </>
+          )}
+
+          {canManuallyEndSession && (
             <>
               <div className="hidden h-4 w-px bg-stone-700 sm:block" />
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-800 bg-stone-950/70 px-2.5 py-1.5">
                 <span className="text-stone-500">
-                  Завершення сесії доступне тут лише вручну, коли сценарій уже пройдено.
+                  Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.
                 </span>
                 <button
-                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session')}
+                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
                   disabled={isUpdatingStatus || isLoading}
                   className="inline-flex h-8 items-center justify-center rounded-lg border border-amber-800/70 bg-amber-950/50 px-3 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
                 >
@@ -1222,7 +1291,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 </button>
                 {session.campaign_id && (
                   <button
-                    onClick={() => openCompletionModal('complete-session')}
+                    onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
                     disabled={isUpdatingStatus || isLoading}
                     className="inline-flex h-8 items-center justify-center rounded-lg border border-stone-700 bg-stone-900 px-3 text-xs font-medium text-stone-300 transition-colors hover:border-stone-600 hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
                   >
@@ -1235,66 +1304,34 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
       )}
 
-      <div className="px-3 py-3 bg-stone-950/80 border-b border-stone-800">
-        <div className={`rounded-2xl border px-4 py-3 ${statusMeta.panelClass}`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-2">
-                <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.18em] ${statusMeta.badgeClass}`}>
-                  {statusMeta.badge}
-                </span>
-                {session.campaign_id && (
-                  <span className="text-[11px] uppercase tracking-[0.18em] text-stone-500">
-                    Сесія {session.session_number || 1}
-                  </span>
-                )}
-              </div>
-              <p className="text-sm leading-relaxed text-stone-300">{statusMeta.summary}</p>
-              {completionStats && (
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-stone-400">
-                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
-                    Повідомлень: {completionStats.messageCount}
-                  </span>
-                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
-                    Від кіпера: {completionStats.keeperMessageCount}
-                  </span>
-                  <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2.5 py-1">
-                    Тривалість: {completionStats.durationMinutes} хв
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {sessionIsReadOnly ? (
-              <Link
-                href="/"
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
-              >
-                До списку сесій
-              </Link>
-            ) : null}
-          </div>
-
-          {statusError && (
-            <p className="mt-3 text-sm text-red-300">{statusError}</p>
-          )}
+      {statusError && (
+        <div className="border-b border-stone-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+          {statusError}
         </div>
-      </div>
+      )}
 
-      {showCompletionModal && (
+      {completionRequest && (
         <div className="fixed inset-0 z-50 flex items-end bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
           <div className="w-full rounded-t-2xl border border-stone-700 bg-stone-900 p-5 sm:max-w-lg sm:rounded-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-stone-100">
-                  {session.campaign_id ? 'Завершити кампанію' : 'Завершити сесію'}
+                  {completionRequest.endedEarly
+                    ? (completionRequest.mode === 'finish-evening'
+                        ? 'Достроково завершити вечір'
+                        : session.campaign_id
+                          ? 'Достроково завершити кампанію'
+                          : 'Достроково закрити сесію')
+                    : (session.campaign_id ? 'Завершити кампанію' : 'Завершити сесію')}
                 </h2>
                 <p className="mt-1 text-sm leading-relaxed text-stone-400">
-                  Кіпер подякує за гру, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.
+                  {completionRequest.endedEarly
+                    ? 'Сесія завершиться вручну раніше природного фіналу. За бажанням можна лишити оцінку та короткий коментар.'
+                    : 'Кіпер завершить історію, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.'}
                 </p>
               </div>
               <button
-                onClick={() => setShowCompletionModal(false)}
+                onClick={() => setCompletionRequest(null)}
                 className="rounded-lg bg-stone-800 px-2.5 py-1.5 text-sm text-stone-300 transition-colors hover:bg-stone-700"
               >
                 ✕
@@ -1336,17 +1373,23 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
-                onClick={() => setShowCompletionModal(false)}
+                onClick={() => setCompletionRequest(null)}
                 className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
               >
                 Ще не зараз
               </button>
               <button
-                onClick={() => submitCompletion('complete-session')}
+                onClick={() => submitCompletion(completionRequest.mode, {
+                  endedEarly: completionRequest.endedEarly,
+                  trigger: completionRequest.trigger,
+                  includeFeedback: true,
+                })}
                 disabled={isUpdatingStatus}
                 className="inline-flex h-11 items-center justify-center rounded-xl bg-amber-800 px-4 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-700 active:bg-amber-900 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
               >
-                {isUpdatingStatus ? 'Завершення...' : 'Подякувати й завершити'}
+                {isUpdatingStatus
+                  ? 'Завершення...'
+                  : (completionRequest.endedEarly ? 'Закрити зараз' : 'Подякувати й завершити')}
               </button>
             </div>
           </div>

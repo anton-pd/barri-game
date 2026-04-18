@@ -237,14 +237,14 @@ function parseJsonLoose(text: string): object {
 
 async function generateWithOpus(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
-  const message = await client.messages.create({
+  const stream = client.messages.stream({
     model: OPUS_MODEL,
     max_tokens: MAX_TOKENS,
     // Prompt caching on the static system prompt — ~90% input discount on subsequent calls.
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
     messages: [{ role: 'user', content: buildUserPrompt(input) }],
   });
+  const message = await stream.finalMessage();
 
   const textBlock = message.content.find((b) => b.type === 'text');
   const text = textBlock && textBlock.type === 'text' ? textBlock.text : '';

@@ -1004,3 +1004,129 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
   - без помилок; лишилися старі warnings `@next/next/no-img-element` у `GameChat`, не пов'язані з цими задачами.
 - `npm run build`
   - успішно пройшов на `feature/ANT-39-42`.
+
+---
+
+## [2026-04-18 · Codex] — ANT-43: Opus streaming fix + scenario provenance labels
+
+### Problem
+- `ANT-43`: новий сценарій згенерувався через fallback на Gemini, хоча primary path мав іти через `claude-opus-4-7`.
+- Повторна перевірка staging-логів показала точну причину fallback:
+  - `[scenarioGenerator] Opus failed, falling back to Gemini: Streaming is required for operations that may take longer than 10 minutes`
+- Окремо з’ясувалося, що навіть після виправлення Opus-path зовнішній виклик через `https://staging.barrigame.es/api/admin/generate-scenario` може завершуватися `524` через proxy/CDN timeout, хоча внутрішній route продовжує працювати.
+- Для вже збережених generated scenarios не було жодної persisted-позначки, якою моделлю вони створені.
+
+### What changed
+- `src/lib/scenarioGenerator.ts`
+  - `generateWithOpus()` переведено з `client.messages.create()` на `client.messages.stream(...).finalMessage()`.
+  - Це прибирає Anthropic SDK failure на довгих non-streaming Opus-запитах і дозволяє дочекатися повного JSON для великих сценаріїв.
+- `src/types/index.ts`
+  - додано optional `Scenario.generatedBy` з полями `provider`, `model`, `generatedAt`, `fallbackFrom`.
+- `src/app/api/admin/generate-scenario/save/route.ts`
+  - save-flow тепер приймає `generatedBy` і вшиває provenance прямо в збережений scenario JSON.
+  - у response повертається `generatedBy`, щоб UI міг підтвердити persisted metadata.
+- `src/app/admin/ScenarioGenerator.tsx`
+  - при `Save + generate materials` у save-route передається provenance поточної генерації.
+  - якщо був fallback, у metadata зберігається `fallbackFrom: 'claude-opus-4-7'`.
+- `src/app/admin/ScenarioStats.tsx`
+  - у `Scenario List` додано колонку `Source` з мітками `Opus`, `Gemini`, `Claude`, `legacy`.
+  - також показується `title/titleUk`, щоб список сценаріїв у адмінці був читабельнішим.
+- Shared scenario backfill
+  - `barcelona-sagrada-mystery.json` у `/opt/apps/shared_data/scenarios/` вручну доповнено `generatedBy = { provider: 'gemini', model: 'gemini-2.5-pro', fallbackFrom: 'claude-opus-4-7' }`.
+  - Це робив через контейнер, бо файл у shared volume належав `root:root`.
+
+### Verification
+- `npm run lint -- src/lib/scenarioGenerator.ts src/app/admin/ScenarioGenerator.tsx src/app/admin/ScenarioStats.tsx src/app/api/admin/generate-scenario/save/route.ts src/types/index.ts`
+  - без помилок.
+- `npm run build`
+  - успішно.
+- `docker compose -f /opt/apps/docker-compose.yml up -d --build barri-dev`
+  - staging container перебілджено й піднято.
+- Повторний external POST на `https://staging.barrigame.es/api/admin/generate-scenario`
+  - повернув `524`; це вже зовнішній proxy timeout.
+- Повторний internal POST всередині `apps-barri-dev-1` на `http://127.0.0.1:3001/api/admin/generate-scenario`
+  - `200 OK`
+  - `provider=anthropic`
+  - `model=claude-opus-4-7`
+  - `fallbackReason=null`
+  - `scenarioId=barcelona-stone-whispers`
+- Актуальні staging-логи після rebuild:
+  - `[generate-scenario] ok provider=anthropic model=claude-opus-4-7 stop=end_turn ...`
+
+### Key conclusions
+- Початковий fallback на Gemini був не через відсутній ключ і не через недоступну модель Opus.
+- Реальна причина: старий non-streaming Anthropic SDK path для довгого Opus generation request.
+- Після переходу на streaming сам генератор на staging уже виконується на Opus.
+- Якщо потрібен стабільний запуск саме через публічний `staging.barrigame.es`, окремо треба вирішувати CDN/proxy timeout (`524`) для дуже довгих admin POST-запитів.
+
+---
+
+## [2026-04-18 · Codex] — Linear review triage + selective prod deploy for ANT-42 / ANT-44
+
+### Review triage
+- Після review Anton повернув фактичний scope для `ANT-39`:
+  - прибрати верхню active-session плашку повністю;
+  - залишити лише компактний тег біля назви сесії / локації;
+  - manual early finish залишити в settings;
+  - окремо доробити auto-completion від Keeper та роздільну статистику normal completion vs early close в адмінці.
+- `ANT-39` переведено з `In Review` назад у `In Progress` на Codex з коментарем про новий accepted scope.
+- `ANT-45` також повернуто з `In Review` у `In Progress`, бо Anton повторно підтвердив: на сценарії, згенерованому Opus, зображення й ambient досі не зʼявилися; у Gemini-path усе ок.
+
+### Deploy
+- `Ready for deploy` містив `ANT-42` і `ANT-44`.
+- Простий `staging -> main` merge був ризикований, бо `staging` уже включав незатверджені `ANT-39` / `ANT-45`.
+- Тому на prod checkout `/opt/apps/barri` зроблено **selective deploy**:
+  - `7bc3a70` — `ANT-42: update generator UI copy`
+  - `0a6eb79` — `ANT-44: refresh scenario list after generator save`
+- Prod rebuilt successfully:
+  - `docker compose -f /opt/apps/docker-compose.yml up -d --build barri`
+  - build пройшов успішно (`next build` усередині Docker)
+  - `curl -I https://barrigame.es` → `307 /auth/login`
+
+### Operational note
+- `git push origin main` з VPS не спрацював через відсутні GitHub credentials (`fatal: could not read Username for 'https://github.com'`).
+- Тобто live prod checkout оновлений локально і контейнер задеплоєний, але remote `origin/main` з цього хоста не був запушений.
+
+---
+
+## [2026-04-18 · Codex] — ANT-39: session completion UX + keeper auto-complete + end-state analytics
+
+### Problem
+- Верхня active-session плашка в грі лишалась нав'язливою і займала надто багато простору.
+- Ручне завершення сесії було змішане з основним ігровим UI замість того, щоб лишатися аварійною дією в settings.
+- В адмінці не було поділу між сесіями, завершеними нормально, і сесіями, закритими достроково.
+- Ідеальний flow вимагав, щоб у природному фіналі саме Кіпер міг тригернути завершення сесії / вечора кампанії.
+
+### What changed
+- `src/components/GameChat.tsx`
+  - прибрано великий верхній status panel;
+  - лишено компактні статусні теги біля назви сесії та поточної локації;
+  - manual end у settings тепер оформлено як дострокове закриття;
+  - read-only summary/stats лишаються доступними в компактному форматі;
+  - completion modal тепер знає різницю між normal completion і early close;
+  - keeper-triggered completion обробляється без фальшивого user feedback.
+- `src/lib/prompts.ts`
+  - додано інструкції для фінальних тегів `[COMPLETE_SESSION]` і `[FINISH_EVENING]`.
+- `src/app/api/ai/route.ts`
+  - фінальні completion tags парсяться, прибираються з persisted text і віддаються клієнту як окрема completion action.
+- `src/app/api/sessions/[id]/complete/route.ts`
+  - completion endpoint приймає `trigger` (`keeper` / `manual`) і `endedEarly`.
+- `src/lib/queries.ts`, `src/types/index.ts`
+  - `game_sessions` тепер зберігає `completion_trigger` і `ended_early`.
+- `src/lib/costTracker.ts`, `src/app/admin/ScenarioStats.tsx`, `src/app/admin/UsageTab.tsx`, `src/app/admin/AdminTabs.tsx`, `src/app/admin/page.tsx`
+  - адмінка й usage breakdown тепер окремо показують normal completions vs early-closed sessions;
+  - all sessions table показує читабельний status label (`completed by keeper`, `closed early`, etc.).
+
+### Verification
+- `npm run lint -- src/components/GameChat.tsx src/app/api/ai/route.ts src/lib/prompts.ts src/app/api/sessions/[id]/complete/route.ts src/lib/queries.ts src/lib/costTracker.ts src/app/admin/AdminTabs.tsx src/app/admin/page.tsx src/app/admin/ScenarioStats.tsx src/app/admin/UsageTab.tsx src/types/index.ts`
+  - без errors; лишились старі `@next/next/no-img-element` warnings у `GameChat`
+- `npm run build`
+  - успішно
+- `docker compose -f /opt/apps/docker-compose.yml up -d --build barri-dev`
+  - staging container успішно перебілджено й піднято
+- `curl -I https://staging.barrigame.es`
+  - `307 /auth/login` після rebuild
+
+### ANT-45 status
+- Додатковий ручний repro через shared storage більше не підтвердив явний missing-materials стан для Opus-generated сценарію.
+- У shared data Opus-generated scenario assets уже присутні, і Anton окремо підтвердив, що зображення на Opus scenario вже видно.

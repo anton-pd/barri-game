@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import { getUserById } from '@/lib/queries';
-import type { Scenario } from '@/types';
+import type { Scenario, ScenarioGeneratedBy } from '@/types';
 import { writeScenarioFile } from '@/lib/scenarioFiles';
 import { ensureScenarioAmbientGenerated } from '@/lib/ambient';
 import { ensureScenarioStaticImagesGenerated } from '@/lib/staticImages';
@@ -27,7 +27,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { id, json } = await req.json() as { id: string; json: unknown };
+  const { id, json, generatedBy } = await req.json() as {
+    id: string;
+    json: unknown;
+    generatedBy?: ScenarioGeneratedBy;
+  };
 
   if (!id || typeof id !== 'string') {
     return NextResponse.json({ error: 'id is required' }, { status: 400 });
@@ -39,7 +43,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const scenario = json as Scenario;
+    const scenario = {
+      ...(json as Scenario),
+      ...(generatedBy ? { generatedBy } : {}),
+    } satisfies Scenario;
     writeScenarioFile(id, scenario);
 
     let imageResult = {
@@ -73,6 +80,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       saved: id,
+      generatedBy: scenario.generatedBy ?? null,
       images: imageResult.images,
       generatedImageIds: imageResult.generated,
       imageFailures: imageResult.failed,

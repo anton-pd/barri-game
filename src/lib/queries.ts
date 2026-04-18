@@ -99,6 +99,14 @@ export async function initializeSchema() {
     ALTER TABLE game_sessions
       ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ
   `;
+  await sql`
+    ALTER TABLE game_sessions
+      ADD COLUMN IF NOT EXISTS completion_trigger VARCHAR(20)
+  `;
+  await sql`
+    ALTER TABLE game_sessions
+      ADD COLUMN IF NOT EXISTS ended_early BOOLEAN DEFAULT false
+  `;
 
   // CHANGED: New tables for campaign layer (phase 5)
   await sql`
@@ -403,6 +411,8 @@ export async function updateSession(
     status?: GameSession['status'];
     language?: string;
     completed_at?: string | null;
+    completion_trigger?: GameSession['completion_trigger'];
+    ended_early?: boolean | null;
   }
 ): Promise<GameSession> {
   // Build one UPDATE with all changed columns using postgres.js dynamic query builder
@@ -415,6 +425,8 @@ export async function updateSession(
   if (updates.status      !== undefined) data.status      = updates.status;
   if (updates.language    !== undefined) data.language    = updates.language;
   if (updates.completed_at !== undefined) data.completed_at = updates.completed_at;
+  if (updates.completion_trigger !== undefined) data.completion_trigger = updates.completion_trigger;
+  if (updates.ended_early !== undefined) data.ended_early = updates.ended_early;
 
   if (Object.keys(data).length > 0) {
     data.updated_at = sql`NOW()`;

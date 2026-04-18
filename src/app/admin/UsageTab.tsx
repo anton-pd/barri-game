@@ -43,6 +43,7 @@ interface ScenarioUsageRow {
   scenario_id: string;
   session_count: number;
   completed_count: number;
+  early_closed_count: number;
   avg_messages: number;
   total_cost: number;
   avg_cost_per_session: number;
@@ -200,7 +201,8 @@ export default function UsageTab() {
   function toggleSession(id: string) {
     setExpandedSessions(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -208,7 +210,8 @@ export default function UsageTab() {
   function toggleAccount(id: string) {
     setExpandedAccounts(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
@@ -401,12 +404,13 @@ export default function UsageTab() {
                 <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
                   <th className="text-left px-4 py-3">Scenario</th>
                   <th className="text-right px-4 py-3">Sessions</th>
-                <th className="text-right px-4 py-3">Completed</th>
-                <th className="text-right px-4 py-3">Avg msgs</th>
-                <th className="text-right px-4 py-3">Rating</th>
-                <th className="text-right px-4 py-3">Avg cost $</th>
-                <th className="text-right px-4 py-3">Total cost $</th>
-              </tr>
+                  <th className="text-right px-4 py-3">Completed</th>
+                  <th className="text-right px-4 py-3">Early</th>
+                  <th className="text-right px-4 py-3">Avg msgs</th>
+                  <th className="text-right px-4 py-3">Rating</th>
+                  <th className="text-right px-4 py-3">Avg cost $</th>
+                  <th className="text-right px-4 py-3">Total cost $</th>
+                </tr>
               </thead>
               <tbody>
                 {scenarioRows.map(row => (
@@ -418,6 +422,14 @@ export default function UsageTab() {
                       {row.session_count > 0 && (
                         <span className="text-stone-600 text-xs ml-1">
                           ({Math.round((row.completed_count / row.session_count) * 100)}%)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-amber-300">
+                      {row.early_closed_count}
+                      {row.session_count > 0 && row.early_closed_count > 0 && (
+                        <span className="text-stone-600 text-xs ml-1">
+                          ({Math.round((row.early_closed_count / row.session_count) * 100)}%)
                         </span>
                       )}
                     </td>
@@ -439,7 +451,7 @@ export default function UsageTab() {
                   </tr>
                 ))}
                 {scenarioRows.length === 0 && (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-stone-600">No data yet</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-stone-600">No data yet</td></tr>
                 )}
               </tbody>
             </table>
