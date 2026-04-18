@@ -40,6 +40,7 @@ export default function AdminTabs({
   currentUserId: string;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('users');
+  const [scenarioRefreshToken, setScenarioRefreshToken] = useState(0);
 
   return (
     <div>
@@ -210,8 +211,8 @@ export default function AdminTabs({
       {activeTab === 'usage'     && <UsageTab />}
       {activeTab === 'scenarios' && (
         <div className="space-y-10">
-          <ScenarioStats />
-          <ScenarioGenerator />
+          <ScenarioStats refreshToken={scenarioRefreshToken} />
+          <ScenarioGenerator onSaved={() => setScenarioRefreshToken((token) => token + 1)} />
         </div>
       )}
       {activeTab === 'settings'  && (

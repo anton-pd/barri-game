@@ -13,16 +13,63 @@ interface ScenarioRow {
   rating_count: number;
 }
 
-export default function ScenarioStats() {
+interface ScenarioStatsProps {
+  refreshToken?: number;
+}
+
+function emptyScenarioRow(scenarioId: string): ScenarioRow {
+  return {
+    scenario_id: scenarioId,
+    session_count: 0,
+    completed_count: 0,
+    avg_messages: 0,
+    total_cost: 0,
+    avg_cost_per_session: 0,
+    avg_rating: null,
+    rating_count: 0,
+  };
+}
+
+export default function ScenarioStats({ refreshToken = 0 }: ScenarioStatsProps) {
   const [rows, setRows]       = useState<ScenarioRow[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/costs?breakdown=scenarios')
-      .then(r => r.ok ? r.json() : [])
-      .then(setRows)
-      .finally(() => setLoading(false));
-  }, []);
+    let cancelled = false;
+
+    async function loadRows() {
+      try {
+        const [statsRes, scenariosRes] = await Promise.all([
+          fetch('/api/admin/costs?breakdown=scenarios'),
+          fetch('/api/scenarios'),
+        ]);
+
+        const stats = (statsRes.ok ? await statsRes.json() : []) as ScenarioRow[];
+        const scenarios = (scenariosRes.ok ? await scenariosRes.json() : []) as Array<{ id: string }>;
+
+        const byId = new Map<string, ScenarioRow>();
+        for (const scenario of scenarios) {
+          byId.set(scenario.id, emptyScenarioRow(scenario.id));
+        }
+        for (const row of stats) {
+          const existing = byId.get(row.scenario_id) ?? emptyScenarioRow(row.scenario_id);
+          byId.set(row.scenario_id, { ...existing, ...row });
+        }
+
+        const merged = [...byId.values()].sort((a, b) => a.scenario_id.localeCompare(b.scenario_id));
+        if (!cancelled) setRows(merged);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    setLoading(true);
+    loadRows();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshToken]);
 
   return (
     <section>
@@ -42,7 +89,7 @@ export default function ScenarioStats() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(row => (
+              {rows.map((row) => (
                 <tr key={row.scenario_id} className="border-b border-stone-800/50 hover:bg-stone-800/30">
                   <td className="px-4 py-2.5 text-stone-200 font-mono text-xs">{row.scenario_id}</td>
                   <td className="px-4 py-2.5 text-right text-stone-400">{row.session_count}</td>

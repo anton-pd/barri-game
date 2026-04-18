@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.18] — 2026-04-18
+
+### Fixed
+- **Scenario generator UI copy (ANT-42)**: admin generator now shows the correct primary model (`Claude Opus 4.7`), updated runtime expectation, and no longer mentions ambient audio in the initial generation step.
+- **Scenario list refresh (ANT-44)**: admin `Scenario List` now includes file-backed scenarios even before they have any session/cost stats and refreshes immediately after a successful generator save.
+
+---
+
 ## [0.3.17] — 2026-04-18
 
 ### Added
