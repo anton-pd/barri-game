@@ -5,7 +5,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [0.3.24] — 2026-04-18
+## [0.3.24] — 2026-04-19
 
 ### Fixed
 - **Обрив intro/відповідей Keeper на Gemini (ANT-58)**: Gemini 2.5 витрачав `maxOutputTokens` на приховані "thinking" токени, лишаючи на видимий текст ~30-40 токенів → `finishReason=MAX_TOKENS` при коротенькій відповіді. `callGeminiChat` тепер передає `thinkingConfig: { thinkingBudget: 0 }`, вимикаючи reasoning для game chat. Narrative output більше не обрізається.
@@ -24,6 +24,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - **Multi-action attribution (ANT-61)**: `/api/ai` більше не додає додатковий `[Name]:` префікс над уже відформатованим multi-player batch від клієнта, тому кіпер коректно адресує реплики по гравцях.
 - **Double item consumption (ANT-62)**: сервер став єдиним authoritative джерелом inventory; клієнтське подвійне списання по `pendingItemUsesRef` прибрано. Одна дія тепер списує рівно 1 заряд, 1-use предмети зникають вчасно, не раніше.
+- **Keeper voice consistency (ANT-36)**: Gemini TTS prefetch cache тепер ключується не лише по тексту, а й по narrator voice та segment layout, тому різні репліки більше не можуть випадково перевикористати чужий cached audio. OpenAI fallback також примусово тримає один keeper voice незалежно від message-level `voiceStyle`.
+- **Claude response truncation (ANT-40)**: у streaming path для `/api/ai` текст відповіді тепер накопичується з усіх `text_delta` і зберігається як source of truth. Це прибирає кейс, де в persisted message лишався лише перший Anthropic content block, а решта відповіді відпадала посеред речення.
+- **Dynamic image requests (ANT-38)**: коли гравець прямо просить щось показати, `/api/ai` тепер додає окрему image-request instruction у prompt, яка змушує Keeper вставити рівно один `[IMAGE:type:short English description]` для найрелевантнішого візуального обʼєкта або сцени.
 
 ---
 

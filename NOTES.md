@@ -1,6 +1,6 @@
 # Barri Game — Нотатки по змінах
 
-## [2026-04-18 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
+## [2026-04-19 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
 
 ### Problem
 - **ANT-58**: відповіді Keeper іноді обриваються на пів слова, особливо перше intro-повідомлення.
@@ -53,6 +53,87 @@ Codex запропонував 4 баги в `AI Improvements` після ауд
 - `npx tsc --noEmit` — без помилок.
 - `npx next build` — білд пройшов чисто (27 routes).
 - Тест на staging заплановано: (1) multi-player batch через UI → перевірити що відповідь кіпера не приписує весь батч першому гравцю; (2) використати одноразовий предмет → переконатись що `uses` зменшується на 1, не на 2; (3) сесія з `language='en'` → перевірити що весь системний prompt англійською; (4) створити CoC сесію → HP/SAN/LCK UI, DELTA, stat adjustments працюють як раніше.
+
+## [2026-04-18 · Codex] — ANT-36 + ANT-40: TTS voice consistency and Claude stream persistence
+
+### Problem
+- `ANT-36` описував нестабільний голос Кіпера в сесії `Тест нового сценарію`: narrator мав звучати одним голосом, але в окремих репліках міг спрацьовувати інший already-prefetched audio path.
+- Root cause був не в prompt/AI voice selection, а в **server-side Gemini TTS prefetch cache**:
+  - cache key будувався лише з перших 300 символів тексту;
+  - він не враховував `voiceStyle` і не враховував `segments` / multi-speaker layout;
+  - тому дві різні репліки з однаковим початком могли повернути не свій cached WAV.
+- `ANT-40` посилався на staging-сесію `Тест нового сценарію`, де persisted assistant messages обривались посеред слова / речення.
+- Root cause був у Claude streaming path в `src/app/api/ai/route.ts`:
+  - клієнту ми стрімили всі `content_block_delta.text_delta`;
+  - але для збереження в БД брали лише `finalMsg.content[0].text`;
+  - якщо Anthropic повертав кілька text blocks, persisted message містив тільки перший блок, хоча live stream уже показав більше тексту.
+
+### Solution
+- **`src/lib/ttsPrefetch.ts`**
+  - cache key переведено з `text.slice(0, 300)` на стабільний `sha1` від `{ text, voiceStyle, segments }`;
+  - для segment-based Gemini TTS тепер окремо розрізняються narration-only та multi-speaker репліки, навіть якщо вони починаються однаково.
+- **`src/app/api/tts/route.ts`**
+  - `getPrefetch()` тепер шукає cache по повному voice-aware key, а не лише по тексту;
+  - OpenAI path більше не використовує message-level `voiceStyle` для narrator audio.
+- **`src/lib/voices.ts`**
+  - додано окремий helper для keeper narrator voice в OpenAI, щоб fallback завжди тримав один голос.
+- **`src/app/api/ai/route.ts`**
+  - додано `extractAnthropicTextContent()` для складання тексту з усіх text blocks у `finalMessage()`;
+  - під час streaming тепер накопичуємо `assistantText += ev.delta.text` і саме streamed text стає primary source of truth;
+  - після `finalMessage()` беремо зібраний `finalText` тільки якщо він довший за вже накопичений streamed text, замість сліпого `content[0].text`.
+
+### Why this fixes the bugs
+- Клієнт і persistence тепер спираються на один і той самий повний текстовий потік.
+- Навіть якщо Anthropic розбиває відповідь на кілька text blocks, БД більше не втрачає “хвіст” відповіді.
+- Gemini TTS більше не пере-використовує чужий cached audio для реплік з однаковим початком, а keeper narrator стабільно лишається одним голосом.
+
+### Verification
+- `npm run lint -- src/lib/voices.ts src/lib/ttsPrefetch.ts src/app/api/tts/route.ts src/app/api/ai/route.ts`
+  - без помилок
+- `npm run build`
+  - успішно пройшов
+
+### Linear / scope note
+- `ANT-36` переведено з `Planned` у `In Progress` на Codex після явного go-ahead від Anton.
+- Для верифікації звірено staging DB: сесія `Тест нового сценарію` існує як `cde2b7bd-2b24-4ca9-8d1f-aae5710e2096`, а глобальний `tts_provider` на staging — `gemini`, тож фікс зроблено саме в релевантному runtime path.
+- `ANT-40` переведено з `Planned` у `In Progress` на Codex після прямого запиту Anton.
+- Діагностика опиралась на реальну staging session `Тест нового сценарію` (`cde2b7bd-2b24-4ca9-8d1f-aae5710e2096`), як і було в описі задачі.
+
+## [2026-04-18 · Codex] — ANT-38: explicit player requests now force a dynamic image tag
+
+### Problem
+- `ANT-38` описував конкретний UX gap: коли гравець активно просить щось показати, гра має згенерувати динамічне зображення того, про що він просить.
+- Перевірка staging session показала, що runtime path для dynamic images існує, але тригер майже не спрацьовує:
+  - `/api/image` працює як окремий generation/cache route;
+  - `GameChat` вже вміє рендерити `[IMAGE:...]` і зберігати `sessionImages`;
+  - але у staging-сесії `Тест нового сценарію` не було жодного persisted `[IMAGE:...]` tag, тобто Keeper просто не отримував достатньо жорсткий prompt signal, щоб додавати image tags на прямі прохання гравця.
+
+### Solution
+- **`src/app/api/ai/route.ts`**
+  - додано `isExplicitImageRequest()` для явних фраз типу `покажи`, `показати`, `як це виглядає`, `show me`, `what does ... look like`, `photo`, `map`, `letter`, `draw`;
+  - якщо поточне player message підпадає під цей intent, у prompt тепер передається окрема instruction:
+    - у цій же відповіді ОБОВʼЯЗКОВО додати рівно один `[IMAGE:type:short English description]`;
+    - type має бути осмисленим (`map`, `letter`, `photo`, `artifact`, `scene`, `newspaper`).
+- **`src/lib/prompts.ts`**
+  - `buildSystemPromptBlocks()` тепер приймає optional `imageRequestInstruction`;
+  - instruction інжектиться в dynamic block окремою секцією `## ВІЗУАЛЬНИЙ ЗАПИТ`, щоб вона діяла саме на поточний хід і не розмивалася серед загальних правил.
+
+### Why this fixes the bug
+- Проблема була не в image generation backend і не в frontend rendering.
+- Реальний дефект: для прямого visual request у Keeper не було enough-priority instruction, а загальне правило “РІДКО — лише ключові моменти” працювало проти user expectation.
+- Тепер явний запит гравця підвищує пріоритет image tag саме для цього response turn.
+
+### Verification
+- `npm run lint -- src/app/api/ai/route.ts src/lib/prompts.ts`
+  - очікується чисто
+- `npm run build`
+  - має пройти
+- staging deploy
+  - після rebuild `https://staging.barrigame.es` має відповідати як звично
+
+### Scope note
+- Це targeted fix для explicit image requests.
+- Не чіпав `/api/image` і не ламав уже існуючий cache/render path для dynamic images.
 
 ## [2026-04-18 · Codex] — ANT-44: generated scenario appears immediately in admin scenario list
 

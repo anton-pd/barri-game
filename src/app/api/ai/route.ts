@@ -21,10 +21,37 @@ const GEMINI_MODELS: Record<string, string> = {
   'gemini-flash': 'gemini-2.5-flash',
 };
 
+function extractAnthropicTextContent(
+  content: Array<{ type: string; text?: string }>
+): string {
+  return content
+    .filter((block) => block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text ?? '')
+    .join('');
+}
+
 function detectVoiceStyle(): string {
   // Keeper narrator always uses the same voice. NPC voices are handled
   // per-segment in multi-speaker Gemini TTS, not via the message-level voiceStyle.
   return 'keeper';
+}
+
+function isExplicitImageRequest(message: string): boolean {
+  return [
+    /\bпокаж[иі]\b/i,
+    /\bпоказати\b/i,
+    /\bдай побачити\b/i,
+    /\bяк це виглядає\b/i,
+    /\bshow me\b/i,
+    /\bshow us\b/i,
+    /\bwhat does .* look like\b/i,
+    /\bcan i see\b/i,
+    /\bimage\b/i,
+    /\bphoto\b/i,
+    /\bmap\b/i,
+    /\bletter\b/i,
+    /\bdraw\b/i,
+  ].some((pattern) => pattern.test(message));
 }
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -394,6 +421,9 @@ export async function POST(request: Request) {
 
   const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
   const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
+  const imageRequestInstruction = !isIntro && isExplicitImageRequest(message)
+    ? 'Гравець прямо просить щось ПОКАЗАТИ. У цій відповіді ОБОВʼЯЗКОВО додай рівно один тег [IMAGE:type:short English description] для найрелевантнішого обʼєкта або сцени, яку він просить побачити. Обирай type змістовно: map / letter / photo / artifact / scene / newspaper. Опис у тегі має бути коротким, конкретним і англійською.'
+    : '';
   const eventInstruction =
     eventDecision.shouldFire && eventDecision.eventType
       ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
@@ -405,6 +435,7 @@ export async function POST(request: Request) {
     campaignContext,
     keeperActivitySection: activitySection,
     eventInstruction,
+    imageRequestInstruction,
     language: sessionLang,
   });
 
@@ -464,12 +495,18 @@ export async function POST(request: Request) {
 
           for await (const ev of claudeStream) {
             if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+              assistantText += ev.delta.text;
               send('chunk', { text: ev.delta.text });
             }
           }
 
           const finalMsg = await claudeStream.finalMessage();
-          assistantText = finalMsg.content[0].type === 'text' ? finalMsg.content[0].text : '';
+          const finalText = extractAnthropicTextContent(
+            finalMsg.content as Array<{ type: string; text?: string }>
+          );
+          if (finalText.length > assistantText.length) {
+            assistantText = finalText;
+          }
           inputTokens = finalMsg.usage?.input_tokens ?? 0;
           outputTokens = finalMsg.usage?.output_tokens ?? 0;
 
