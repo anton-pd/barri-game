@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.23] — 2026-04-18
+
+### Fixed
+- **Keeper voice consistency (ANT-36)**: Gemini TTS prefetch cache тепер ключується не лише по тексту, а й по narrator voice та segment layout, тому різні репліки більше не можуть випадково перевикористати чужий cached audio. OpenAI fallback також примусово тримає один keeper voice незалежно від message-level `voiceStyle`.
+- **Claude response truncation (ANT-40)**: у streaming path для `/api/ai` текст відповіді тепер накопичується з усіх `text_delta` і зберігається як source of truth. Це прибирає кейс, де в persisted message лишався лише перший Anthropic content block, а решта відповіді відпадала посеред речення.
+- **Dynamic image requests (ANT-38)**: коли гравець прямо просить щось показати, `/api/ai` тепер додає окрему image-request instruction у prompt, яка змушує Keeper вставити рівно один `[IMAGE:type:short English description]` для найрелевантнішого візуального обʼєкта або сцени.
+
+---
+
 ## [0.3.22] — 2026-04-18
 
 ### Changed

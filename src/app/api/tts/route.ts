@@ -1,6 +1,6 @@
 // CHANGED: Added cost tracking per TTS call. Auth token read to get userId.
 import { cookies } from 'next/headers';
-import { getOpenAIVoice } from '@/lib/voices';
+import { getOpenAIKeeperVoice } from '@/lib/voices';
 import { fetchGeminiPcm, pcmToWav } from '@/lib/ttsEngine';
 import { getPrefetch } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
@@ -48,7 +48,7 @@ async function handleGemini(
   userId?: string
 ): Promise<Response> {
   // Check prefetch cache first
-  const cached = await getPrefetch(text);
+  const cached = await getPrefetch(text, voiceStyle, segments);
   if (cached) {
     // Cached — no API cost
     return wavResponse(cached);
@@ -85,7 +85,7 @@ function wavResponse(wav: Buffer): Response {
 
 async function handleOpenAI(
   text: string,
-  voiceStyle: string,
+  _voiceStyle: string,
   sessionId?: string,
   userId?: string
 ): Promise<Response> {
@@ -98,7 +98,7 @@ async function handleOpenAI(
     body: JSON.stringify({
       model: 'tts-1',
       input: text,
-      voice: getOpenAIVoice(voiceStyle),
+      voice: getOpenAIKeeperVoice(),
       response_format: 'mp3',
     }),
   });

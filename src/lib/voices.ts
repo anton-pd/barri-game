@@ -32,6 +32,11 @@ export function getOpenAIVoice(voiceStyle: string): string {
   return OPENAI_VOICE_MAP[voiceStyle] ?? OPENAI_VOICE_MAP.keeper;
 }
 
+/** Keeper narrator — always the same voice regardless of any message metadata. */
+export function getOpenAIKeeperVoice(): string {
+  return OPENAI_VOICE_MAP.keeper;
+}
+
 /** Keeper narrator — always the same voice regardless of voiceStyle. */
 export function getGeminiKeeperVoice(): string {
   return GEMINI_KEEPER_VOICE;

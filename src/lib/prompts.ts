@@ -87,6 +87,7 @@ export function buildSystemPromptBlocks(
     campaignContext?: { recentSummaries: string };
     eventInstruction?: string;
     keeperActivitySection?: string;
+    imageRequestInstruction?: string;
     language?: 'uk' | 'en';
   }
 ): SystemPromptBlocks {
@@ -204,6 +205,9 @@ ${RESPONSE_STYLE[lang]}
 
   const activitySection = options?.keeperActivitySection ?? '';
   const eventSection = options?.eventInstruction ?? '';
+  const imageRequestSection = options?.imageRequestInstruction
+    ? `\n\n## ВІЗУАЛЬНИЙ ЗАПИТ\n${options.imageRequestInstruction}`
+    : '';
 
   const variantHintSection = worldState.variantHint
     ? `\n\n## ВАРІАНТ ПОЧАТКУ\n${worldState.variantHint}\n(Цю підказку враховуй тільки для інтро — далі вона більше не діє)`
@@ -236,7 +240,7 @@ ${players
   .join('\n\n')}
 
 Якщо бачиш префікс [Ім'я]: у повідомленні — це гравець. Ніколи не дій від їх імені.${players.length > 2 ? ' Коли відповідь стосується конкретного гравця — починай абзац з Ім\'я: (без дужок). Для загальних описів — без префіксу.' : ' Не використовуй префікс з іменем у своїх відповідях.'}
-При перевірці навички використовуй ТОЧНЕ значення зі списку вище.${variantHintSection}${activitySection}${eventSection}
+При перевірці навички використовуй ТОЧНЕ значення зі списку вище.${variantHintSection}${activitySection}${eventSection}${imageRequestSection}
 `.trim();
 
   return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };
