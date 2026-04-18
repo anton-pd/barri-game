@@ -122,7 +122,8 @@ async function callGeminiChat(
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: history,
     generationConfig: {
-      maxOutputTokens: 900,
+      // Intro needs more room for a 4-5 paragraph scene-setter (ANT-60).
+      maxOutputTokens: diag?.isIntro ? 1400 : 900,
       temperature: 1.0,
       // Gemini 2.5 thinking tokens consume maxOutputTokens budget but aren't
       // returned as visible text → narrative replies get truncated. Disable
@@ -486,7 +487,7 @@ export async function POST(request: Request) {
           const claudeStream = anthropic.messages.stream(
             {
               model: 'claude-sonnet-4-6',
-              max_tokens: 900,
+              max_tokens: isIntro ? 1400 : 900,
               system: systemBlocks,
               messages: conversationHistory,
             },

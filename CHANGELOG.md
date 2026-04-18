@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.25] — 2026-04-19
+
+### Changed
+- **Довше structured intro (ANT-60)**: `introInstruction` у `prompts.ts` переписано під чітку 4-5-абзацну структуру (сцена → час/місце → NPC/деталі → сюжетний гачок з `**bold**` підказками → опційний перехід) і таргет 700-1100 символів. Intro-шлях тепер запитує більший token-бюджет: Gemini `maxOutputTokens: 1400`, Claude `max_tokens: 1400` (звичайні відповіді лишились 900).
+
+---
+
 ## [0.3.24] — 2026-04-19
 
 ### Fixed

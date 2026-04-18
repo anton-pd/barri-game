@@ -68,7 +68,15 @@ const COPY = {
     invSpent: 'витрачений',
     invEquipped: '[В РУКАХ]',
     // static block
-    introInstruction: 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.',
+    introInstruction: `Зроби розгорнуте вступне intro, щоб гравці відчули сетинг і зрозуміли, з чим мають справу. Структура (4-5 абзаців, 700-1100 символів загалом):
+
+1) Кінематографічний план: де персонажі зараз, що бачать, чують, відчувають — конкретні сенсорні деталі (запах, текстура, звук, світло).
+2) Контекст часу й місця: рік, пора року/доби, географія, настрій епохи — щоб гравець зорієнтувався в світі.
+3) Видимі персонажі / NPC / деталі середовища: хто поряд, що роблять, як поводяться. Без повного переліку — 1-2 яскравих образа.
+4) Гачок сюжету: що вже відбулось або ось-ось станеться, яка напруга/таємниця висить у повітрі. **Жирним** виділи 1-2 ключові підказки чи незвичні деталі.
+5) (Опційно) Легкий перехід до дії — натяк на те, що гравці мають вирішувати далі, БЕЗ прямого питання "що ви робите?" і БЕЗ переліку варіантів.
+
+Не питай нічого, не перелічуй можливі дії, не відкривай короткий опис-заготовку. Видай саме готове intro.`,
     headingLang: '## МОВА\nВідповідай ТІЛЬКИ українською мовою. Всі репліки NPC, описи та підказки — виключно українською.',
     headingStyle: `## СТИЛЬ ВІДПОВІДІ
 - Відповідай ТІЛЬКИ українською.
@@ -160,7 +168,15 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     invBroken: 'broken',
     invSpent: 'spent',
     invEquipped: '[IN HAND]',
-    introInstruction: 'Begin the game: set the atmosphere, describe the place and the situation the players are in. Do not ask anything — just deliver the intro.',
+    introInstruction: `Deliver an extended opening intro so players feel the setting and understand what they're dealing with. Structure (4-5 paragraphs, 700-1100 characters total):
+
+1) Cinematic shot: where the characters are right now — what they see, hear, feel. Specific sensory detail (smell, texture, sound, light).
+2) Time and place context: year, season/time of day, geography, mood of the era — enough for the player to place themselves in the world.
+3) Visible characters / NPCs / environmental detail: who is nearby, what they're doing, how they behave. Don't list everything — one or two vivid images.
+4) Plot hook: what has already happened or is about to, the tension or mystery hanging in the air. **Bold** one or two key clues or unusual details.
+5) (Optional) A light cue toward action — a hint of what the players need to decide next, WITHOUT asking "what do you do?" and WITHOUT listing options.
+
+Do not ask anything, do not enumerate possible actions, do not hedge with a short draft. Deliver the finished intro.`,
     headingLang: '## LANGUAGE\nRespond ONLY in English. All NPC dialogue, descriptions, and hints must be in English.\nUse "you" (second person) for addressing players.',
     headingStyle: `## RESPONSE STYLE
 - Respond ONLY in English.
