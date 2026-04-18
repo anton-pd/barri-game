@@ -71,8 +71,8 @@ function getStatusMeta(session: GameSession) {
     isReadOnly: false,
     badge: isCampaign ? 'Кампанійна сесія' : 'Активна сесія',
     summary: isCampaign
-      ? 'Завершіть вечір, щоб перейти до наступної сесії кампанії, або завершіть кампанію повністю й залиште цей чат у режимі перегляду.'
-      : 'Коли пригода завершиться, закрийте сесію тут. Після цього чат стане доступним лише для перегляду.',
+      ? 'Сесія триває. Коли історія дійде до природного фіналу, ручне завершення буде доступне в налаштуваннях.'
+      : 'Сесія триває. Після проходження сценарію її можна буде завершити вручну з налаштувань.',
     completeLabel: isCampaign ? 'Завершити кампанію' : 'Завершити сесію',
     finishLabel: isCampaign ? 'Завершити вечір' : '',
     panelClass: 'border-stone-800 bg-stone-900/80',
@@ -1203,6 +1203,35 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <span className="text-stone-500">🔊</span>
             </div>
           )}
+
+          {!sessionIsReadOnly && (
+            <>
+              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-800 bg-stone-950/70 px-2.5 py-1.5">
+                <span className="text-stone-500">
+                  Завершення сесії доступне тут лише вручну, коли сценарій уже пройдено.
+                </span>
+                <button
+                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session')}
+                  disabled={isUpdatingStatus || isLoading}
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-amber-800/70 bg-amber-950/50 px-3 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
+                >
+                  {isUpdatingStatus
+                    ? 'Завершення...'
+                    : (session.campaign_id ? statusMeta.finishLabel : statusMeta.completeLabel)}
+                </button>
+                {session.campaign_id && (
+                  <button
+                    onClick={() => openCompletionModal('complete-session')}
+                    disabled={isUpdatingStatus || isLoading}
+                    className="inline-flex h-8 items-center justify-center rounded-lg border border-stone-700 bg-stone-900 px-3 text-xs font-medium text-stone-300 transition-colors hover:border-stone-600 hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
+                  >
+                    {statusMeta.completeLabel}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -1243,28 +1272,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               >
                 До списку сесій
               </Link>
-            ) : (
-              <div className="flex flex-col gap-2 sm:min-w-[220px]">
-                <button
-                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session')}
-                  disabled={isUpdatingStatus || isLoading}
-                  className={`inline-flex h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400 ${statusMeta.primaryActionClass}`}
-                >
-                  {isUpdatingStatus
-                    ? 'Завершення...'
-                    : (session.campaign_id ? statusMeta.finishLabel : statusMeta.completeLabel)}
-                </button>
-                {session.campaign_id && (
-                  <button
-                    onClick={() => openCompletionModal('complete-session')}
-                    disabled={isUpdatingStatus || isLoading}
-                    className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600 ${statusMeta.secondaryActionClass}`}
-                  >
-                    {statusMeta.completeLabel}
-                  </button>
-                )}
-              </div>
-            )}
+            ) : null}
           </div>
 
           {statusError && (

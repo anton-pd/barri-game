@@ -346,3 +346,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - Два сценарії: «Примарний Будинок» та «Останній Телеграм»
 - Авто-збереження стану сесії в PostgreSQL
 - Підсумовування world state кожні 20 повідомлень (Claude Haiku)
+
+---
+
+## [0.3.18] — 2026-04-18
+
+### Changed
+- **Scenario generator UI**: статус генерації тепер показує актуальну primary model (`Claude Opus 4.7`) замість застарілого hardcoded `Claude Sonnet`.
+- **Scenario generator copy**: прибрано зайву згадку про ambient audio з JSON-generation екрана; materials/asset generation тепер описано як окремий крок.
+- **Game session UI**: completion CTA прибрано з основної статусної панелі активної сесії, щоб завершення не пропонувалось посеред проходження сценарію.
+
+### Fixed
+- Ручне завершення сесії/кампанії більше не вискакує як primary action у центрі активної гри; доступ до нього перенесено в settings panel.

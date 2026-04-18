@@ -895,3 +895,27 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Користувач підтвердив, що генератор працює (Opus 4.7 → fallback Gemini 2.5 Pro). Дрібні правки по якості — окремі таски.
 - Linear `ANT-23` → `Done`, feature-гілку `feature/ANT-23` та worktree видалено.
 - Версію бампнуто до `0.3.17` разом з ANT-30 changelog-записом.
+
+---
+
+## [2026-04-18 · Codex] — ANT-39 + ANT-42: completion CTA gating і тексти генератора
+
+### Problem
+- `GameChat` показував primary CTA завершення прямо в статусній панелі для будь-якої активної сесії. Це виглядало як пропозиція завершити гру посеред проходження сценарію.
+- `ScenarioGenerator` мав зашитий текст `Calling Claude Sonnet`, хоча primary model у генераторі зараз Opus 4.7.
+- У generator UI лишався зайвий текст про ambient audio, хоча цей екран генерує лише scenario JSON, а матеріали/asset-и створюються окремим кроком.
+
+### Solution
+- **`src/components/GameChat.tsx`**
+  - прибрано completion CTA з основної статусної панелі активної сесії;
+  - summary для active session переписано так, щоб не підштовхувати до завершення посеред гри;
+  - ручне завершення перенесено в settings-panel як окремий manual control, щоб CTA не з'являвся в центрі ігрового потоку.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - статус генерації змінено на `Generating with Claude Opus 4.7 — this can take 1–3 min`;
+  - текст про ambient generation замінено на нейтральний опис окремого кроку генерації scenario materials.
+
+### Verification
+- `npm run lint -- src/app/admin/ScenarioGenerator.tsx src/components/GameChat.tsx`
+  - без помилок; лишилися старі warnings `@next/next/no-img-element` у `GameChat`, не пов'язані з цими задачами.
+- `npm run build`
+  - успішно пройшов на `feature/ANT-39-42`.
