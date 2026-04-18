@@ -1,5 +1,31 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-18 · Codex] — ANT-44: generated scenario appears immediately in admin scenario list
+
+### Problem
+- У staging root cause підтвердився не в save-path, а в admin list semantics:
+  - `ScenarioGenerator` зберігав новий `scenario.json` у shared storage коректно;
+  - `/api/scenarios` уже віддавав новий сценарій;
+  - але `ScenarioStats` рендерив “Scenario List” лише з `/api/admin/costs?breakdown=scenarios`, тобто тільки сценарії, які вже мають session/cost rows.
+- Через це freshly generated scenario не з’являвся в admin UI, поки хтось не створить по ньому сесію.
+
+### Solution
+- **`src/app/admin/ScenarioStats.tsx`**
+  - тепер паралельно завантажує `/api/admin/costs?breakdown=scenarios` і `/api/scenarios`;
+  - мержить всі file-backed scenario ids зі stats rows;
+  - для нових сценаріїв без usage даних показує нульові counters замість повної відсутності в таблиці.
+- **`src/app/admin/AdminTabs.tsx`**
+  - додано `scenarioRefreshToken`, який дозволяє сценарному табу форсувати reload списку після save.
+- **`src/app/admin/ScenarioGenerator.tsx`**
+  - після успішного save викликає `onSaved()`, щоб `ScenarioStats` одразу підтягнув новий сценарій без ручного reload сторінки.
+
+### Verification
+- `npm run lint -- src/app/admin/AdminTabs.tsx src/app/admin/ScenarioGenerator.tsx src/app/admin/ScenarioStats.tsx`
+  - без помилок
+- `npm run build`
+  - успішно пройшов
+- На staging підтверджено, що новий сценарій `barcelona-sagrada-mystery.json` уже є в shared storage і доступний через `/api/scenarios`; цей фікс закриває саме admin-list gap, через який він не з’являвся в таблиці одразу.
+
 ## [2026-04-18 · Codex] — ANT-57: targeted lint cleanup for AI route
 
 ### Problem

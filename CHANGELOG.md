@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.21] — 2026-04-18
+
+### Fixed
+- **Scenario list refresh (ANT-44)**: адмінський `Scenario List` тепер показує всі сценарії з файлового сховища, навіть якщо по них ще немає session/cost stats, і оновлюється одразу після успішного save в генераторі.
+
+---
+
 ## [0.3.20] — 2026-04-18
 
 ### Fixed
