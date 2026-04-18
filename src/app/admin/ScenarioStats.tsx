@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { Scenario } from '@/types';
 
 interface ScenarioRow {
   scenario_id: string;
@@ -57,7 +58,7 @@ export default function ScenarioStats({ refreshToken = 0 }: ScenarioStatsProps) 
         ]);
 
         const stats = (statsRes.ok ? await statsRes.json() : []) as ScenarioRow[];
-        const scenarios = (scenariosRes.ok ? await scenariosRes.json() : []) as Array<{ id: string }>;
+        const scenarios = (scenariosRes.ok ? await scenariosRes.json() : []) as Scenario[];
 
         const byId = new Map<string, ScenarioRow>();
         for (const scenario of scenarios) {
