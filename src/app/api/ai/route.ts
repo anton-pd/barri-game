@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
-import { buildSystemPromptBlocks, buildSummarizePrompt } from '@/lib/prompts';
+import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
@@ -12,6 +12,7 @@ import { trackAPICall } from '@/lib/costTracker';
 import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiveEvent, buildEventInstruction } from '@/lib/randomEvents';
 import { getCampaignContext } from '@/lib/campaigns';
 import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
+import { applyDeltaToPlayer } from '@/lib/statUtils';
 import type { WorldState, Player } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
@@ -330,10 +331,14 @@ export async function POST(request: Request) {
   const scenario = readScenarioFile(session.scenario_id);
   const recentMessages = await getLastNMessages(sessionId, 30);
   const isIntro = message === '__intro__';
+  const sessionLang: 'uk' | 'en' = (session.language ?? 'uk') as 'uk' | 'en';
 
   const userContent = isIntro
-    ? 'Почни гру: встанови атмосферу, опиши місце та ситуацію де знаходяться гравці. Не питай нічого, просто зроби інтро.'
+    ? getIntroUserContent(sessionLang)
     : (() => {
+        // Multi-action batches arrive already formatted as "[Name]: action\n[Name]: action" —
+        // wrapping again would produce "[Name]: [Name]: …" and mis-attribute the batch.
+        if (allActions && allActions.length > 1) return message;
         const player = session.players[playerIdx];
         return player ? `[${player.name}]: ${message}` : message;
       })();
@@ -365,7 +370,7 @@ export async function POST(request: Request) {
     campaignContext,
     keeperActivitySection: activitySection,
     eventInstruction,
-    language: (session.language ?? 'uk') as 'uk' | 'en',
+    language: sessionLang,
   });
 
   // Claude conversation history
@@ -567,23 +572,16 @@ export async function POST(request: Request) {
           }
         }
 
-        // ── Apply DELTA ─────────────────────────────────────────────────────
+        // ── Apply DELTA (ruleset-driven; legacy hp/sanity/luck still valid) ─
 
         let updatedPlayers = mutatedPlayers;
         if (deltaMatch) {
           try {
-            const delta = JSON.parse(deltaMatch[1]) as Record<string, {
-              hp?: number; sanity?: number; luck?: number
-            }>;
+            const delta = JSON.parse(deltaMatch[1]) as Record<string, Record<string, number>>;
             updatedPlayers = updatedPlayers.map((p, i) => {
               const d = delta[String(i)];
               if (!d) return p;
-              return {
-                ...p,
-                hp:     Math.max(0, Math.min(p.maxHp,         p.hp          + (d.hp     ?? 0))),
-                sanity: Math.max(0, Math.min(p.maxSanity,      p.sanity      + (d.sanity ?? 0))),
-                luck:   Math.max(0, Math.min(p.maxLuck ?? 99, (p.luck ?? 0) + (d.luck   ?? 0))),
-              };
+              return applyDeltaToPlayer(p, scenario.rulesetId, d);
             });
           } catch { /* malformed — ignore */ }
         }
