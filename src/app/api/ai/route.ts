@@ -565,14 +565,14 @@ export async function POST(request: Request) {
         let textAfterRollTags = textAfterInventory;
 
         textAfterRollTags = textAfterRollTags.replace(
-          /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+):([^\]]+)\]/g,
+          /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+)(?::([^\]]*))?\]/g,
           (_, idx, skillName, skillValue, threshold, context) => {
             updatedWorldState.pendingRollResult = {
               characterIdx: Number(idx),
               skillName,
               skillValue: Number(skillValue),
               goodThreshold: Number(threshold),
-              context,
+              context: context ?? '',
             };
             return '';
           }

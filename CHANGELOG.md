@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.28] — 2026-04-19
+
+### Fixed
+- **DiceRoller не зʼявлявся для Library Use (ANT-69)**: regex для парсингу `[SET_PENDING_ROLL]` використовував `([^\]]+)` для поля context, що вимагає мінімум один символ. Якщо LLM генерував тег з порожнім або відсутнім context, regex не матчив — `pendingRollResult` не встановлювався і DiceRoller не зʼявлявся. Fix: context тепер повністю опціональний (`(?::([^\]]*))? ` + fallback `''`).
+
+---
+
 ## [0.3.27] — 2026-04-19
 
 ### Fixed

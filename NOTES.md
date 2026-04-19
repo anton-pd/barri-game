@@ -1,5 +1,18 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-19 · Claude] — ANT-69: DiceRoller не зʼявлявся для Library Use
+
+### Problem
+DiceRoller не зʼявлявся, коли LLM запитував кидок "Library Use" (Бібліотека). Причина: regex для парсингу тегу `[SET_PENDING_ROLL]` в `src/app/api/ai/route.ts` використовував `([^\]]+)` для поля context — це потребує мінімум одного символу. LLM іноді генерує тег з порожнім контекстом (`...25:]`) або зовсім без нього (`...25]`), regex не матчив, `pendingRollResult` не встановлювався, DiceRoller не зʼявлявся.
+
+### Solution
+Змінено regex з `([^\]]+)` → `(?::([^\]]*))? ` — context тепер повністю опціональний, з fallback `''`. Обробляє всі три варіанти: повний context, порожній context, відсутній context.
+
+### Key decisions
+- Мінімальна зміна в одному файлі (`route.ts` рядок 568).
+- Тип `context: string` в types/index.ts залишено без змін (fallback `''` зберігає контракт).
+- DiceRoller вже обробляє `context` як falsy-значення (умовний рендер), тому компонент змін не потребував.
+
 ## [2026-04-19 · Claude] — ANT-66: Next.js standalone НЕ віддає рантайм-файли з public/
 
 ### Context
