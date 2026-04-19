@@ -1,5 +1,74 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-19 · Claude] — Revert ANT-72 частини (verbosity)
+Anton прийняв ANT-67/71, але не ANT-72. `headingStyle` (uk + en) відкочено до попередньої версії ("2–4 абзаци..."). NPC hygiene зміни (ANT-67 — розширений `npcVoiceLine`, ANT-71 — явна заборона player-as-NPC у промті + server guard у `/api/ai/route.ts`) ЗАЛИШЕНІ. ANT-72 далі у `In Review` для окремої ітерації.
+
+---
+
+## [2026-04-19 · Claude] — ANT-67/71/72: гігієна NPC-тегів + щільніший стиль Кіпера
+
+### Problem
+З плейтесту нової кампанії (Останній телеграф):
+- **ANT-72** Кіпер пише все довше, великі суцільні абзаци важко читати, мало розбивки на NPC-репліки.
+- **ANT-67** Одного разу Кіпер вставив пряму мову NPC всередину narration (замість окремого `[NPC:]` тегу).
+- **ANT-71** Одного разу Кіпер "озвучив" гравця — обгорнув слова гравця в `[NPC:Ім'я_Гравця]...[/NPC]`. Це рендерилось як NPC-бульбашка, а auto-register додавав гравця в `npcRelations`.
+
+### Solution
+Чистий prompt-тюнінг + один server-guard. Всі 3 — у єдиній гілці `feature/ANT-67-71-72`, бо правлять ту саму секцію промта.
+
+**prompts.ts:**
+- `headingStyle` (uk + en): обсяг "2–4 абзаци" → "1–2 за замовчуванням, до 3 у важливих сценах; кожен ≤ 3–4 речень, без води". Додано явне правило "ДІАЛОГИ NPC розбивай на окремі `[NPC:]` бульбашки; одна репліка = один тег".
+- `npcVoiceLine` (uk + en): замість одного рядка — структурований блок правил: (1) тільки справжні NPC; (2) НІКОЛИ не загортати слова/думки гравців; (3) всередині тегу — лише пряма мова, жести/погляди/ремарки — у narration перед тегом; (4) одна репліка = один тег; (5) якщо NPC мовчить — не емітити тег.
+
+**/api/ai/route.ts (server-guard для ANT-71):**
+Перед `parseSegments` і перед auto-register циклом додано pre-процесор: для кожного `[NPC:X]...[/NPC]`, якщо `X` збігається (partial, case-insensitive) з іменем якогось гравця з `session.players` — тег розгортається, внутрішній текст залишається як narration. Таким чином:
+- Клієнт не рендерить NPC-бульбашку з іменем гравця.
+- Наступний цикл auto-register не бачить цей тег → гравець не потрапляє в `npcRelations` / `dynamicNpcs`.
+- Текст не губиться, просто переходить у narration.
+
+### Key decisions
+- **Single PR** для 3 тікетів — всі вони правлять сусідні області промта + один помічник у route.ts. Окремі PR-и гарантовано генерували б мерж-конфлікти у `headingStyle`/`npcVoiceLine`.
+- **Prompt-only для ANT-72**: не зменшуємо `max_tokens`, бо ANT-60 саме збільшив його до 900/1400 для intro. Стилем правимо тільки розподіл цих токенів.
+- **Partial match для імен гравців**: дзеркалить існуючу логіку auto-register (`npc.includes(npcName) || npcName.includes(npc)`), щоб варіанти "Анна" / "Анна Коваль" / "Коваль" однаково розпізнавались як player.
+- **Strip vs skip**: обрано strip (розгортати тег), а не просто пропускати auto-register. Інакше клієнт все одно показав би бульбашку "NPC: [імя_гравця]".
+
+### Verification (staging)
+1. Сесія з новим scenario → зробити 3–4 ходи. Візуально: відповіді коротші, діалоги NPC у окремих пастельних бульбашках.
+2. Спровокувати діалог (напр. "говорю до NPC X") → перевірити, що мова NPC у окремому тегу, не всередині narration.
+3. Спробувати змусити кіпера озвучити гравця (напр. "здається, Анна думає вголос: ...") → переконатись, що `[NPC:Анна]` на виході вже немає (або текст всередині, але рендериться як narration). Перевірити `🐛 debug` → у raw_output може бути `[NPC:Анна]`, але у DB-content — вже без тегу. У `world_state.npcRelations` гравця немає.
+4. Export log → перевірити, що `raw_output` у debug-модалі містить оригінальне, а DB content — очищене.
+
+---
+
+## [2026-04-19 · Claude] — ANT-74: адмін-експорт логу + per-message debug Кіпера
+
+### Problem
+Для дебагу гри (чому Кіпер зігнорив тег, повторив DELTA, обрізав відповідь тощо) потрібно бачити повний input промт та сирий output LLM конкретного повідомлення. У БД зберігалася лише post-parse `content` (з NPC/IMAGE тегами, без DELTA/LOCATION і без промту/usage). Так само не було способу швидко витягти весь чат сесії для аналізу офлайн.
+
+### Solution
+- Нова таблиця `message_debug` (`queries.ts → initializeSchema`) з `message_id PK → messages(id)`, `prompt_blocks JSONB`, `raw_output TEXT`, `provider`, `model`, `input_tokens`, `output_tokens`, `finish_reason`. Додано `saveMessageDebug`, `getMessageDebug`.
+- `/api/ai/route.ts` — після `send('done')` робить fire-and-forget `saveMessageDebug(savedAssistantMsg.id, …)` з `{ruleset, static, dynamic, history, systemPrompt?}` + сирий `assistantText` + `finishReason` (Anthropic: `finalMsg.stop_reason`; Gemini: `callGeminiChat` повертає його окремим полем). Signature `callGeminiChat` розширено: тепер повертає `finishReason: string | null`.
+- Нові endpoint-и під `role === 'admin'` JWT-гейтом:
+  - `GET /api/admin/sessions/[id]/export` — markdown з метаданими + транскриптом (raw content, fenced blocks).
+  - `GET /api/admin/messages/[id]/debug` — JSON рядок `message_debug` або 404 із поясненням, що для цього повідомлення debug не зберігався (предує фічі).
+- `session/[id]/page.tsx` рахує `isAdmin = dbUser.role === 'admin'` і передає у `GameChat` як prop.
+- `GameChat.tsx`:
+  - Новий prop `isAdmin`. Якщо true — у settings drawer зʼявляється `⬇ Export log`, а під кожною бульбашкою Кіпера (біля `↻ озвучити`) — `🐛 debug`, яка відкриває модал із JSON + `Copy JSON` та `⬇ .json`.
+  - Handlers `exportChatLog`, `openDebug`, `closeDebug`, `downloadDebug`.
+
+### Key decisions
+- **Тільки для нових повідомлень**: історія до деплою не має промту/raw-output, debug-API повертає 404 для старих. Прийнятний трейд-офф замість бекфілу.
+- **Fire-and-forget** запис у БД — не блокує відповідь, як `trackAPICall`. Час Кіпера не змінюється.
+- **Гейт серверний**: адмін-ендпоїнти перевіряють JWT на кожен запит; клієнтський `isAdmin` — лише для UI.
+- **Формат debug — JSON** (легше дифати), **формат логу чату — markdown** (зручніше переглядати, теги під fenced blocks).
+
+### Verification (staging)
+- Сесія → кілька ходів з `[DELTA]`, `[NPC]`, `[IMAGE]` → `🐛 debug` → перевірити, що `raw_output` містить усі теги (зокрема `[DELTA]`/`[LOCATION]`, які зрізаються з DB-`content`).
+- Non-admin роль: кнопок немає; прямий `GET /api/admin/...` → 403.
+- Export log → відкрити .md → перевірити role/player_idx/timestamp/тег-вміст.
+
+---
+
 ## [2026-04-19 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
 
 ### Problem
