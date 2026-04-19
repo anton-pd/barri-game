@@ -606,6 +606,27 @@ export async function POST(request: Request) {
           updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
         }
 
+        // ── Guard: strip [NPC:<PlayerName>]...[/NPC] (ANT-71) ───────────────
+        // LLM occasionally voices a player character as if an NPC. Such tags
+        // render as an NPC bubble and, worse, auto-register the player into
+        // npcRelations. Unwrap the tag keeping the inner text so narration
+        // is preserved but no NPC artifact leaks downstream.
+        const playerNamesLower = session.players
+          .map((p) => p.name?.trim().toLowerCase())
+          .filter((n): n is string => Boolean(n));
+        if (playerNamesLower.length > 0) {
+          textAfterRollTags = textAfterRollTags.replace(
+            /\[NPC:([^\]]+)\]([\s\S]*?)\[\/NPC\]/g,
+            (full, name: string, inner: string) => {
+              const n = name.trim().toLowerCase();
+              const isPlayer = playerNamesLower.some(
+                (pn) => pn === n || pn.includes(n) || n.includes(pn)
+              );
+              return isPlayer ? inner : full;
+            }
+          );
+        }
+
         const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
 
         // textForDB keeps NPC speech tags and IMAGE tags so the client can reconstruct

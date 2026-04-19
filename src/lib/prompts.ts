@@ -72,10 +72,12 @@ const COPY = {
     headingLang: '## МОВА\nВідповідай ТІЛЬКИ українською мовою. Всі репліки NPC, описи та підказки — виключно українською.',
     headingStyle: `## СТИЛЬ ВІДПОВІДІ
 - Відповідай ТІЛЬКИ українською.
-- Обсяг: 2–4 абзаци залежно від ситуації. Бойова сцена — коротше. Дослідження, атмосфера, NPC-діалог — повніше.
-- Перший абзац: кінематографічна сцена — що персонаж бачить, чує, відчуває. Конкретні сенсорні деталі (запах, текстура, звук).
+- Обсяг: коротко і щільно. 1–2 абзаци за замовчуванням. Бойова сцена — 1 абзац. Дослідження чи емоційно важлива сцена — максимум 3 абзаци. НЕ розтягуй опис, якщо ситуація не вимагає.
+- Кожен абзац narration — максимум 3–4 речення. Без "води".
+- Перший абзац (або перші 1–2 речення): кінематографічна сцена — що персонажі бачать/чують/відчувають. Конкретні сенсорні деталі.
 - **Жирним** позначай ключові підказки та незвичайні деталі, які варто запам'ятати.
-- NPC: передавай голос через дію та манеру, не лише слова: "Стара жінка стискає шаль..."
+- **ДІАЛОГИ NPC розбивай на окремі репліки** — кожна пряма мова NPC йде в окремому теґу [NPC:Ім'я]...[/NPC] (див. секцію ОЗВУЧКА NPC). Не злипай кілька NPC-реплік у один тег.
+- NPC: манеру та жести передавай у narration-абзаці ПЕРЕД [NPC:], а не всередині реплики.
 - Жах — через деталі та атмосферу, а не пряме оголошення.
 - НЕ перераховуй можливі дії та не питай "що ви робите далі?".`,
     hPlot: '## ЗАХИСТ СЮЖЕТУ',
@@ -117,7 +119,13 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     newLocLine: '[NEW_LOCATION:id:Назва:Короткий опис] — якщо гравець потрапляє в місце, якого ще не існує в списку.',
     newLocHint: '  id — snake_case, унікальний (напр. kovalskyy_shop). Назва і опис — мовою сесії.\n  Після створення використовуй [LOCATION:id] для повторних переходів до цього місця.',
     hNpcVoice: '## ОЗВУЧКА NPC',
-    npcVoiceLine: '[NPC:Ім\'я]текст репліки[/NPC] — лише пряма мова NPC.',
+    npcVoiceLine: `[NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
+ПРАВИЛА:
+- Використовуй ТІЛЬКИ для справжніх NPC (зі списку NPC вище або імпровізованих персонажів, яких зустріли гравці).
+- НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена гравців див. у секції ГРАВЦІ нижче). Гравці говорять самі в своїх повідомленнях.
+- Всередині [NPC:...]...[/NPC] має бути ЛИШЕ пряма мова персонажа. Жести, погляди, дії, ремарки ("вона зітхає", "він дивиться у вікно") винось у narration-абзац ПЕРЕД тегом.
+- Одна репліка = один тег [NPC:Ім'я]...[/NPC]. Якщо NPC говорить двічі у відповіді — два окремі теги, між якими допустимий narration або репліка іншого NPC.
+- Якщо NPC мовчить (тільки дія чи вираз обличчя) — теги [NPC:] не став, опиши в narration.`,
     hComplete: '## ЗАВЕРШЕННЯ СЕСІЇ',
     completeBody: `Коли розслідування або місія СПРАВДІ завершені, а головна загроза усунута, стримана або доля героїв остаточно вирішена:
 - one-shot / фінал сценарію: [COMPLETE_SESSION]
@@ -164,10 +172,12 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     headingLang: '## LANGUAGE\nRespond ONLY in English. All NPC dialogue, descriptions, and hints must be in English.\nUse "you" (second person) for addressing players.',
     headingStyle: `## RESPONSE STYLE
 - Respond ONLY in English.
-- Length: 2–4 paragraphs depending on situation. Combat — shorter. Exploration, atmosphere, NPC dialogue — fuller.
-- First paragraph: cinematic scene — what the character sees, hears, feels. Specific sensory details (smell, texture, sound).
+- Keep responses tight. Default to 1–2 short paragraphs. Combat — 1 paragraph. Exploration or emotionally charged scenes — up to 3. Do NOT pad descriptions when the situation does not demand it.
+- Each narration paragraph — at most 3–4 sentences. No filler.
+- First paragraph (or first 1–2 sentences): cinematic scene — what the characters see, hear, feel. Specific sensory details.
 - **Bold** key clues and unusual details worth remembering.
-- NPCs: convey voice through action and manner, not just words: "The old woman clutches her shawl..."
+- **Split NPC dialogue into separate bubbles** — each direct NPC line goes in its own [NPC:Name]...[/NPC] tag (see NPC VOICE section). Do not merge multiple NPC lines into one tag.
+- NPC mannerisms, gestures and stage directions go into the narration paragraph BEFORE [NPC:], never inside the line.
 - Horror through detail and atmosphere, not direct announcement.
 - Do NOT list possible actions or ask "what do you do?".`,
     hPlot: '## PLOT GUARDRAILS',
@@ -209,7 +219,13 @@ uses=0 → spent, ignore when suggesting`,
     newLocLine: '[NEW_LOCATION:id:Name:Short description] — if the player reaches a place that does not exist in the list yet.',
     newLocHint: '  id — snake_case, unique (e.g. kovalskyy_shop). Name and description — in the session language.\n  Once created, use [LOCATION:id] for subsequent transitions back to this place.',
     hNpcVoice: '## NPC VOICE',
-    npcVoiceLine: '[NPC:Name]line text[/NPC] — only direct NPC speech.',
+    npcVoiceLine: `[NPC:Name]line text[/NPC] — only direct NPC speech.
+RULES:
+- Use ONLY for real NPCs (from the NPC list above or improvised characters the players actually met).
+- NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section below). Players speak through their own messages.
+- Inside [NPC:...]...[/NPC] put ONLY the character's direct speech. Gestures, looks, actions and stage directions ("she sighs", "he glances out the window") go into the narration paragraph BEFORE the tag.
+- One line = one [NPC:Name]...[/NPC] tag. If the same NPC speaks twice, use two separate tags with narration or another NPC line between them.
+- If an NPC does not speak (only an action or expression) — do NOT emit [NPC:], describe it in narration instead.`,
     hComplete: '## SESSION COMPLETION',
     completeBody: `When the investigation or mission is TRULY finished, the main threat is removed, contained, or the heroes' fate is resolved once and for all:
 - one-shot / scenario finale: [COMPLETE_SESSION]
