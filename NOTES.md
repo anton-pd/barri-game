@@ -1,6 +1,27 @@
 # Barri Game — Нотатки по змінах
 
-## [2026-04-19 · Claude] — ANT-66: dynamic image — надійна персистенція URL
+## [2026-04-19 · Claude] — ANT-66: Next.js standalone НЕ віддає рантайм-файли з public/
+
+### Context
+Перша спроба фіксу (retry PATCH sessionImages) була мимо каси. Anton потестив — картинка досі пуста. Debug-дамп показав, що LLM правильно пише `[IMAGE:schematic:Schematic of Relay Station]`, файл згенерувався на диску (`/opt/apps/shared_data/public/scenarios/dynamic/1c94b3e58781cdacd1a10771.jpg`, 1.7MB), URL правильно записаний у `world_state.sessionImages`. Але GET `/scenarios/dynamic/1c94b3e58781cdacd1a10771.jpg` повертав **404**.
+
+Перевірка з рестартом контейнера: той самий URL → 200. ✅ Підтверджено: **Next.js 16.2 standalone кешує список `public/` при старті сервера.** Файли, створені в рантаймі, не віддаються.
+
+Це **справжній** корінь ANT-66. Retry PATCH — просто нервовий захист, корисний але вторинний.
+
+### Solution
+1. `next.config.ts` — додано rewrite: `/scenarios/dynamic/:hash.jpg` → `/api/image/file/:hash`.
+2. `src/app/api/image/file/[hash]/route.ts` — новий роут. Читає `/app/public/scenarios/dynamic/HASH.jpg` через `fs.readFileSync`, стрімить buffer із `Cache-Control: public, max-age=604800, immutable`.
+3. Format URL у DB (`/scenarios/dynamic/HASH.jpg`) не змінюється — рantpawn працює для старих і нових картинок.
+4. Retry/self-heal/fallback із попереднього коміту лишаються — захист на випадок мережевих проблем і деградації Gemini.
+
+### Verify
+- На staging після деплою: `curl -I https://staging.barrigame.es/scenarios/dynamic/<нова_hash>.jpg` → 200 БЕЗ рестарту контейнера.
+- Клієнт: картинка з'являється одразу після генерації, без F5.
+
+---
+
+## [2026-04-19 · Claude] — ANT-66: dynamic image — надійна персистенція URL (первинна спроба)
 
 ### Problem
 Anton: "Динамічне зображення не згенерувалось, лишилось битим. Після перезаходу на наступний день — зображення з'явилось. Чому так генерується?"

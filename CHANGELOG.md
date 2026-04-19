@@ -8,12 +8,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.3.27] — 2026-04-19
 
 ### Fixed
-- **Битий placeholder dynamic image, який "полагоджувався" наступного дня (ANT-66)**: root cause — PATCH `world_state.sessionImages` робився fire-and-forget (`.catch(console.error)`). Якщо мережа/вкладка дропали між `onUrlGenerated` і PATCH, [IMAGE:] тег лишався у DB без URL у `sessionImages`. Наступного дня /api/image давав cache hit (shared volume), і PATCH нарешті проходив — звідси ілюзія "само полагодилось".
-  - `GameChat.tsx`: PATCH обгорнутий у `persistSessionImages` з retry × 3 + exponential backoff (500/1000ms). `handleUrlGenerated` ідемпотентний — не PATCHить якщо URL вже збігається.
-  - `GameChat.tsx` (self-heal): `DynamicImage` при наявності `url` одразу викликає `onUrlGenerated`, тож якщо `sessionImages[msgId]` пустий (через попередній дроп) — retry відбувається при наступному рендері.
-  - `DynamicImage`: замість тихого `return null` на error тепер placeholder із кнопкою `↻ Спробувати ще раз`. `/api/image` помилки тепер видно у консолі.
-  - `/api/image`: Gemini помилки (не-429) і "no image in response" тепер fallback-ять на Pollinations замість 502, тож клієнт отримує хоч якийсь URL.
-
+- **Битий placeholder dynamic image, який "полагоджувався" наступного дня (ANT-66)**:
+  - **Головний root cause (виявлено після першої спроби)**: Next.js 16.2 standalone режим кешує список файлів `public/` при старті сервера. Рантайм-згенеровані картинки (`/public/scenarios/dynamic/HASH.jpg`) фізично лежать на shared volume, але HTTP-запит до `/scenarios/dynamic/*.jpg` повертає 404 до наступного рестарту контейнера. Звідси "наступного дня" (після деплою/рестарту) картинка "з'являлась".
+  - **Fix**: додано Next.js `rewrites()` у `next.config.ts`: `/scenarios/dynamic/:hash.jpg` → `/api/image/file/:hash`. Новий API-роут `src/app/api/image/file/[hash]/route.ts` читає файл із `process.cwd()/public/scenarios/dynamic/` у рантаймі. URL у DB (`sessionImages`) лишаються у форматі `/scenarios/dynamic/HASH.jpg`, старі картинки теж обслуговуються через новий handler.
+  - **Супутній fix** (PATCH reliability, знайдений першим): `GameChat.tsx` — `persistSessionImages` з retry × 3 + exponential backoff; `handleUrlGenerated` ідемпотентний; `DynamicImage` self-heal при наявності `url` prop; error placeholder з кнопкою `↻ Спробувати ще раз`.
+  - **Image API resilience**: `/api/image` Gemini помилки (не-429) і "no image in response" fallback на Pollinations замість 502.
 ---
 
 ## [0.3.26] — 2026-04-19
