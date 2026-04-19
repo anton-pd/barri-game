@@ -145,6 +145,7 @@ interface GameChatProps {
   rulesetId?: string;
   defaultAiProvider?: AiProvider;
   defaultTtsProvider?: 'openai' | 'gemini';
+  isAdmin?: boolean;
 }
 
 // msgId → { prompt, type }
@@ -155,30 +156,65 @@ interface DynamicImageMeta { prompt: string; type: string }
 function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: { prompt: string; type: string; sessionId: string; msgId?: string; url?: string; onUrlGenerated?: (msgId: string, url: string) => void }) {
   const [src, setSrc]         = useState<string | null>(url || null);
   const [error, setError]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const fetched = useRef(false);
   const resolvedSrc = url ?? src;
+
+  // Self-heal: if a URL was provided by the parent but somehow sessionImages isn't persisted,
+  // re-trigger onUrlGenerated so the retrying PATCH has another chance.
+  useEffect(() => {
+    if (url && msgId && onUrlGenerated) onUrlGenerated(msgId, url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, msgId]);
+
+  const doFetch = () => {
+    if (!msgId || !onUrlGenerated) return;
+    setLoading(true);
+    setError(false);
+    const urlStr = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}&json=true`;
+    fetch(urlStr)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => {
+        if (data.url) {
+          setSrc(data.url);
+          onUrlGenerated(msgId, data.url);
+          setLoading(false);
+        } else {
+          setError(true);
+          setLoading(false);
+        }
+      })
+      .catch((e) => {
+        console.warn('[DynamicImage] fetch failed:', e);
+        setError(true);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     if (url) return;
     if (fetched.current || !msgId || !onUrlGenerated) return;
     fetched.current = true;
-    
-    const urlStr = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}&json=true`;
-    fetch(urlStr)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => {
-        if (data.url) {
-          setSrc(data.url);
-          onUrlGenerated(msgId, data.url);
-        } else {
-          setError(true);
-        }
-      })
-      .catch(() => setError(true));
+    doFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt, type, sessionId, url, msgId, onUrlGenerated]);
 
-  if (error) return null;
+  if (error && !resolvedSrc) {
+    return (
+      <div className="mt-2 rounded-xl bg-stone-800 border border-stone-700 flex flex-col items-center justify-center gap-2 py-4" style={{ minHeight: 120 }}>
+        <span className="text-stone-400 text-xs">Не вдалося згенерувати зображення</span>
+        <button
+          type="button"
+          onClick={() => { fetched.current = true; doFetch(); }}
+          disabled={loading}
+          className="text-xs px-3 py-1 rounded bg-stone-700 hover:bg-stone-600 text-stone-200 disabled:opacity-50"
+        >
+          {loading ? 'Спроба…' : '↻ Спробувати ще раз'}
+        </button>
+      </div>
+    );
+  }
 
   if (!resolvedSrc) {
     return (
@@ -510,7 +546,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini' }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -523,17 +559,35 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       : null
   );
 
+  const persistSessionImages = async (sessionId: string, worldState: GameSession['world_state']) => {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ world_state: worldState }),
+        });
+        if (res.ok) return true;
+        console.warn(`[sessionImages PATCH] attempt ${attempt}/${maxAttempts} failed: ${res.status}`);
+      } catch (e) {
+        console.warn(`[sessionImages PATCH] attempt ${attempt}/${maxAttempts} error:`, e);
+      }
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    console.error('[sessionImages PATCH] giving up after 3 attempts — image URL not persisted');
+    return false;
+  };
+
   const handleUrlGenerated = (msgId: string, url: string) => {
     setSession((s) => {
-      const updatedImages = { ...(s.world_state.sessionImages ?? {}), [msgId]: url };
+      const existing = s.world_state.sessionImages ?? {};
+      if (existing[msgId] === url) return s;
+      const updatedImages = { ...existing, [msgId]: url };
       const updatedWorldState = { ...s.world_state, sessionImages: updatedImages };
-      
-      fetch(`/api/sessions/${s.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ world_state: updatedWorldState }),
-      }).catch(console.error);
-      
+      void persistSessionImages(s.id, updatedWorldState);
       return { ...s, world_state: updatedWorldState };
     });
   };
@@ -549,6 +603,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showSettings, setShowSettings]       = useState(false);
   const [showSidebar, setShowSidebar]         = useState(false);
+  const [debugFor, setDebugFor]               = useState<string | null>(null);
+  const [debugData, setDebugData]             = useState<unknown>(null);
+  const [debugError, setDebugError]           = useState<string | null>(null);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
@@ -839,6 +896,67 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       localStorage.setItem('diceMode', next);
       return next;
     });
+  }
+
+  async function exportChatLog() {
+    try {
+      const res = await fetch(`/api/admin/sessions/${session.id}/export`);
+      if (!res.ok) {
+        alert(`Export failed: ${res.status}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `barri-session-${session.id}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Export chat log error:', e);
+      alert('Export failed');
+    }
+  }
+
+  async function openDebug(msgId: string) {
+    setDebugFor(msgId);
+    setDebugData(null);
+    setDebugError(null);
+    try {
+      const res = await fetch(`/api/admin/messages/${msgId}/debug`);
+      if (res.status === 404) {
+        setDebugError('No debug data saved for this message (predates feature or non-assistant).');
+        return;
+      }
+      if (!res.ok) {
+        setDebugError(`Error ${res.status}`);
+        return;
+      }
+      setDebugData(await res.json());
+    } catch (e) {
+      setDebugError(String(e));
+    }
+  }
+
+  function closeDebug() {
+    setDebugFor(null);
+    setDebugData(null);
+    setDebugError(null);
+  }
+
+  function downloadDebug() {
+    if (!debugData || !debugFor) return;
+    const blob = new Blob([JSON.stringify(debugData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `barri-debug-${debugFor}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 
   async function speakMsg(msgId: string, text: string, voiceStyle?: string, segments?: Segment[]) {
@@ -1220,6 +1338,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
           <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
           <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
+
+          {isAdmin && (
+            <button
+              onClick={exportChatLog}
+              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-stone-300 text-xs border border-amber-900/40"
+              title="Export full chat log (markdown, admin)"
+            >
+              ⬇ Export log
+            </button>
+          )}
           {ambientEnabled && (
             <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
               <span className="text-stone-500">🔈</span>
@@ -1286,6 +1414,54 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {statusError && (
         <div className="border-b border-stone-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
           {statusError}
+        </div>
+      )}
+
+      {debugFor && (
+        <div className="fixed inset-0 z-50 flex items-stretch bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
+          <div className="flex w-full flex-col overflow-hidden rounded-t-2xl border border-stone-700 bg-stone-950 sm:max-h-[85vh] sm:max-w-4xl sm:rounded-2xl">
+            <div className="flex items-center justify-between gap-2 border-b border-stone-800 px-4 py-3">
+              <div>
+                <h2 className="text-sm font-semibold text-stone-100">Keeper message debug</h2>
+                <p className="text-[11px] text-stone-500 break-all">msg {debugFor}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {debugData !== null && (
+                  <>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(JSON.stringify(debugData, null, 2));
+                      }}
+                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
+                    >
+                      Copy JSON
+                    </button>
+                    <button
+                      onClick={downloadDebug}
+                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
+                    >
+                      ⬇ .json
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={closeDebug}
+                  className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-300 hover:bg-stone-700"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 text-xs text-stone-300">
+              {debugError && <p className="text-amber-400">{debugError}</p>}
+              {!debugError && debugData === null && <p className="text-stone-500">Loading…</p>}
+              {!debugError && debugData !== null && (
+                <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">
+                  {JSON.stringify(debugData, null, 2)}
+                </pre>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1403,17 +1579,28 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // Replay button — shared across all bubbles of the same message
           const replayBtn = (
-            <button
-              onClick={() => handleReplay(msg.id, displayContent)}
-              disabled={isLoadingA}
-              className={`text-xs mt-1 ml-1 transition-colors ${
-                isPlaying   ? 'text-amber-500 animate-pulse' :
-                isLoadingA  ? 'text-stone-600 cursor-wait'   :
-                              'text-stone-600 hover:text-stone-400'
-              }`}
-            >
-              {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
-            </button>
+            <span className="inline-flex items-center gap-2">
+              <button
+                onClick={() => handleReplay(msg.id, displayContent)}
+                disabled={isLoadingA}
+                className={`text-xs mt-1 ml-1 transition-colors ${
+                  isPlaying   ? 'text-amber-500 animate-pulse' :
+                  isLoadingA  ? 'text-stone-600 cursor-wait'   :
+                                'text-stone-600 hover:text-stone-400'
+                }`}
+              >
+                {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
+              </button>
+              {isAdmin && !isUser && (
+                <button
+                  onClick={() => openDebug(msg.id)}
+                  className="text-xs mt-1 text-stone-600 hover:text-amber-400 transition-colors"
+                  title="Show LLM prompt + raw output (admin)"
+                >
+                  🐛 debug
+                </button>
+              )}
+            </span>
           );
 
           // ── User message ────────────────────────────────────────────────────

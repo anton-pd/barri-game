@@ -5,10 +5,46 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
-## [0.3.25] — 2026-04-19
+## [0.3.29] — 2026-04-19
 
 ### Changed
 - **Довше structured intro (ANT-60)**: `introInstruction` у `prompts.ts` переписано під чітку 4-5-абзацну структуру (сцена → час/місце → NPC/деталі → сюжетний гачок з `**bold**` підказками → опційний перехід) і таргет 700-1100 символів. Intro-шлях тепер запитує більший token-бюджет: Gemini `maxOutputTokens: 1400`, Claude `max_tokens: 1400` (звичайні відповіді лишились 900).
+
+---
+
+## [0.3.28] — 2026-04-19
+
+### Fixed
+- **DiceRoller не зʼявлявся для Library Use (ANT-69)**: regex для парсингу `[SET_PENDING_ROLL]` використовував `([^\]]+)` для поля context, що вимагає мінімум один символ. Якщо LLM генерував тег з порожнім або відсутнім context, regex не матчив — `pendingRollResult` не встановлювався і DiceRoller не зʼявлявся. Fix: context тепер повністю опціональний (`(?::([^\]]*))? ` + fallback `''`).
+
+---
+
+## [0.3.27] — 2026-04-19
+
+### Fixed
+- **Битий placeholder dynamic image, який "полагоджувався" наступного дня (ANT-66)**:
+  - **Головний root cause (виявлено після першої спроби)**: Next.js 16.2 standalone режим кешує список файлів `public/` при старті сервера. Рантайм-згенеровані картинки (`/public/scenarios/dynamic/HASH.jpg`) фізично лежать на shared volume, але HTTP-запит до `/scenarios/dynamic/*.jpg` повертає 404 до наступного рестарту контейнера. Звідси "наступного дня" (після деплою/рестарту) картинка "з'являлась".
+  - **Fix**: додано Next.js `rewrites()` у `next.config.ts`: `/scenarios/dynamic/:hash.jpg` → `/api/image/file/:hash`. Новий API-роут `src/app/api/image/file/[hash]/route.ts` читає файл із `process.cwd()/public/scenarios/dynamic/` у рантаймі. URL у DB (`sessionImages`) лишаються у форматі `/scenarios/dynamic/HASH.jpg`, старі картинки теж обслуговуються через новий handler.
+  - **Супутній fix** (PATCH reliability, знайдений першим): `GameChat.tsx` — `persistSessionImages` з retry × 3 + exponential backoff; `handleUrlGenerated` ідемпотентний; `DynamicImage` self-heal при наявності `url` prop; error placeholder з кнопкою `↻ Спробувати ще раз`.
+  - **Image API resilience**: `/api/image` Gemini помилки (не-429) і "no image in response" fallback на Pollinations замість 502.
+---
+
+## [0.3.26] — 2026-04-19
+
+### Fixed
+- **NPC-тег hygiene (ANT-67)**: секцію `## ОЗВУЧКА NPC` / `## NPC VOICE` розширено чіткими правилами — всередину `[NPC:...]...[/NPC]` йде лише пряма мова; жести, погляди, ремарки виносяться в narration перед тегом; одна репліка = один тег.
+- **Кіпер озвучував гравця як NPC (ANT-71)**: `/api/ai/route.ts` тепер перед `parseSegments` та auto-register зрізає обгортку `[NPC:<PlayerName>]...[/NPC]`, якщо ім'я у тегу збігається з іменем будь-якого гравця (partial match) — внутрішній текст зберігається у narration. Це прибирає фантомні NPC-бульбашки з іменем гравця та запобігає додаванню гравця у `npcRelations`. Prompt також тепер явно забороняє загортати слова гравців у `[NPC:]`.
+
+---
+
+## [0.3.25] — 2026-04-19
+
+### Added
+- **Admin debug tools (ANT-74)**: для ролі `admin` додано два інструменти діагностики Кіпера:
+  - **Export chat log** — кнопка у settings drawer сесії (тільки admin). Завантажує повний транскрипт у Markdown, з метаданими сесії та raw `content` кожного повідомлення (всі теги збережені).
+  - **Per-message debug** — іконка `🐛 debug` під кожним повідомленням Кіпера (тільки admin). Відкриває модал із JSON: система (ruleset/static/dynamic блоки), історія, що пішла у LLM, сирий output (склеєний, до парсингу тегів), `finishReason`, `usage`, `model`, `provider`. Підтримка copy-to-clipboard і `.json` завантаження.
+- Нова таблиця `message_debug` (міграція в `initializeSchema`). Запис у неї відбувається fire-and-forget після `done` SSE-евенту, час відповіді Кіпера не збільшується. Дані доступні лише для повідомлень, створених після деплою фічі.
+- Endpoints: `GET /api/admin/sessions/[id]/export` (markdown), `GET /api/admin/messages/[id]/debug` (JSON). Обидва перевіряють `role === 'admin'` у JWT → інакше 403.
 
 ---
 

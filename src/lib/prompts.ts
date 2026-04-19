@@ -125,7 +125,13 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     newLocLine: '[NEW_LOCATION:id:Назва:Короткий опис] — якщо гравець потрапляє в місце, якого ще не існує в списку.',
     newLocHint: '  id — snake_case, унікальний (напр. kovalskyy_shop). Назва і опис — мовою сесії.\n  Після створення використовуй [LOCATION:id] для повторних переходів до цього місця.',
     hNpcVoice: '## ОЗВУЧКА NPC',
-    npcVoiceLine: '[NPC:Ім\'я]текст репліки[/NPC] — лише пряма мова NPC.',
+    npcVoiceLine: `[NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
+ПРАВИЛА:
+- Використовуй ТІЛЬКИ для справжніх NPC (зі списку NPC вище або імпровізованих персонажів, яких зустріли гравці).
+- НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена гравців див. у секції ГРАВЦІ нижче). Гравці говорять самі в своїх повідомленнях.
+- Всередині [NPC:...]...[/NPC] має бути ЛИШЕ пряма мова персонажа. Жести, погляди, дії, ремарки ("вона зітхає", "він дивиться у вікно") винось у narration-абзац ПЕРЕД тегом.
+- Одна репліка = один тег [NPC:Ім'я]...[/NPC]. Якщо NPC говорить двічі у відповіді — два окремі теги, між якими допустимий narration або репліка іншого NPC.
+- Якщо NPC мовчить (тільки дія чи вираз обличчя) — теги [NPC:] не став, опиши в narration.`,
     hComplete: '## ЗАВЕРШЕННЯ СЕСІЇ',
     completeBody: `Коли розслідування або місія СПРАВДІ завершені, а головна загроза усунута, стримана або доля героїв остаточно вирішена:
 - one-shot / фінал сценарію: [COMPLETE_SESSION]
@@ -225,7 +231,13 @@ uses=0 → spent, ignore when suggesting`,
     newLocLine: '[NEW_LOCATION:id:Name:Short description] — if the player reaches a place that does not exist in the list yet.',
     newLocHint: '  id — snake_case, unique (e.g. kovalskyy_shop). Name and description — in the session language.\n  Once created, use [LOCATION:id] for subsequent transitions back to this place.',
     hNpcVoice: '## NPC VOICE',
-    npcVoiceLine: '[NPC:Name]line text[/NPC] — only direct NPC speech.',
+    npcVoiceLine: `[NPC:Name]line text[/NPC] — only direct NPC speech.
+RULES:
+- Use ONLY for real NPCs (from the NPC list above or improvised characters the players actually met).
+- NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section below). Players speak through their own messages.
+- Inside [NPC:...]...[/NPC] put ONLY the character's direct speech. Gestures, looks, actions and stage directions ("she sighs", "he glances out the window") go into the narration paragraph BEFORE the tag.
+- One line = one [NPC:Name]...[/NPC] tag. If the same NPC speaks twice, use two separate tags with narration or another NPC line between them.
+- If an NPC does not speak (only an action or expression) — do NOT emit [NPC:], describe it in narration instead.`,
     hComplete: '## SESSION COMPLETION',
     completeBody: `When the investigation or mission is TRULY finished, the main threat is removed, contained, or the heroes' fate is resolved once and for all:
 - one-shot / scenario finale: [COMPLETE_SESSION]

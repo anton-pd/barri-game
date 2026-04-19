@@ -18,6 +18,140 @@
 
 ---
 
+## [2026-04-19 · Claude] — ANT-69: DiceRoller не зʼявлявся для Library Use
+
+### Problem
+DiceRoller не зʼявлявся, коли LLM запитував кидок "Library Use" (Бібліотека). Причина: regex для парсингу тегу `[SET_PENDING_ROLL]` в `src/app/api/ai/route.ts` використовував `([^\]]+)` для поля context — це потребує мінімум одного символу. LLM іноді генерує тег з порожнім контекстом (`...25:]`) або зовсім без нього (`...25]`), regex не матчив, `pendingRollResult` не встановлювався, DiceRoller не зʼявлявся.
+
+### Solution
+Змінено regex з `([^\]]+)` → `(?::([^\]]*))? ` — context тепер повністю опціональний, з fallback `''`. Обробляє всі три варіанти: повний context, порожній context, відсутній context.
+
+### Key decisions
+- Мінімальна зміна в одному файлі (`route.ts` рядок 568).
+- Тип `context: string` в types/index.ts залишено без змін (fallback `''` зберігає контракт).
+- DiceRoller вже обробляє `context` як falsy-значення (умовний рендер), тому компонент змін не потребував.
+
+## [2026-04-19 · Claude] — ANT-66: Next.js standalone НЕ віддає рантайм-файли з public/
+
+### Context
+Перша спроба фіксу (retry PATCH sessionImages) була мимо каси. Anton потестив — картинка досі пуста. Debug-дамп показав, що LLM правильно пише `[IMAGE:schematic:Schematic of Relay Station]`, файл згенерувався на диску (`/opt/apps/shared_data/public/scenarios/dynamic/1c94b3e58781cdacd1a10771.jpg`, 1.7MB), URL правильно записаний у `world_state.sessionImages`. Але GET `/scenarios/dynamic/1c94b3e58781cdacd1a10771.jpg` повертав **404**.
+
+Перевірка з рестартом контейнера: той самий URL → 200. ✅ Підтверджено: **Next.js 16.2 standalone кешує список `public/` при старті сервера.** Файли, створені в рантаймі, не віддаються.
+
+Це **справжній** корінь ANT-66. Retry PATCH — просто нервовий захист, корисний але вторинний.
+
+### Solution
+1. `next.config.ts` — додано rewrite: `/scenarios/dynamic/:hash.jpg` → `/api/image/file/:hash`.
+2. `src/app/api/image/file/[hash]/route.ts` — новий роут. Читає `/app/public/scenarios/dynamic/HASH.jpg` через `fs.readFileSync`, стрімить buffer із `Cache-Control: public, max-age=604800, immutable`.
+3. Format URL у DB (`/scenarios/dynamic/HASH.jpg`) не змінюється — рantpawn працює для старих і нових картинок.
+4. Retry/self-heal/fallback із попереднього коміту лишаються — захист на випадок мережевих проблем і деградації Gemini.
+
+### Verify
+- На staging після деплою: `curl -I https://staging.barrigame.es/scenarios/dynamic/<нова_hash>.jpg` → 200 БЕЗ рестарту контейнера.
+- Клієнт: картинка з'являється одразу після генерації, без F5.
+
+---
+
+## [2026-04-19 · Claude] — ANT-66: dynamic image — надійна персистенція URL (первинна спроба)
+
+### Problem
+Anton: "Динамічне зображення не згенерувалось, лишилось битим. Після перезаходу на наступний день — зображення з'явилось. Чому так генерується?"
+
+### Investigation
+Flow: LLM пише `[IMAGE:...]` → client отримує `messageId` у `done` SSE → `DynamicImage` фетчить `/api/image` → `onUrlGenerated(msgId, url)` → PATCH `world_state.sessionImages`.
+
+Root cause: PATCH був fire-and-forget з `.catch(console.error)`. Якщо мережа/вкладка дропнула між `onUrlGenerated` і PATCH — [IMAGE:] тег лишався у DB без URL у `sessionImages`, при рендері показувався placeholder "Генерується зображення..." (бо тег є, URL нема, fetch вже `fetched.current=true`). А файл на диску існував, бо `saveImageToCache` відбувався на стороні сервера синхронно.
+
+Наступного дня при рендері сесії `DynamicImage` заново викликався без URL → `/api/image` давав cache hit (hash-based, і файл лежить на shared volume `/opt/apps/shared_data/public/scenarios`) → `onUrlGenerated` спрацьовував знову → цього разу PATCH проходив. Звідси "само полагодилось".
+
+### Solution
+1. **`GameChat.tsx` — `persistSessionImages`**: retry × 3 з exponential backoff (500/1000ms) перед тим як "здатись". `handleUrlGenerated` ідемпотентний: якщо `sessionImages[msgId] === url` — нічого не робимо.
+2. **Self-heal у `DynamicImage`**: коли parent передав `url`, компонент одразу викликає `onUrlGenerated(msgId, url)`. Parent через guard нічого не зробить якщо URL уже в `sessionImages`, інакше — спробує знову PATCHнути. Тобто навіть якщо перший PATCH помер, наступний рендер (reload, переключення табів) витягне стан у консистент.
+3. **UX на фейл**: замість `return null` на error — placeholder з кнопкою `↻ Спробувати ще раз`. Раніше зображення просто зникало.
+4. **`/api/image` resilience**: Gemini помилки (не-429) і "no image in response" тепер fallback на Pollinations замість повернення 502. Раніше лише 3× 429 retries фолбечились.
+
+### Key decisions
+- Не стали робити server-side idempotent-URL в DB (наприклад, писати sessionImages одразу у `/api/ai`): client-side fetch `/api/image` лишається обов'язковим (бо він і генерує картинку), тож PATCH все одно потрібен. Покращили його надійність.
+- Не міняли API /api/image контракту (URL у sessionImages = `/scenarios/dynamic/HASH.jpg`).
+- Лог `[sessionImages PATCH]` у консолі допоможе відстежувати частоту race-conditions у проді.
+
+### Verify on staging
+1. Відкрити сесію, спровокувати dynamic image (напр. опис локації).
+2. Перевірити DevTools Network: PATCH `/api/sessions/:id` виконується; у `world_state.sessionImages` є новий msg.id → URL.
+3. Перезавантажити сторінку — зображення рендериться миттєво без повторного /api/image (бо URL уже у sessionImages).
+4. У консолі браузера `[sessionImages PATCH]` має бути відсутнім у успішному кейсі.
+
+---
+
+## [2026-04-19 · Claude] — Revert ANT-72 частини (verbosity)
+Anton прийняв ANT-67/71, але не ANT-72. `headingStyle` (uk + en) відкочено до попередньої версії ("2–4 абзаци..."). NPC hygiene зміни (ANT-67 — розширений `npcVoiceLine`, ANT-71 — явна заборона player-as-NPC у промті + server guard у `/api/ai/route.ts`) ЗАЛИШЕНІ. ANT-72 далі у `In Review` для окремої ітерації.
+
+---
+
+## [2026-04-19 · Claude] — ANT-67/71/72: гігієна NPC-тегів + щільніший стиль Кіпера
+
+### Problem
+З плейтесту нової кампанії (Останній телеграф):
+- **ANT-72** Кіпер пише все довше, великі суцільні абзаци важко читати, мало розбивки на NPC-репліки.
+- **ANT-67** Одного разу Кіпер вставив пряму мову NPC всередину narration (замість окремого `[NPC:]` тегу).
+- **ANT-71** Одного разу Кіпер "озвучив" гравця — обгорнув слова гравця в `[NPC:Ім'я_Гравця]...[/NPC]`. Це рендерилось як NPC-бульбашка, а auto-register додавав гравця в `npcRelations`.
+
+### Solution
+Чистий prompt-тюнінг + один server-guard. Всі 3 — у єдиній гілці `feature/ANT-67-71-72`, бо правлять ту саму секцію промта.
+
+**prompts.ts:**
+- `headingStyle` (uk + en): обсяг "2–4 абзаци" → "1–2 за замовчуванням, до 3 у важливих сценах; кожен ≤ 3–4 речень, без води". Додано явне правило "ДІАЛОГИ NPC розбивай на окремі `[NPC:]` бульбашки; одна репліка = один тег".
+- `npcVoiceLine` (uk + en): замість одного рядка — структурований блок правил: (1) тільки справжні NPC; (2) НІКОЛИ не загортати слова/думки гравців; (3) всередині тегу — лише пряма мова, жести/погляди/ремарки — у narration перед тегом; (4) одна репліка = один тег; (5) якщо NPC мовчить — не емітити тег.
+
+**/api/ai/route.ts (server-guard для ANT-71):**
+Перед `parseSegments` і перед auto-register циклом додано pre-процесор: для кожного `[NPC:X]...[/NPC]`, якщо `X` збігається (partial, case-insensitive) з іменем якогось гравця з `session.players` — тег розгортається, внутрішній текст залишається як narration. Таким чином:
+- Клієнт не рендерить NPC-бульбашку з іменем гравця.
+- Наступний цикл auto-register не бачить цей тег → гравець не потрапляє в `npcRelations` / `dynamicNpcs`.
+- Текст не губиться, просто переходить у narration.
+
+### Key decisions
+- **Single PR** для 3 тікетів — всі вони правлять сусідні області промта + один помічник у route.ts. Окремі PR-и гарантовано генерували б мерж-конфлікти у `headingStyle`/`npcVoiceLine`.
+- **Prompt-only для ANT-72**: не зменшуємо `max_tokens`, бо ANT-60 саме збільшив його до 900/1400 для intro. Стилем правимо тільки розподіл цих токенів.
+- **Partial match для імен гравців**: дзеркалить існуючу логіку auto-register (`npc.includes(npcName) || npcName.includes(npc)`), щоб варіанти "Анна" / "Анна Коваль" / "Коваль" однаково розпізнавались як player.
+- **Strip vs skip**: обрано strip (розгортати тег), а не просто пропускати auto-register. Інакше клієнт все одно показав би бульбашку "NPC: [імя_гравця]".
+
+### Verification (staging)
+1. Сесія з новим scenario → зробити 3–4 ходи. Візуально: відповіді коротші, діалоги NPC у окремих пастельних бульбашках.
+2. Спровокувати діалог (напр. "говорю до NPC X") → перевірити, що мова NPC у окремому тегу, не всередині narration.
+3. Спробувати змусити кіпера озвучити гравця (напр. "здається, Анна думає вголос: ...") → переконатись, що `[NPC:Анна]` на виході вже немає (або текст всередині, але рендериться як narration). Перевірити `🐛 debug` → у raw_output може бути `[NPC:Анна]`, але у DB-content — вже без тегу. У `world_state.npcRelations` гравця немає.
+4. Export log → перевірити, що `raw_output` у debug-модалі містить оригінальне, а DB content — очищене.
+
+---
+
+## [2026-04-19 · Claude] — ANT-74: адмін-експорт логу + per-message debug Кіпера
+
+### Problem
+Для дебагу гри (чому Кіпер зігнорив тег, повторив DELTA, обрізав відповідь тощо) потрібно бачити повний input промт та сирий output LLM конкретного повідомлення. У БД зберігалася лише post-parse `content` (з NPC/IMAGE тегами, без DELTA/LOCATION і без промту/usage). Так само не було способу швидко витягти весь чат сесії для аналізу офлайн.
+
+### Solution
+- Нова таблиця `message_debug` (`queries.ts → initializeSchema`) з `message_id PK → messages(id)`, `prompt_blocks JSONB`, `raw_output TEXT`, `provider`, `model`, `input_tokens`, `output_tokens`, `finish_reason`. Додано `saveMessageDebug`, `getMessageDebug`.
+- `/api/ai/route.ts` — після `send('done')` робить fire-and-forget `saveMessageDebug(savedAssistantMsg.id, …)` з `{ruleset, static, dynamic, history, systemPrompt?}` + сирий `assistantText` + `finishReason` (Anthropic: `finalMsg.stop_reason`; Gemini: `callGeminiChat` повертає його окремим полем). Signature `callGeminiChat` розширено: тепер повертає `finishReason: string | null`.
+- Нові endpoint-и під `role === 'admin'` JWT-гейтом:
+  - `GET /api/admin/sessions/[id]/export` — markdown з метаданими + транскриптом (raw content, fenced blocks).
+  - `GET /api/admin/messages/[id]/debug` — JSON рядок `message_debug` або 404 із поясненням, що для цього повідомлення debug не зберігався (предує фічі).
+- `session/[id]/page.tsx` рахує `isAdmin = dbUser.role === 'admin'` і передає у `GameChat` як prop.
+- `GameChat.tsx`:
+  - Новий prop `isAdmin`. Якщо true — у settings drawer зʼявляється `⬇ Export log`, а під кожною бульбашкою Кіпера (біля `↻ озвучити`) — `🐛 debug`, яка відкриває модал із JSON + `Copy JSON` та `⬇ .json`.
+  - Handlers `exportChatLog`, `openDebug`, `closeDebug`, `downloadDebug`.
+
+### Key decisions
+- **Тільки для нових повідомлень**: історія до деплою не має промту/raw-output, debug-API повертає 404 для старих. Прийнятний трейд-офф замість бекфілу.
+- **Fire-and-forget** запис у БД — не блокує відповідь, як `trackAPICall`. Час Кіпера не змінюється.
+- **Гейт серверний**: адмін-ендпоїнти перевіряють JWT на кожен запит; клієнтський `isAdmin` — лише для UI.
+- **Формат debug — JSON** (легше дифати), **формат логу чату — markdown** (зручніше переглядати, теги під fenced blocks).
+
+### Verification (staging)
+- Сесія → кілька ходів з `[DELTA]`, `[NPC]`, `[IMAGE]` → `🐛 debug` → перевірити, що `raw_output` містить усі теги (зокрема `[DELTA]`/`[LOCATION]`, які зрізаються з DB-`content`).
+- Non-admin роль: кнопок немає; прямий `GET /api/admin/...` → 403.
+- Export log → відкрити .md → перевірити role/player_idx/timestamp/тег-вміст.
+
+---
+
 ## [2026-04-19 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
 
 ### Problem
