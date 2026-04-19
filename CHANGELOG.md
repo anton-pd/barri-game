@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.25] — 2026-04-19
+
+### Added
+- **Admin debug tools (ANT-74)**: для ролі `admin` додано два інструменти діагностики Кіпера:
+  - **Export chat log** — кнопка у settings drawer сесії (тільки admin). Завантажує повний транскрипт у Markdown, з метаданими сесії та raw `content` кожного повідомлення (всі теги збережені).
+  - **Per-message debug** — іконка `🐛 debug` під кожним повідомленням Кіпера (тільки admin). Відкриває модал із JSON: система (ruleset/static/dynamic блоки), історія, що пішла у LLM, сирий output (склеєний, до парсингу тегів), `finishReason`, `usage`, `model`, `provider`. Підтримка copy-to-clipboard і `.json` завантаження.
+- Нова таблиця `message_debug` (міграція в `initializeSchema`). Запис у неї відбувається fire-and-forget після `done` SSE-евенту, час відповіді Кіпера не збільшується. Дані доступні лише для повідомлень, створених після деплою фічі.
+- Endpoints: `GET /api/admin/sessions/[id]/export` (markdown), `GET /api/admin/messages/[id]/debug` (JSON). Обидва перевіряють `role === 'admin'` у JWT → інакше 403.
+
+---
+
 ## [0.3.24] — 2026-04-19
 
 ### Fixed

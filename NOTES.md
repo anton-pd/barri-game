@@ -1,5 +1,34 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-19 · Claude] — ANT-74: адмін-експорт логу + per-message debug Кіпера
+
+### Problem
+Для дебагу гри (чому Кіпер зігнорив тег, повторив DELTA, обрізав відповідь тощо) потрібно бачити повний input промт та сирий output LLM конкретного повідомлення. У БД зберігалася лише post-parse `content` (з NPC/IMAGE тегами, без DELTA/LOCATION і без промту/usage). Так само не було способу швидко витягти весь чат сесії для аналізу офлайн.
+
+### Solution
+- Нова таблиця `message_debug` (`queries.ts → initializeSchema`) з `message_id PK → messages(id)`, `prompt_blocks JSONB`, `raw_output TEXT`, `provider`, `model`, `input_tokens`, `output_tokens`, `finish_reason`. Додано `saveMessageDebug`, `getMessageDebug`.
+- `/api/ai/route.ts` — після `send('done')` робить fire-and-forget `saveMessageDebug(savedAssistantMsg.id, …)` з `{ruleset, static, dynamic, history, systemPrompt?}` + сирий `assistantText` + `finishReason` (Anthropic: `finalMsg.stop_reason`; Gemini: `callGeminiChat` повертає його окремим полем). Signature `callGeminiChat` розширено: тепер повертає `finishReason: string | null`.
+- Нові endpoint-и під `role === 'admin'` JWT-гейтом:
+  - `GET /api/admin/sessions/[id]/export` — markdown з метаданими + транскриптом (raw content, fenced blocks).
+  - `GET /api/admin/messages/[id]/debug` — JSON рядок `message_debug` або 404 із поясненням, що для цього повідомлення debug не зберігався (предує фічі).
+- `session/[id]/page.tsx` рахує `isAdmin = dbUser.role === 'admin'` і передає у `GameChat` як prop.
+- `GameChat.tsx`:
+  - Новий prop `isAdmin`. Якщо true — у settings drawer зʼявляється `⬇ Export log`, а під кожною бульбашкою Кіпера (біля `↻ озвучити`) — `🐛 debug`, яка відкриває модал із JSON + `Copy JSON` та `⬇ .json`.
+  - Handlers `exportChatLog`, `openDebug`, `closeDebug`, `downloadDebug`.
+
+### Key decisions
+- **Тільки для нових повідомлень**: історія до деплою не має промту/raw-output, debug-API повертає 404 для старих. Прийнятний трейд-офф замість бекфілу.
+- **Fire-and-forget** запис у БД — не блокує відповідь, як `trackAPICall`. Час Кіпера не змінюється.
+- **Гейт серверний**: адмін-ендпоїнти перевіряють JWT на кожен запит; клієнтський `isAdmin` — лише для UI.
+- **Формат debug — JSON** (легше дифати), **формат логу чату — markdown** (зручніше переглядати, теги під fenced blocks).
+
+### Verification (staging)
+- Сесія → кілька ходів з `[DELTA]`, `[NPC]`, `[IMAGE]` → `🐛 debug` → перевірити, що `raw_output` містить усі теги (зокрема `[DELTA]`/`[LOCATION]`, які зрізаються з DB-`content`).
+- Non-admin роль: кнопок немає; прямий `GET /api/admin/...` → 403.
+- Export log → відкрити .md → перевірити role/player_idx/timestamp/тег-вміст.
+
+---
+
 ## [2026-04-19 · Claude] — ANT-58/60: діагностичне логування Gemini (Фаза 1)
 
 ### Problem

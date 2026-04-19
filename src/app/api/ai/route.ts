@@ -3,7 +3,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
-import { getSession, getLastNMessages, countMessages, saveMessage, updateSession } from '@/lib/queries';
+import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDebug, updateSession } from '@/lib/queries';
 import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
@@ -114,7 +114,7 @@ async function callGeminiChat(
   systemPrompt: string,
   history: GeminiMessage[],
   diag?: { sessionId: string; isIntro: boolean }
-): Promise<{ text: string; inputTokens: number; outputTokens: number }> {
+): Promise<{ text: string; inputTokens: number; outputTokens: number; finishReason: string | null }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
@@ -185,6 +185,7 @@ async function callGeminiChat(
     text,
     inputTokens:  data.usageMetadata?.promptTokenCount     ?? 0,
     outputTokens: outTokens,
+    finishReason: finishReason ?? null,
   };
 }
 
@@ -480,6 +481,9 @@ export async function POST(request: Request) {
         let assistantText = '';
         let inputTokens = 0;
         let outputTokens = 0;
+        let finishReason: string | null = null;
+        let debugModel = '';
+        let debugProvider: 'anthropic' | 'gemini' = 'gemini';
 
         if (aiProvider === 'claude-sonnet') {
           // CHANGED: Stream response so client sees text as it arrives
@@ -509,6 +513,9 @@ export async function POST(request: Request) {
           }
           inputTokens = finalMsg.usage?.input_tokens ?? 0;
           outputTokens = finalMsg.usage?.output_tokens ?? 0;
+          finishReason = finalMsg.stop_reason ?? null;
+          debugModel = 'claude-sonnet-4-6';
+          debugProvider = 'anthropic';
 
           trackAPICall({
             sessionId,
@@ -525,6 +532,9 @@ export async function POST(request: Request) {
           assistantText = geminiResult.text;
           inputTokens   = geminiResult.inputTokens;
           outputTokens  = geminiResult.outputTokens;
+          finishReason  = geminiResult.finishReason;
+          debugModel = modelId;
+          debugProvider = 'gemini';
 
           trackAPICall({
             sessionId,
@@ -776,6 +786,23 @@ export async function POST(request: Request) {
               ? 'complete-session'
               : null,
         });
+
+        // ── Debug snapshot (admin-only, fire-and-forget) ────────────────────
+        saveMessageDebug(savedAssistantMsg.id, {
+          promptBlocks: {
+            ruleset: blocks.ruleset,
+            static:  blocks.static,
+            dynamic: blocks.dynamic,
+            history: debugProvider === 'anthropic' ? conversationHistory : geminiHistory,
+            systemPrompt: debugProvider === 'gemini' ? systemPrompt : undefined,
+          },
+          rawOutput: assistantText,
+          provider: debugProvider,
+          model: debugModel,
+          inputTokens,
+          outputTokens,
+          finishReason: finishReason ?? undefined,
+        }).catch((e) => console.error('saveMessageDebug failed:', e));
 
       } catch (error) {
         console.error('Error in AI route:', error);

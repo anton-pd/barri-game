@@ -102,6 +102,7 @@ export default async function SessionPage({ params }: PageProps) {
       rulesetId={rulesetId}
       defaultAiProvider={defaultAiProvider}
       defaultTtsProvider={defaultTtsProvider}
+      isAdmin={isAdmin}
     />
   );
 }
