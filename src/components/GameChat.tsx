@@ -156,30 +156,65 @@ interface DynamicImageMeta { prompt: string; type: string }
 function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: { prompt: string; type: string; sessionId: string; msgId?: string; url?: string; onUrlGenerated?: (msgId: string, url: string) => void }) {
   const [src, setSrc]         = useState<string | null>(url || null);
   const [error, setError]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const fetched = useRef(false);
   const resolvedSrc = url ?? src;
+
+  // Self-heal: if a URL was provided by the parent but somehow sessionImages isn't persisted,
+  // re-trigger onUrlGenerated so the retrying PATCH has another chance.
+  useEffect(() => {
+    if (url && msgId && onUrlGenerated) onUrlGenerated(msgId, url);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [url, msgId]);
+
+  const doFetch = () => {
+    if (!msgId || !onUrlGenerated) return;
+    setLoading(true);
+    setError(false);
+    const urlStr = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}&json=true`;
+    fetch(urlStr)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => {
+        if (data.url) {
+          setSrc(data.url);
+          onUrlGenerated(msgId, data.url);
+          setLoading(false);
+        } else {
+          setError(true);
+          setLoading(false);
+        }
+      })
+      .catch((e) => {
+        console.warn('[DynamicImage] fetch failed:', e);
+        setError(true);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
     if (url) return;
     if (fetched.current || !msgId || !onUrlGenerated) return;
     fetched.current = true;
-    
-    const urlStr = `/api/image?prompt=${encodeURIComponent(prompt)}&type=${encodeURIComponent(type)}&sessionId=${encodeURIComponent(sessionId)}&json=true`;
-    fetch(urlStr)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((data) => {
-        if (data.url) {
-          setSrc(data.url);
-          onUrlGenerated(msgId, data.url);
-        } else {
-          setError(true);
-        }
-      })
-      .catch(() => setError(true));
+    doFetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prompt, type, sessionId, url, msgId, onUrlGenerated]);
 
-  if (error) return null;
+  if (error && !resolvedSrc) {
+    return (
+      <div className="mt-2 rounded-xl bg-stone-800 border border-stone-700 flex flex-col items-center justify-center gap-2 py-4" style={{ minHeight: 120 }}>
+        <span className="text-stone-400 text-xs">Не вдалося згенерувати зображення</span>
+        <button
+          type="button"
+          onClick={() => { fetched.current = true; doFetch(); }}
+          disabled={loading}
+          className="text-xs px-3 py-1 rounded bg-stone-700 hover:bg-stone-600 text-stone-200 disabled:opacity-50"
+        >
+          {loading ? 'Спроба…' : '↻ Спробувати ще раз'}
+        </button>
+      </div>
+    );
+  }
 
   if (!resolvedSrc) {
     return (
@@ -524,17 +559,35 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       : null
   );
 
+  const persistSessionImages = async (sessionId: string, worldState: GameSession['world_state']) => {
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ world_state: worldState }),
+        });
+        if (res.ok) return true;
+        console.warn(`[sessionImages PATCH] attempt ${attempt}/${maxAttempts} failed: ${res.status}`);
+      } catch (e) {
+        console.warn(`[sessionImages PATCH] attempt ${attempt}/${maxAttempts} error:`, e);
+      }
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 500 * attempt));
+      }
+    }
+    console.error('[sessionImages PATCH] giving up after 3 attempts — image URL not persisted');
+    return false;
+  };
+
   const handleUrlGenerated = (msgId: string, url: string) => {
     setSession((s) => {
-      const updatedImages = { ...(s.world_state.sessionImages ?? {}), [msgId]: url };
+      const existing = s.world_state.sessionImages ?? {};
+      if (existing[msgId] === url) return s;
+      const updatedImages = { ...existing, [msgId]: url };
       const updatedWorldState = { ...s.world_state, sessionImages: updatedImages };
-      
-      fetch(`/api/sessions/${s.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ world_state: updatedWorldState }),
-      }).catch(console.error);
-      
+      void persistSessionImages(s.id, updatedWorldState);
       return { ...s, world_state: updatedWorldState };
     });
   };

@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.27] — 2026-04-19
+
+### Fixed
+- **Битий placeholder dynamic image, який "полагоджувався" наступного дня (ANT-66)**: root cause — PATCH `world_state.sessionImages` робився fire-and-forget (`.catch(console.error)`). Якщо мережа/вкладка дропали між `onUrlGenerated` і PATCH, [IMAGE:] тег лишався у DB без URL у `sessionImages`. Наступного дня /api/image давав cache hit (shared volume), і PATCH нарешті проходив — звідси ілюзія "само полагодилось".
+  - `GameChat.tsx`: PATCH обгорнутий у `persistSessionImages` з retry × 3 + exponential backoff (500/1000ms). `handleUrlGenerated` ідемпотентний — не PATCHить якщо URL вже збігається.
+  - `GameChat.tsx` (self-heal): `DynamicImage` при наявності `url` одразу викликає `onUrlGenerated`, тож якщо `sessionImages[msgId]` пустий (через попередній дроп) — retry відбувається при наступному рендері.
+  - `DynamicImage`: замість тихого `return null` на error тепер placeholder із кнопкою `↻ Спробувати ще раз`. `/api/image` помилки тепер видно у консолі.
+  - `/api/image`: Gemini помилки (не-429) і "no image in response" тепер fallback-ять на Pollinations замість 502, тож клієнт отримує хоч якийсь URL.
+
+---
+
 ## [0.3.26] — 2026-04-19
 
 ### Fixed
