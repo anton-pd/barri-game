@@ -249,6 +249,23 @@ export async function initializeSchema() {
     WHERE provider = 'gemini' AND model = 'gemini-2.5-flash-preview-tts' AND metric = 'perChar'
   `;
 
+  // Per-message debug snapshot (admin-only) — input prompt + raw LLM output.
+  // Populated fire-and-forget after each assistant message; only new messages
+  // since this table existed have debug data (old messages return 404).
+  await sql`
+    CREATE TABLE IF NOT EXISTS message_debug (
+      message_id    UUID PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+      prompt_blocks JSONB NOT NULL,
+      raw_output    TEXT  NOT NULL,
+      provider      VARCHAR(50),
+      model         VARCHAR(100),
+      input_tokens  INTEGER,
+      output_tokens INTEGER,
+      finish_reason VARCHAR(50),
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   // Global app settings table (key/value)
   await sql`
     CREATE TABLE IF NOT EXISTS app_settings (
@@ -491,6 +508,60 @@ export async function getAllMessages(sessionId: string): Promise<Message[]> {
     ORDER BY created_at ASC
   `;
   return rows as unknown as Message[];
+}
+
+// ── Message debug (admin) ──────────────────────────────────────────────────────
+
+export interface MessageDebugInput {
+  promptBlocks: unknown; // { ruleset, static, dynamic, history }
+  rawOutput: string;
+  provider?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  finishReason?: string;
+}
+
+export interface MessageDebugRow {
+  message_id: string;
+  prompt_blocks: unknown;
+  raw_output: string;
+  provider: string | null;
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  finish_reason: string | null;
+  created_at: string;
+}
+
+export async function saveMessageDebug(
+  messageId: string,
+  data: MessageDebugInput
+): Promise<void> {
+  await sql`
+    INSERT INTO message_debug (
+      message_id, prompt_blocks, raw_output, provider, model,
+      input_tokens, output_tokens, finish_reason
+    ) VALUES (
+      ${messageId}, ${jsonOf(data.promptBlocks)}, ${data.rawOutput},
+      ${data.provider ?? null}, ${data.model ?? null},
+      ${data.inputTokens ?? null}, ${data.outputTokens ?? null},
+      ${data.finishReason ?? null}
+    )
+    ON CONFLICT (message_id) DO UPDATE SET
+      prompt_blocks = EXCLUDED.prompt_blocks,
+      raw_output    = EXCLUDED.raw_output,
+      provider      = EXCLUDED.provider,
+      model         = EXCLUDED.model,
+      input_tokens  = EXCLUDED.input_tokens,
+      output_tokens = EXCLUDED.output_tokens,
+      finish_reason = EXCLUDED.finish_reason
+  `;
+}
+
+export async function getMessageDebug(messageId: string): Promise<MessageDebugRow | null> {
+  const rows = await sql`SELECT * FROM message_debug WHERE message_id = ${messageId}`;
+  return (rows[0] as unknown as MessageDebugRow) ?? null;
 }
 
 // ── Auth queries ───────────────────────────────────────────────────────────────
