@@ -72,12 +72,10 @@ const COPY = {
     headingLang: '## МОВА\nВідповідай ТІЛЬКИ українською мовою. Всі репліки NPC, описи та підказки — виключно українською.',
     headingStyle: `## СТИЛЬ ВІДПОВІДІ
 - Відповідай ТІЛЬКИ українською.
-- Обсяг: коротко і щільно. 1–2 абзаци за замовчуванням. Бойова сцена — 1 абзац. Дослідження чи емоційно важлива сцена — максимум 3 абзаци. НЕ розтягуй опис, якщо ситуація не вимагає.
-- Кожен абзац narration — максимум 3–4 речення. Без "води".
-- Перший абзац (або перші 1–2 речення): кінематографічна сцена — що персонажі бачать/чують/відчувають. Конкретні сенсорні деталі.
+- Обсяг: 2–4 абзаци залежно від ситуації. Бойова сцена — коротше. Дослідження, атмосфера, NPC-діалог — повніше.
+- Перший абзац: кінематографічна сцена — що персонаж бачить, чує, відчуває. Конкретні сенсорні деталі (запах, текстура, звук).
 - **Жирним** позначай ключові підказки та незвичайні деталі, які варто запам'ятати.
-- **ДІАЛОГИ NPC розбивай на окремі репліки** — кожна пряма мова NPC йде в окремому теґу [NPC:Ім'я]...[/NPC] (див. секцію ОЗВУЧКА NPC). Не злипай кілька NPC-реплік у один тег.
-- NPC: манеру та жести передавай у narration-абзаці ПЕРЕД [NPC:], а не всередині реплики.
+- NPC: передавай голос через дію та манеру, не лише слова: "Стара жінка стискає шаль..."
 - Жах — через деталі та атмосферу, а не пряме оголошення.
 - НЕ перераховуй можливі дії та не питай "що ви робите далі?".`,
     hPlot: '## ЗАХИСТ СЮЖЕТУ',
@@ -172,12 +170,10 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     headingLang: '## LANGUAGE\nRespond ONLY in English. All NPC dialogue, descriptions, and hints must be in English.\nUse "you" (second person) for addressing players.',
     headingStyle: `## RESPONSE STYLE
 - Respond ONLY in English.
-- Keep responses tight. Default to 1–2 short paragraphs. Combat — 1 paragraph. Exploration or emotionally charged scenes — up to 3. Do NOT pad descriptions when the situation does not demand it.
-- Each narration paragraph — at most 3–4 sentences. No filler.
-- First paragraph (or first 1–2 sentences): cinematic scene — what the characters see, hear, feel. Specific sensory details.
+- Length: 2–4 paragraphs depending on situation. Combat — shorter. Exploration, atmosphere, NPC dialogue — fuller.
+- First paragraph: cinematic scene — what the character sees, hears, feels. Specific sensory details (smell, texture, sound).
 - **Bold** key clues and unusual details worth remembering.
-- **Split NPC dialogue into separate bubbles** — each direct NPC line goes in its own [NPC:Name]...[/NPC] tag (see NPC VOICE section). Do not merge multiple NPC lines into one tag.
-- NPC mannerisms, gestures and stage directions go into the narration paragraph BEFORE [NPC:], never inside the line.
+- NPCs: convey voice through action and manner, not just words: "The old woman clutches her shawl..."
 - Horror through detail and atmosphere, not direct announcement.
 - Do NOT list possible actions or ask "what do you do?".`,
     hPlot: '## PLOT GUARDRAILS',

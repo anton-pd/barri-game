@@ -1,5 +1,10 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-19 · Claude] — Revert ANT-72 частини (verbosity)
+Anton прийняв ANT-67/71, але не ANT-72. `headingStyle` (uk + en) відкочено до попередньої версії ("2–4 абзаци..."). NPC hygiene зміни (ANT-67 — розширений `npcVoiceLine`, ANT-71 — явна заборона player-as-NPC у промті + server guard у `/api/ai/route.ts`) ЗАЛИШЕНІ. ANT-72 далі у `In Review` для окремої ітерації.
+
+---
+
 ## [2026-04-19 · Claude] — ANT-67/71/72: гігієна NPC-тегів + щільніший стиль Кіпера
 
 ### Problem
