@@ -1,5 +1,36 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-19 · Claude] — ANT-66: dynamic image — надійна персистенція URL
+
+### Problem
+Anton: "Динамічне зображення не згенерувалось, лишилось битим. Після перезаходу на наступний день — зображення з'явилось. Чому так генерується?"
+
+### Investigation
+Flow: LLM пише `[IMAGE:...]` → client отримує `messageId` у `done` SSE → `DynamicImage` фетчить `/api/image` → `onUrlGenerated(msgId, url)` → PATCH `world_state.sessionImages`.
+
+Root cause: PATCH був fire-and-forget з `.catch(console.error)`. Якщо мережа/вкладка дропнула між `onUrlGenerated` і PATCH — [IMAGE:] тег лишався у DB без URL у `sessionImages`, при рендері показувався placeholder "Генерується зображення..." (бо тег є, URL нема, fetch вже `fetched.current=true`). А файл на диску існував, бо `saveImageToCache` відбувався на стороні сервера синхронно.
+
+Наступного дня при рендері сесії `DynamicImage` заново викликався без URL → `/api/image` давав cache hit (hash-based, і файл лежить на shared volume `/opt/apps/shared_data/public/scenarios`) → `onUrlGenerated` спрацьовував знову → цього разу PATCH проходив. Звідси "само полагодилось".
+
+### Solution
+1. **`GameChat.tsx` — `persistSessionImages`**: retry × 3 з exponential backoff (500/1000ms) перед тим як "здатись". `handleUrlGenerated` ідемпотентний: якщо `sessionImages[msgId] === url` — нічого не робимо.
+2. **Self-heal у `DynamicImage`**: коли parent передав `url`, компонент одразу викликає `onUrlGenerated(msgId, url)`. Parent через guard нічого не зробить якщо URL уже в `sessionImages`, інакше — спробує знову PATCHнути. Тобто навіть якщо перший PATCH помер, наступний рендер (reload, переключення табів) витягне стан у консистент.
+3. **UX на фейл**: замість `return null` на error — placeholder з кнопкою `↻ Спробувати ще раз`. Раніше зображення просто зникало.
+4. **`/api/image` resilience**: Gemini помилки (не-429) і "no image in response" тепер fallback на Pollinations замість повернення 502. Раніше лише 3× 429 retries фолбечились.
+
+### Key decisions
+- Не стали робити server-side idempotent-URL в DB (наприклад, писати sessionImages одразу у `/api/ai`): client-side fetch `/api/image` лишається обов'язковим (бо він і генерує картинку), тож PATCH все одно потрібен. Покращили його надійність.
+- Не міняли API /api/image контракту (URL у sessionImages = `/scenarios/dynamic/HASH.jpg`).
+- Лог `[sessionImages PATCH]` у консолі допоможе відстежувати частоту race-conditions у проді.
+
+### Verify on staging
+1. Відкрити сесію, спровокувати dynamic image (напр. опис локації).
+2. Перевірити DevTools Network: PATCH `/api/sessions/:id` виконується; у `world_state.sessionImages` є новий msg.id → URL.
+3. Перезавантажити сторінку — зображення рендериться миттєво без повторного /api/image (бо URL уже у sessionImages).
+4. У консолі браузера `[sessionImages PATCH]` має бути відсутнім у успішному кейсі.
+
+---
+
 ## [2026-04-19 · Claude] — Revert ANT-72 частини (verbosity)
 Anton прийняв ANT-67/71, але не ANT-72. `headingStyle` (uk + en) відкочено до попередньої версії ("2–4 абзаци..."). NPC hygiene зміни (ANT-67 — розширений `npcVoiceLine`, ANT-71 — явна заборона player-as-NPC у промті + server guard у `/api/ai/route.ts`) ЗАЛИШЕНІ. ANT-72 далі у `In Review` для окремої ітерації.
 

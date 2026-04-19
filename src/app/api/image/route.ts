@@ -119,7 +119,8 @@ async function handleGemini(
 
     if (!res.ok) {
       console.error('Gemini image error:', res.status, await res.text());
-      return new Response('Image generation failed', { status: 502 });
+      console.warn('Gemini failed, falling back to Pollinations');
+      return handlePollinations(prompt, cacheKey);
     }
 
     const data = await res.json() as {
@@ -130,7 +131,8 @@ async function handleGemini(
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
     if (!imagePart?.inlineData) {
       console.error('Gemini: no image in response', JSON.stringify(data).slice(0, 200));
-      return new Response('No image returned', { status: 502 });
+      console.warn('Gemini returned no image, falling back to Pollinations');
+      return handlePollinations(prompt, cacheKey);
     }
 
     const { mimeType, data: b64 } = imagePart.inlineData;
