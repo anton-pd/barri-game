@@ -13,8 +13,9 @@ const TTS_OPTIONS = [
 ];
 
 export default function KeeperSettings() {
-  const [aiProvider,  setAiProvider]  = useState<string>('gemini-flash');
-  const [ttsProvider, setTtsProvider] = useState<string>('gemini');
+  const [aiProvider,         setAiProvider]         = useState<string>('gemini-flash');
+  const [ttsProvider,        setTtsProvider]        = useState<string>('gemini');
+  const [geminiCacheEnabled, setGeminiCacheEnabled] = useState<boolean>(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved,  setSaved]  = useState<string | null>(null);
 
@@ -24,6 +25,7 @@ export default function KeeperSettings() {
       .then((data: Record<string, string>) => {
         if (data.ai_provider)  setAiProvider(data.ai_provider);
         if (data.tts_provider) setTtsProvider(data.tts_provider);
+        setGeminiCacheEnabled(data.gemini_cache_enabled === 'true');
       });
   }, []);
 
@@ -87,6 +89,39 @@ export default function KeeperSettings() {
               </button>
             ))}
             {saved === 'tts_provider' && <span className="text-xs text-emerald-500 self-center">Saved ✓</span>}
+          </div>
+        </div>
+
+        {/* Gemini Implicit Cache */}
+        <div>
+          <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Gemini Implicit Cache</p>
+          <p className="text-xs text-stone-600 mb-2">
+            Separates dynamic state from systemInstruction so ruleset+static prefix is stable across turns.
+            Enables Gemini 2.5 Flash implicit caching (75% token discount on ~1500 tokens/req).
+            OFF by default — enable to A/B test quality vs combined prompt.
+          </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const next = !geminiCacheEnabled;
+                setGeminiCacheEnabled(next);
+                save('gemini_cache_enabled', String(next));
+              }}
+              disabled={saving === 'gemini_cache_enabled'}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                geminiCacheEnabled ? 'bg-amber-700' : 'bg-stone-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  geminiCacheEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-sm text-stone-400">
+              {geminiCacheEnabled ? 'ON — split mode (dynamic in history)' : 'OFF — combined mode'}
+            </span>
+            {saved === 'gemini_cache_enabled' && <span className="text-xs text-emerald-500">Saved ✓</span>}
           </div>
         </div>
 

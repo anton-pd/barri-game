@@ -145,6 +145,7 @@ interface GameChatProps {
   rulesetId?: string;
   defaultAiProvider?: AiProvider;
   defaultTtsProvider?: 'openai' | 'gemini';
+  defaultGeminiCacheEnabled?: boolean;
   isAdmin?: boolean;
 }
 
@@ -551,7 +552,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'gemini-flash', defaultTtsProvider = 'gemini', defaultGeminiCacheEnabled = false, isAdmin = false }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -652,8 +653,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const audioCacheRef     = useRef<Map<string, string>>(new Map());
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
   const currentAmbientUrlRef = useRef<string | null>(null);
-  const [ttsProvider] = useState<'openai' | 'gemini'>(defaultTtsProvider);
-  const [aiProvider]  = useState<AiProvider>(defaultAiProvider);
+  const [ttsProvider]         = useState<'openai' | 'gemini'>(defaultTtsProvider);
+  const [aiProvider]          = useState<AiProvider>(defaultAiProvider);
+  const [geminiCacheEnabled]  = useState<boolean>(defaultGeminiCacheEnabled);
   // CHANGED: KeeperStyle — controls Keeper activity level
   const [keeperStyle, setKeeperStyle] = useState<'passive' | 'balanced' | 'active'>(() => {
     if (typeof window !== 'undefined') {
@@ -750,6 +752,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         aiProvider,
         autoVoiceEnabled,
         keeperStyle,
+        geminiCacheEnabled,
       }),
     })
       .then(async (res) => {
@@ -1106,6 +1109,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           aiProvider,
           autoVoiceEnabled,
           keeperStyle,
+          geminiCacheEnabled,
         }),
       });
       if (!res.ok || !res.body) throw new Error('AI request failed');

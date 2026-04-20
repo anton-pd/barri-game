@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.32] — 2026-04-20
+
+### Added
+- **Gemini implicit cache toggle**: нова адмін-опція `gemini_cache_enabled` (OFF за замовчуванням). При ON — `systemInstruction` містить тільки `ruleset + static` (стабільний префікс), `dynamic` переноситься як перша пара повідомлень у conversation history. Це дозволяє Gemini 2.5 Flash implicit caching (~75% знижка на ~1500 токенів/запит). Debug-лог отримав поле `geminiCacheMode: 'split'|'combined'` для порівняльного тестування.
+
+---
+
+## [0.3.31] — 2026-04-20
+
+### Fixed
+- **"Roll 1 or less" narrative bug**: додано правило до ruleset-блоку промпту (обидві мови) — AI не запитує кидки по навичках, яких немає в списку гравця, і ніколи не встановлює поріг < 10 у тегу `[SET_PENDING_ROLL]`. Замість цього описує наративний провал або пропонує суміжну навичку.
+- **Debug log cleanup**: прибрано поле `systemPrompt` з `saveMessageDebug` для Gemini-сесій — воно дублювало `ruleset + static + dynamic`.
+
+---
+
 ## [0.3.30] — 2026-04-20
 
 ### Fixed

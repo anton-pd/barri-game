@@ -1,5 +1,35 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — Gemini implicit cache toggle
+
+### Problem
+Gemini 2.5 Flash підтримує implicit caching (автоматичний, без коду), але ми не отримували cache hits: `dynamic` блок включався прямо в `systemInstruction`, яка змінювалась на кожен запит → спільного префіксу немає → кеш ніколи не спрацьовував.
+
+### Solution
+- `route.ts`: при `geminiCacheEnabled=true` `systemInstruction = ruleset + static` (стабільний префікс, ~1500 tok); `dynamic` вставляється як синтетична перша пара `user/model` в `geminiHistory`. При `false` — поведінка без змін (combined mode).
+- `queries.ts`: seed-рядок `gemini_cache_enabled: 'false'` (за замовчуванням OFF).
+- `page.tsx` → `GameChat.tsx`: prop `defaultGeminiCacheEnabled` та `geminiCacheEnabled` state, прокидується в обидва fetch (`__intro__` та основний).
+- `KeeperSettings.tsx`: toggle з підписом "split mode / combined mode". Debug-знімок отримав поле `geminiCacheMode: 'split'|'combined'`.
+
+### Key decisions
+- Default OFF щоб Anton міг порівняти якість промпту між режимами, не ризикуючи регресією.
+- Synthetic `[СТАН СЕСІЇ]` / `Зрозумів.` пара — мінімальна синтетична конструкція, стандартна практика для Gemini multi-turn без окремих system-blocks.
+- При `combined` (OFF) поведінка ідентична попередній, zero risk.
+
+## [2026-04-20 · Claude] — prompt fixes: ruleset "roll ≤1" bug + debug log cleanup
+
+### Problem
+1. AI іноді запитував кидок по навичках, яких немає в списку гравця (напр. Locksmith=1, Occult=5 — базові CoC 7e). Результат: "Кинь X, треба 1 або менше" — абсурдно для наративу.
+2. Debug JSON лог (Gemini) містив `systemPrompt` = `ruleset + static + dynamic` поруч з самими блоками — виглядало як дублювання ruleset.
+
+### Solution
+- `rulesets.ts` (обидві мови): додано секцію `### Якщо навичка відсутня в списку гравця` — AI не питає кидок по відсутніх навичках, натомість описує наративний провал або пропонує суміжну навичку зі списку. Жорстке правило: поріг у `[SET_PENDING_ROLL]` ніколи не < 10.
+- `route.ts`: прибрано поле `systemPrompt` з дебаг-знімку `saveMessageDebug` — три окремих блоки (`ruleset`, `static`, `dynamic`) вже дають повну картину без дублювання.
+
+### Key decisions
+- Правило "ніколи поріг < 10" як запобіжник на рівні промпту — простіше ніж серверна валідація.
+- Пропозиція суміжної навички (Electrical Repair замість Locksmith) зберігає можливість для гравця — не просто блокує дію.
+
 ## [2026-04-20 · Claude] — ANT-70: NPC деталі накопичуються під час гри
 
 ### Problem

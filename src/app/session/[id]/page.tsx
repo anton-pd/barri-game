@@ -88,8 +88,9 @@ export default async function SessionPage({ params }: PageProps) {
   );
 
   const settings = await getAllAppSettings();
-  const defaultAiProvider  = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
-  const defaultTtsProvider = (settings.tts_provider ?? 'gemini') as 'openai' | 'gemini';
+  const defaultAiProvider       = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
+  const defaultTtsProvider      = (settings.tts_provider ?? 'gemini') as 'openai' | 'gemini';
+  const defaultGeminiCacheEnabled = settings.gemini_cache_enabled === 'true';
 
   return (
     <GameChat
@@ -102,6 +103,7 @@ export default async function SessionPage({ params }: PageProps) {
       rulesetId={rulesetId}
       defaultAiProvider={defaultAiProvider}
       defaultTtsProvider={defaultTtsProvider}
+      defaultGeminiCacheEnabled={defaultGeminiCacheEnabled}
       isAdmin={isAdmin}
     />
   );

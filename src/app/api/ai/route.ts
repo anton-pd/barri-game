@@ -360,6 +360,7 @@ export async function POST(request: Request) {
     aiProvider = 'claude-sonnet',
     autoVoiceEnabled = false,
     keeperStyle: keeperStyleFromBody,
+    geminiCacheEnabled = false,
   } = body as {
     sessionId: string;
     message: string;
@@ -368,6 +369,7 @@ export async function POST(request: Request) {
     aiProvider?: AiProvider;
     autoVoiceEnabled?: boolean;
     keeperStyle?: 'passive' | 'balanced' | 'active';
+    geminiCacheEnabled?: boolean;
   };
 
   if (!sessionId || !message) {
@@ -459,15 +461,28 @@ export async function POST(request: Request) {
   ];
 
   // Gemini history
+  // geminiCacheEnabled: separate dynamic block from systemInstruction so the stable
+  // ruleset+static prefix qualifies for Gemini implicit caching (75% token discount).
+  // Without this, dynamic changes every request → systemInstruction is unique → no cache hit.
   const modelId = GEMINI_MODELS[aiProvider] ?? '';
-  const systemPrompt = `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
-  const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
-    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-      const name = session.players[m.player_idx].name;
-      return { role: 'user', parts: [{ text: `[${name}]: ${m.content}` }] };
-    }
-    return { role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] };
-  });
+  const systemPrompt = geminiCacheEnabled
+    ? `${blocks.ruleset}\n\n${blocks.static}`
+    : `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
+  const geminiHistory: GeminiMessage[] = [
+    ...(geminiCacheEnabled
+      ? [
+          { role: 'user'  as const, parts: [{ text: `[СТАН СЕСІЇ]\n${blocks.dynamic}` }] },
+          { role: 'model' as const, parts: [{ text: 'Зрозумів.' }] },
+        ]
+      : []),
+    ...recentMessages.map((m) => {
+      if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+        const name = session.players[m.player_idx].name;
+        return { role: 'user' as const, parts: [{ text: `[${name}]: ${m.content}` }] };
+      }
+      return { role: m.role === 'assistant' ? 'model' as const : 'user' as const, parts: [{ text: m.content }] };
+    }),
+  ];
   geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
 
   // ── SSE stream ────────────────────────────────────────────────────────────
@@ -885,7 +900,9 @@ export async function POST(request: Request) {
             static:  blocks.static,
             dynamic: blocks.dynamic,
             history: debugProvider === 'anthropic' ? conversationHistory : geminiHistory,
-            systemPrompt: debugProvider === 'gemini' ? systemPrompt : undefined,
+            ...(debugProvider === 'gemini' && {
+              geminiCacheMode: geminiCacheEnabled ? 'split' : 'combined',
+            }),
           },
           rawOutput: assistantText,
           provider: debugProvider,

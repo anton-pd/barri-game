@@ -73,6 +73,15 @@ Ask ONLY when the player clearly attempts something with a risk of failure:
 - Combat → Fighting/Firearms (ALWAYS)
 Do NOT ask for: normal conversation, walking, trivial actions.
 
+### If a skill is NOT in the player's list
+Check the player's skill list BEFORE every roll request.
+- Skill IS in the list → ask for the roll with the exact value.
+- Skill is NOT in the list → do NOT ask for a roll. Instead:
+  • Describe narratively why the character cannot do this (untrained, no tools, etc.).
+  • OR find a related skill from the list and offer it as a substitute (e.g. Electrical Repair instead of Locksmith for an electric lock).
+  • OR if the situation allows, ask for a Luck roll (1d100, need Luck or less).
+Never set a threshold below 10 in [SET_PENDING_ROLL].
+
 ### How to ask for a roll — MANDATORY order
 EVERY roll (skill, SAN, Luck, combat) requires a tag. Plain "Roll X" without a tag is not enough.
 
@@ -122,6 +131,15 @@ A pushed roll is IMPOSSIBLE in combat.`;
 - Перша допомога → First Aid
 - Бій → Fighting/Firearms (ЗАВЖДИ)
 НЕ питай: звичайна розмова, ходьба, тривіальні дії.
+
+### Якщо навичка відсутня в списку гравця
+Перед кожним запитом кидка перевіряй список навичок гравця.
+- Навичка Є в списку → питай кидок з точним значенням.
+- Навичка ВІДСУТНЯ в списку → НЕ питай кидок. Натомість:
+  • Опиши наративно, чому персонаж не може це зробити (не навчений, немає інструментів тощо).
+  • АБО знайди суміжну навичку зі списку та запропонуй її як заміну (напр. Electrical Repair замість Locksmith для електричного замку).
+  • АБО якщо ситуація дозволяє — запитай Удачу (1к100, треба Luck або менше).
+Ніколи не встановлюй поріг < 10 у тегу [SET_PENDING_ROLL].
 
 ### Як запитувати кидок — ОБОВ'ЯЗКОВИЙ порядок
 КОЖЕН кидок (будь-який: навичка, SAN, Удача, Бій) вимагає тегу. Текстового "Кинь X" без тегу — недостатньо.

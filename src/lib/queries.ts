@@ -277,8 +277,9 @@ export async function initializeSchema() {
 
   await sql`
     INSERT INTO app_settings (key, value) VALUES
-      ('ai_provider',  'gemini-flash'),
-      ('tts_provider', 'gemini')
+      ('ai_provider',         'gemini-flash'),
+      ('tts_provider',        'gemini'),
+      ('gemini_cache_enabled','false')
     ON CONFLICT (key) DO NOTHING
   `;
 }
@@ -513,7 +514,7 @@ export async function getAllMessages(sessionId: string): Promise<Message[]> {
 // ── Message debug (admin) ──────────────────────────────────────────────────────
 
 export interface MessageDebugInput {
-  promptBlocks: unknown; // { ruleset, static, dynamic, history }
+  promptBlocks: unknown; // { ruleset, static, dynamic, history, geminiCacheMode? }
   rawOutput: string;
   provider?: string;
   model?: string;
