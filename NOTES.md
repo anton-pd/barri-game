@@ -1,5 +1,11 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — Bump до версії 0.4.0
+
+Версія піднята з 0.3.23 → 0.4.0. CHANGELOG отримав consolidated 0.4.0 entry, що підсумовує зміни поточного релізного циклу (Gemini caching, campaign disable, prompt fixes).
+
+---
+
 ## [2026-04-20 · Claude] — Вимкнення кампаній + one-shot для the-last-telegram
 
 ### Problem

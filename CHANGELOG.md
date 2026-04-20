@@ -5,6 +5,21 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.0] — 2026-04-20
+
+### Added
+- **Gemini implicit cache toggle**: admin setting `gemini_cache_enabled` (OFF by default). When ON — `systemInstruction` holds only `ruleset + static` (stable prefix); `dynamic` state is injected as a synthetic first user/model message pair in conversation history, enabling Gemini 2.5 Flash implicit caching (~75% token discount on ~1500 tokens/req). Debug log includes `geminiCacheMode: 'split'|'combined'` for A/B comparison.
+
+### Changed
+- **Campaigns disabled temporarily**: campaign creation bypassed server-side until mechanics are fixed (ANT-77..ANT-81). All sessions are one-shot regardless of scenario config.
+- **The Last Telegram → one-shot**: `sessionConfig.isCampaign` set to `false`.
+
+### Fixed
+- **"Roll 1 or less" narrative bug**: ruleset prompt now instructs AI not to request rolls for skills absent from the player's list and never set threshold < 10 in `[SET_PENDING_ROLL]`.
+- **Debug log deduplication**: removed redundant `systemPrompt` field from Gemini `saveMessageDebug` (was duplicating ruleset + static + dynamic).
+
+---
+
 ## [0.3.33] — 2026-04-20
 
 ### Changed
