@@ -264,6 +264,7 @@ function CaseFilesPanel({
   briefing,
   npcs,
   npcRelations,
+  npcDetails,
   dynamicNpcs,
   dynamicImages,
   sessionImages,
@@ -277,6 +278,7 @@ function CaseFilesPanel({
   briefing?: ScenarioBriefing | null;
   npcs: NPC[];
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
+  npcDetails?: Record<string, { notes: string }>;
   dynamicNpcs?: { id: string; name: string }[];
   dynamicImages: Record<string, DynamicImageMeta>;
   sessionImages?: Record<string, string>;
@@ -490,6 +492,9 @@ function CaseFilesPanel({
                       </div>
                       {npc.description && (
                         <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
+                      )}
+                      {npcDetails?.[npc.id]?.notes && (
+                        <p className="text-xs text-amber-200/80 leading-relaxed border-t border-stone-700 pt-1.5 mt-1">{npcDetails[npc.id].notes}</p>
                       )}
                     </div>
                   );
@@ -1843,6 +1848,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           briefing={briefing}
           npcs={scenarioNpcs}
           npcRelations={session.world_state?.npcRelations ?? {}}
+          npcDetails={session.world_state?.npcDetails}
           dynamicNpcs={session.world_state?.dynamicNpcs}
           dynamicImages={dynamicImages}
           sessionImages={session.world_state.sessionImages}

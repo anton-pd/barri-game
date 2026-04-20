@@ -38,6 +38,8 @@ export interface WorldState {
     description: string;
     groupId: string;
   };
+  // Accumulated knowledge about NPCs — updated via [NPC_UPDATE:] tags
+  npcDetails?: Record<string, { notes: string }>;
   // Dynamic images cache
   sessionImages?: Record<string, string>;
   // Situational locations created by LLM during play (persisted, no audio)

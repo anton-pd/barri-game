@@ -1,5 +1,25 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — ANT-70: NPC деталі накопичуються під час гри
+
+### Problem
+`npcRelations` зберігав лише 4-стани enum (friendly/neutral/hostile/unknown). Не було механізму для запису того, що гравці дізнались про персонажа під час гри — в CaseFiles завжди відображалося тільки "Невідомо" без жодних деталей.
+
+### Solution
+- Новий тег `[NPC_UPDATE:Name:relation:notes]` — Кіпер емітує після взаємодії з NPC.
+- Сервер (`route.ts`) парсить тег: оновлює `npcRelations` і акумулює нотатки в `world_state.npcDetails[npcId].notes` (append-only).
+- `textForDB` стрипає `[NPC_UPDATE:]` — тег data-only, не зберігається в повідомленнях.
+- Summarize-цикл Haiku отримав явний `npcDetails: currentWorldState.npcDetails` у merge — нотатки не затираються при periodic summary.
+- Промпт (`prompts.ts`): в static block додано секцію `## ОНОВЛЕННЯ ДАНИХ ПРО ПЕРСОНАЖА` з правилами і прикладом; в dynamic block з'явився список `npcDetails` щоб AI знав що вже записано.
+- UI (`GameChat.tsx`): CaseFilesPanel отримав prop `npcDetails`, нотатки відображаються жовтуватим текстом під статичним описом NPC.
+
+### Key decisions
+- Ім'я в тегу (не ID) — консистентно з `[NPC:Name]`, сервер резолвить до ID тою самою matching-логікою.
+- Накопичення нотаток (не заміна): `existing ? \`${existing}. ${new}\` : new`.
+- `npcDetails` НЕ включено в summarize prompt — Haiku не аналізує і не оновлює нотатки, лише main AI.
+
+---
+
 ## [2026-04-19 · Claude] — ANT-60: довше structured intro
 
 ### Problem

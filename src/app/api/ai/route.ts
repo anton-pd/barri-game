@@ -94,6 +94,7 @@ async function summarizeAndUpdateWorldState(
         pendingRollResult: currentWorldState.pendingRollResult,
         activeRandomEvent: currentWorldState.activeRandomEvent,
         currentLocationGroup: currentWorldState.currentLocationGroup,
+        npcDetails: currentWorldState.npcDetails,
       };
       await updateSession(sessionId, { world_state: merged });
     }
@@ -607,6 +608,42 @@ export async function POST(request: Request) {
           updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
         }
 
+        // ── Parse [NPC_UPDATE:Name:relation:notes] tags (ANT-70) ────────────
+        // Same name-matching logic as auto-register below.
+        textAfterRollTags = textAfterRollTags.replace(
+          /\[NPC_UPDATE:([^:]+):([^:]*):([^\]]*)\]/g,
+          (_, rawName: string, rawRelation: string, rawNotes: string) => {
+            const tagName = rawName.trim().toLowerCase();
+            const relation = rawRelation.trim() as 'friendly' | 'neutral' | 'hostile' | 'unknown' | '';
+            const notes = rawNotes.trim();
+
+            // Resolve name → id (scenario first, then dynamic)
+            const npc = scenario.npcs?.find((n) => {
+              const full = n.name.toLowerCase();
+              return full === tagName || full.includes(tagName) || tagName.includes(full);
+            });
+            const npcId = npc
+              ? npc.id
+              : `dynamic_${tagName.replace(/\s+/g, '_')}`;
+
+            if (relation && ['friendly', 'neutral', 'hostile', 'unknown'].includes(relation)) {
+              updatedWorldState = {
+                ...updatedWorldState,
+                npcRelations: { ...updatedWorldState.npcRelations, [npcId]: relation },
+              };
+            }
+            if (notes) {
+              const existing = updatedWorldState.npcDetails?.[npcId]?.notes ?? '';
+              const merged = existing ? `${existing}. ${notes}` : notes;
+              updatedWorldState = {
+                ...updatedWorldState,
+                npcDetails: { ...(updatedWorldState.npcDetails ?? {}), [npcId]: { notes: merged } },
+              };
+            }
+            return '';
+          }
+        );
+
         // ── Guard: strip [NPC:<PlayerName>]...[/NPC] (ANT-71) ───────────────
         // LLM occasionally voices a player character as if an NPC. Such tags
         // render as an NPC bubble and, worse, auto-register the player into
@@ -636,6 +673,7 @@ export async function POST(request: Request) {
           .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
           .replace(/\s*\[NEW_LOCATION:\w+:[^:]+:[^\]]+\]/g, '')
+          .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
           .replace(/\s*\[COMPLETE_SESSION\]/g, '')
           .replace(/\s*\[FINISH_EVENING\]/g, '')
           .trim();

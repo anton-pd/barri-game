@@ -132,6 +132,15 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - Всередині [NPC:...]...[/NPC] має бути ЛИШЕ пряма мова персонажа. Жести, погляди, дії, ремарки ("вона зітхає", "він дивиться у вікно") винось у narration-абзац ПЕРЕД тегом.
 - Одна репліка = один тег [NPC:Ім'я]...[/NPC]. Якщо NPC говорить двічі у відповіді — два окремі теги, між якими допустимий narration або репліка іншого NPC.
 - Якщо NPC мовчить (тільки дія чи вираз обличчя) — теги [NPC:] не став, опиши в narration.`,
+    hNpcUpdate: '## ОНОВЛЕННЯ ДАНИХ ПРО ПЕРСОНАЖА',
+    npcUpdateTagLine: `[NPC_UPDATE:Ім'я:ставлення:нотатки] — оновити відомі дані про NPC.
+ПРАВИЛА:
+- Використовуй після важливої взаємодії, якщо дізнався щось нове про NPC.
+- Ім'я — точне ім'я персонажа (як у [NPC:]).
+- ставлення — одне з: friendly, neutral, hostile, unknown (або порожньо, якщо не змінилось).
+- нотатки — 1–2 речення: що нового стало відомо (характер, мотив, секрет, ставлення до гравців).
+- Нотатки накопичуються: кожна нова деталь додається до попередніх.
+Приклад: [NPC_UPDATE:Ганна Василенко:neutral:Знає про зникнення Корбітта, але боїться говорити відкрито.]`,
     hComplete: '## ЗАВЕРШЕННЯ СЕСІЇ',
     completeBody: `Коли розслідування або місія СПРАВДІ завершені, а головна загроза усунута, стримана або доля героїв остаточно вирішена:
 - one-shot / фінал сценарію: [COMPLETE_SESSION]
@@ -238,6 +247,15 @@ RULES:
 - Inside [NPC:...]...[/NPC] put ONLY the character's direct speech. Gestures, looks, actions and stage directions ("she sighs", "he glances out the window") go into the narration paragraph BEFORE the tag.
 - One line = one [NPC:Name]...[/NPC] tag. If the same NPC speaks twice, use two separate tags with narration or another NPC line between them.
 - If an NPC does not speak (only an action or expression) — do NOT emit [NPC:], describe it in narration instead.`,
+    hNpcUpdate: '## UPDATING CHARACTER DATA',
+    npcUpdateTagLine: `[NPC_UPDATE:Name:relation:notes] — update known information about an NPC.
+RULES:
+- Use after a significant interaction when new information about the NPC is revealed.
+- Name — exact character name (same as used in [NPC:]).
+- relation — one of: friendly, neutral, hostile, unknown (or empty if unchanged).
+- notes — 1–2 sentences: what was newly learned (personality, motive, secret, attitude toward players).
+- Notes are cumulative: each new detail is appended to previous ones.
+Example: [NPC_UPDATE:Hannah Vasilenko:neutral:Knows about Corbitt's disappearance but is afraid to speak openly.]`,
     hComplete: '## SESSION COMPLETION',
     completeBody: `When the investigation or mission is TRULY finished, the main threat is removed, contained, or the heroes' fate is resolved once and for all:
 - one-shot / scenario finale: [COMPLETE_SESSION]
@@ -382,6 +400,9 @@ ${C.newLocHint}
 ${C.hNpcVoice}
 ${C.npcVoiceLine}
 
+${C.hNpcUpdate}
+${C.npcUpdateTagLine}
+
 ${C.hComplete}
 ${C.completeBody}
 
@@ -405,6 +426,19 @@ ${C.headingStyle}
     ? `\n\n${C.hVariant}\n${worldState.variantHint}\n${C.variantHint}`
     : '';
 
+  const npcDetailEntries = Object.entries(worldState.npcDetails ?? {});
+  const npcDetailSection = npcDetailEntries.length
+    ? `\n${lang === 'en' ? 'Known NPC details' : 'Відомі дані про персонажів'}:\n${npcDetailEntries
+        .map(([id, d]) => {
+          const name =
+            scenario.npcs?.find((n) => n.id === id)?.name ??
+            worldState.dynamicNpcs?.find((n) => n.id === id)?.name ??
+            id;
+          return `- ${name}: ${d.notes}`;
+        })
+        .join('\n')}`
+    : '';
+
   const dynLocEntries = Object.entries(worldState.dynamicLocations ?? {});
   const dynLocSection = dynLocEntries.length
     ? `\n${C.dynLocs}: ${dynLocEntries.map(([id, l]) => `${id} (${l.name})`).join(', ')}`
@@ -419,7 +453,7 @@ ${C.curLocation}: ${worldState.currentLocation ?? C.curUnknown}
 ${C.curVisited}: ${worldState.visitedLocations.join(', ') || C.curNone}${dynLocSection}
 ${C.curClues}: ${worldState.discoveredClues.join(', ') || C.curNone}
 ${C.curSummary}: ${worldState.summary || C.curStart}
-${C.curOpen}: ${worldState.openThreads.join(', ') || C.curNoneM}
+${C.curOpen}: ${worldState.openThreads.join(', ') || C.curNoneM}${npcDetailSection}
 ${campaignSection}
 ${C.hPlayers}
 ${players
