@@ -608,6 +608,37 @@ export async function POST(request: Request) {
           updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
         }
 
+        // ── Auto-inject [SET_PENDING_ROLL] if AI wrote "Кинь X" / "Roll X" but forgot the tag ──
+        // Gemini Flash often ignores the tag instruction despite explicit prompting.
+        // Detect the roll request pattern and synthesize the tag from text.
+        if (!updatedWorldState.pendingRollResult) {
+          const rollTextMatch =
+            textAfterRollTags.match(/Кинь\s+([\wА-ЯҐЄІЇа-яґєії\s\/]+?)\s*\(1к100,\s*треба\s*(\d+)\s*або\s*менше\)/) ??
+            textAfterRollTags.match(/Roll\s+([\w\s\/]+?)\s*\(1d100,\s*need\s*(\d+)\s*or\s*less\)/);
+          if (rollTextMatch) {
+            const skillNameRaw = rollTextMatch[1].trim();
+            const threshold = Number(rollTextMatch[2]);
+            // Match skill to player's actual value; fallback to threshold
+            const player = session.players[playerIdx] ?? session.players[0];
+            const skillValue =
+              player?.skills
+                ? (Object.entries(player.skills).find(
+                    ([k]) => k.toLowerCase() === skillNameRaw.toLowerCase()
+                  )?.[1] ?? threshold)
+                : threshold;
+            updatedWorldState = {
+              ...updatedWorldState,
+              pendingRollResult: {
+                characterIdx: playerIdx,
+                skillName: skillNameRaw,
+                skillValue,
+                goodThreshold: threshold,
+                context: '',
+              },
+            };
+          }
+        }
+
         // ── Parse [NPC_UPDATE:Name:relation:notes] tags (ANT-70) ────────────
         // Same name-matching logic as auto-register below.
         textAfterRollTags = textAfterRollTags.replace(

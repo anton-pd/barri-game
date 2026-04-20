@@ -177,6 +177,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     skillRule: 'При перевірці навички використовуй ТОЧНЕ значення зі списку вище.',
     hVariant: '## ВАРІАНТ ПОЧАТКУ',
     variantHint: '(Цю підказку враховуй тільки для інтро — далі вона більше не діє)',
+    rollReminder: '⚠️ НАГАДУВАННЯ: якщо ця відповідь містить прохання кинути кубик ("Кинь X") — ОБОВ\'ЯЗКОВО постав в кінці [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Відповідь без тегу = кубик не активується.',
   },
   en: {
     invEmpty: 'empty',
@@ -291,6 +292,7 @@ Use these tags only for a real finale. Do not set them for a temporary pause, a 
     skillRule: 'For a skill check use the EXACT value from the list above.',
     hVariant: '## OPENING VARIANT',
     variantHint: '(Apply this hint only for the intro — afterwards it no longer applies.)',
+    rollReminder: '⚠️ REMINDER: if this response asks for a dice roll ("Roll X") — ALWAYS end with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Response without the tag = dice won\'t activate.',
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 
@@ -470,6 +472,8 @@ ${players
 
 ${C.prefixRule}${prefixTail}
 ${C.skillRule}${variantHintSection}${activitySection}${eventSection}${imageRequestSection}
+
+${C.rollReminder}
 `.trim();
 
   return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };
