@@ -29,7 +29,7 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok) {
-        router.push('/');
+        router.push('/sessions');
         router.refresh();
       } else if (data.error === 'email_not_verified') {
         setNotVerified(true);

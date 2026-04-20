@@ -23,7 +23,7 @@ export default async function AdminPage() {
           <h1 className="text-amber-500 text-lg tracking-widest uppercase">Keeper&apos;s Archive</h1>
           <p className="text-stone-500 text-xs mt-0.5">Admin Panel</p>
         </div>
-        <Link href="/" className="text-stone-400 hover:text-stone-200 text-sm transition-colors">
+        <Link href="/sessions" className="text-stone-400 hover:text-stone-200 text-sm transition-colors">
           ← Back to Sessions
         </Link>
       </div>

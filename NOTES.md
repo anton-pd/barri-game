@@ -1,5 +1,24 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — Landing promoted to main page; design-lab removed
+
+### Problem
+Лендінг існував лише як `/design-lab/landing` — прихований від реальних юзерів. Головна `/` одразу редиректила на логін. Потрібно було зробити лендінг публічною головною сторінкою, а app — `/sessions`.
+
+### Solution
+- `src/app/page.tsx` — замінений лендінгом (inline шрифти + LandingClient). Публічний, без auth.
+- `src/app/sessions/page.tsx` — новий маршрут для списку сесій (логіка перенесена з колишнього `page.tsx`).
+- `src/app/LandingClient.tsx`, `src/app/content.ts`, `src/app/landing.css` — перенесені з `design-lab/landing/`.
+- Усі `href="/"` → `href="/sessions"` у: LandingClient, auth/login (post-login redirect), admin (back link), GameChat (back button).
+- `src/app/design-lab/` — видалено повністю.
+- `src/components/SessionListConceptA.tsx` — видалено.
+
+### Key decisions
+- Лендінг не потребує auth — Next.js App Router рендерить його публічно.
+- `/sessions` вимагає auth — редиректить на `/auth/login` якщо токен відсутній.
+
+---
+
 ## [2026-04-20 · Claude] — Noir landing: i18n + fixes
 
 ### Problem

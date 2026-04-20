@@ -40,7 +40,7 @@ export default function LandingClient() {
               </button>
             ))}
           </div>
-          <Link href="/" className="enter-btn">{c.nav.enter}</Link>
+          <Link href="/sessions" className="enter-btn">{c.nav.enter}</Link>
         </div>
       </header>
 
@@ -72,7 +72,7 @@ export default function LandingClient() {
             </p>
 
             <div className="hero-cta-row reveal d5">
-              <Link href="/" className="btn-primary">
+              <Link href="/sessions" className="btn-primary">
                 {c.hero.cta} <span className="arrow">→</span>
               </Link>
               <a href="#exhibits" className="btn-ghost">{c.hero.ghost}</a>
@@ -191,7 +191,7 @@ export default function LandingClient() {
               <p className="brief">{f.brief}</p>
               <div className="case-replayable">{f.replayable}</div>
               {f.cta ? (
-                <Link href="/" className="case-open">{f.cta} →</Link>
+                <Link href="/sessions" className="case-open">{f.cta} →</Link>
               ) : (
                 <span className="case-open" style={{ opacity: 0.45, borderColor: "transparent", cursor: "not-allowed" }}>
                   {f.replayable}
@@ -238,7 +238,7 @@ export default function LandingClient() {
           <em>{c.cta.h2}</em>
         </h2>
         <p>{c.cta.body}</p>
-        <Link href="/" className="btn-primary" style={{ fontSize: 15 }}>
+        <Link href="/sessions" className="btn-primary" style={{ fontSize: 15 }}>
           {c.cta.btn} <span className="arrow">→</span>
         </Link>
       </section>
@@ -264,7 +264,7 @@ export default function LandingClient() {
           </div>
           <div className="foot-col">
             <h4>Archive</h4>
-            <a href="/">{lang === "uk" ? "Сесії" : lang === "es" ? "Sesiones" : "Sessions"}</a>
+            <a href="/sessions">{lang === "uk" ? "Сесії" : lang === "es" ? "Sesiones" : "Sessions"}</a>
             <a href="/admin">{lang === "uk" ? "Архів" : lang === "es" ? "Registros" : "Records"}</a>
           </div>
           <div className="foot-col">

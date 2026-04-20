@@ -1275,7 +1275,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
         <div className="flex items-center gap-2 min-w-0">
           <Link
-            href="/"
+            href="/sessions"
             className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors shrink-0"
             title="Назад"
           >←</Link>

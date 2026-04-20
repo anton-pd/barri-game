@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.1] — 2026-04-20
+
+### Changed
+- **Landing promoted to `/`**: noir-dossier landing is now the public homepage; session list moved to `/sessions`.
+- **`/sessions` requires auth**: unauthenticated users are redirected to `/auth/login`; after login, redirect goes to `/sessions`.
+- All internal back-links updated (`admin`, `GameChat`, `auth/login`) to point to `/sessions` instead of `/`.
+
+### Removed
+- `src/app/design-lab/` directory — all design-lab routes deleted from staging.
+- `src/components/SessionListConceptA.tsx` — unused concept component deleted.
+
+---
+
 ## [0.4.0] — 2026-04-20
 
 ### Added
