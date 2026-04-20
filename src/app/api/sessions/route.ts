@@ -84,8 +84,7 @@ export async function POST(request: Request) {
     }
 
     const { startingLocation, variantId, variantHint } = getScenarioSessionMeta(scenarioId);
-    // Campaigns disabled until campaign mechanics are fixed
-    const campaign = null;
+    // Campaigns disabled until campaign mechanics are fixed (ANT-77..ANT-81)
     const session = await createSession(
       scenarioId,
       name,
@@ -95,12 +94,7 @@ export async function POST(request: Request) {
       language ?? 'uk',
       variantId,
       variantHint,
-      campaign
-        ? {
-            campaignId: campaign.id,
-            sessionNumber: 1,
-          }
-        : undefined
+      undefined
     );
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
