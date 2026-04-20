@@ -7,7 +7,7 @@ Repo `/opt/apps/barri-dev` (Staging, branch `staging`) and `/opt/apps/barri` (Pr
 **Identity**: You are **Claude**. Only take tasks assigned to **Claude** in Linear.
 Codex takes tasks assigned to **Codex**.
 
-**Workflow policy**: Shared Claude/Codex workflow is defined in `LINEAR.md` and Linear access is API-only (`LINEAR_API_KEY`), no MCP path.
+**Workflow policy**: Shared Claude/Codex workflow is defined in `LINEAR.md`. Linear access is API-only; Claude uses `CLAUDE_LINEAR_API_KEY`, no MCP path.
 
 @AGENTS.md
 @PROJECT_CONTEXT.md

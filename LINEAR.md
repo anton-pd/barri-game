@@ -11,8 +11,11 @@
 - **Project:** Barri — ID `ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`
 - **Team:** Anton_ux (key `ANT`) — ID `c5959f1e-2ee7-4087-a234-20a44b69d8f0`
 - **Linear API:** `https://api.linear.app/graphql`
-- **API key source:** Claude uses `LINEAR_API_KEY` (repo/local `.env`). Codex uses `CODEX_LINEAR_API_KEY` (host/server env, currently `/opt/apps/.env`).
-- **Operational assumption:** do not reuse Claude's key for Codex work. If the current shell does not expose the right key for the current agent, verify the expected env source before treating Linear access as unavailable.
+- **Canonical key names:** `CLAUDE_LINEAR_API_KEY` (Claude), `CODEX_LINEAR_API_KEY` (Codex).
+- **Env source (single place per machine):**
+  - Local: `./.env.linear.local` (contains both keys).
+  - VPS: `/opt/apps/.env` (contains both keys).
+- **Operational assumption:** never run Codex actions with Claude key (or vice versa). If the current shell does not expose the right key for the current agent, verify the expected env source before treating Linear access as unavailable.
 
 ## Identities (team members)
 
@@ -65,7 +68,7 @@
   - Post technical plan comment.
   - Wait until Anton moves it back to `In Progress` and assigns back.
 - **Small task:**
-  - Add `small-task` label.
+  - Add `small-task` label (optional, only if the label exists in workspace).
   - Post one comment explaining why plan gate is skipped.
   - Stay in `In Progress`.
 
@@ -101,6 +104,14 @@ Before moving to `In Review`, all of the following must be true:
 - Move issue: `Ready for deploy` → `Done`.
 - Keep assignee as self on `Done`.
 
+## Two-agent guardrails (required)
+
+- Maximum one `In Progress` issue per agent at a time.
+- Do not keep active (`Todo`/`In Progress`/`In Review`) issues unassigned.
+- One issue = one branch (`feature/ANT-XXX`) with a single owner agent.
+- Before coding, check the last 5-10 entries in `NOTES.md` and all active `In Progress` / `In Review` issues for overlap.
+- If two issues touch the same subsystem, leave cross-links in both Linear issues before implementation.
+
 ## Small-task criteria
 
 Skip the planning gate only if **all** are true:
@@ -125,6 +136,7 @@ If any condition is not true, treat as complex and go through `Planned`.
 - **Branching**: Feature work from `staging`, branch `feature/ANT-XXX`, delete after merge to `main`.
 - **Assignee swaps**: Self while working; Anton for `Planned` and `In Review`; self again for deploy/finalization.
 - **Coordination**: Before starting, read last 5-10 entries in `NOTES.md`. If overlap exists, leave coordination comments in both related issues.
+- **Post-deploy sync**: After each prod deploy, ensure `origin/main` and `origin/staging` are synchronized (same tree). If drift appears, fast-forward `staging` from `main` immediately or open explicit sync PR.
 - **Project requirement**: Any new issue must be in project **Barri** (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) and team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
 
 ## Linear API usage (API only)
@@ -132,10 +144,22 @@ If any condition is not true, treat as complex and go through `Planned`.
 Use GraphQL API directly for reads and writes:
 
 ```bash
+# Claude
+curl -s -H "Authorization: $CLAUDE_LINEAR_API_KEY" \
+  -H "Content-Type: application/json" \
+  https://api.linear.app/graphql \
+  -d '{"query":"query { viewer { id name } }"}'
+
+# Codex
 curl -s -H "Authorization: $CODEX_LINEAR_API_KEY" \
   -H "Content-Type: application/json" \
   https://api.linear.app/graphql \
   -d '{"query":"query { viewer { id name } }"}'
 ```
 
-If API access appears unavailable, first verify the expected Barri env source for the current agent: Claude → `LINEAR_API_KEY` in repo/local env, Codex → `CODEX_LINEAR_API_KEY` in host env (`/opt/apps/.env`). Only if the correct key is still unavailable or auth fails after that should you ask Anton to restore API access. Do not switch to MCP.
+If API access appears unavailable, verify in this order:
+1. Load the right env file for the current machine (`./.env.linear.local` locally, `/opt/apps/.env` on VPS).
+2. Check key mapping with `viewer` query:
+   - `CLAUDE_LINEAR_API_KEY` → `Claude` (`4e483311-d106-4708-82a4-421812e84721`)
+   - `CODEX_LINEAR_API_KEY` → `Codex` (`3f8713c1-72d2-4781-b3c0-1ed4e1017a4b`)
+Only if the correct key is still unavailable or auth fails after that should you ask Anton to restore API access. Do not switch to MCP.
