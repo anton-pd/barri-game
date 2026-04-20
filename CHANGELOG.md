@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.3.33] — 2026-04-20
+
+### Changed
+- **Campaigns disabled temporarily**: campaign creation is bypassed server-side until mechanics are fixed (ANT-77..ANT-81). All new sessions are one-shot regardless of scenario config.
+- **The Last Telegram → one-shot**: `sessionConfig.isCampaign` set to `false` in scenario file.
+
+---
+
 ## [0.3.32] — 2026-04-20
 
 ### Added

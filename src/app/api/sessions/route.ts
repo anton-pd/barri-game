@@ -83,10 +83,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { startingLocation, variantId, variantHint, isCampaign } = getScenarioSessionMeta(scenarioId);
-    const campaign = isCampaign
-      ? await createCampaign(payload.sub, scenarioId, name)
-      : null;
+    const { startingLocation, variantId, variantHint } = getScenarioSessionMeta(scenarioId);
+    // Campaigns disabled until campaign mechanics are fixed
+    const campaign = null;
     const session = await createSession(
       scenarioId,
       name,

@@ -1,5 +1,21 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — Вимкнення кампаній + one-shot для the-last-telegram
+
+### Problem
+Механіка кампаній (multi-session, FINISH_EVENING, world state carryover) не працює коректно — 5 задокументованих багів (ANT-77..ANT-81). Потрібно тимчасово вимкнути до виправлення.
+
+### Solution
+- `src/app/api/sessions/route.ts`: примусово `campaign = null` — кампанія більше не створюється незалежно від `sessionConfig.isCampaign` в сценарії.
+- `/opt/apps/shared_data/scenarios/the-last-telegram.json`: `sessionConfig.isCampaign` → `false` (one-shot режим).
+- Linear: створено 5 bug-issues ANT-77..ANT-81 для відстеження проблем кампаній.
+
+### Key decisions
+- Не видаляємо code кампаній, просто bypass на рівні session creation — легко увімкнути назад.
+- Сценарний файл змінено на shared VPS data (`/opt/apps/shared_data/scenarios/`), який монтується в обидва контейнери.
+
+---
+
 ## [2026-04-20 · Claude] — Gemini implicit cache toggle
 
 ### Problem
