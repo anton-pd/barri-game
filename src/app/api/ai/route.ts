@@ -733,7 +733,9 @@ export async function POST(request: Request) {
         // Any NPC who speaks in this message is added as 'unknown' if not yet tracked.
         // Matching is partial: tag "Ковальська" matches scenario NPC "Місіс Гаррієт Ковальська".
         // If no scenario NPC matches at all, register as a dynamic NPC.
-        for (const m of textAfterRollTags.matchAll(/\[NPC:([^\]]+)\]/g)) {
+        // Register only well-formed NPC speech tags. Malformed orphan markers
+        // (e.g. missing [/NPC]) should not create npcRelations artifacts.
+        for (const m of textAfterRollTags.matchAll(/\[NPC:([^\]]+)\][\s\S]*?\[\/NPC\]/g)) {
           const npcName = m[1].trim().toLowerCase();
           const npc = scenario.npcs?.find((n) => {
             const fullName = n.name.toLowerCase();

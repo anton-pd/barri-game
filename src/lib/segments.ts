@@ -39,6 +39,9 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
     } else {
       // Strip other action tags from narration parts before storing
       const text = part
+        // Remove malformed/orphan NPC markers so they don't leak to UI
+        .replace(/\[NPC:[^\]]+\]/g, '')
+        .replace(/\[\/NPC\]/g, '')
         .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
         .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
         .replace(/\s*\[USE_ITEM:\d+:[^\]]+\]/g, '')
@@ -60,7 +63,11 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
 
 /** Strip NPC wrapper tags from text, keeping the inner dialogue text intact. */
 export function stripNpcTags(text: string): string {
-  return text.replace(/\[NPC:[^\]]+\]([\s\S]*?)\[\/NPC\]/g, '$1');
+  return text
+    .replace(/\[NPC:[^\]]+\]([\s\S]*?)\[\/NPC\]/g, '$1')
+    // Also strip malformed/orphan markers when model forgets a closing tag
+    .replace(/\[NPC:[^\]]+\]/g, '')
+    .replace(/\[\/NPC\]/g, '');
 }
 
 /**

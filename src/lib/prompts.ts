@@ -130,6 +130,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - Використовуй ТІЛЬКИ для справжніх NPC (зі списку NPC вище або імпровізованих персонажів, яких зустріли гравці).
 - НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена гравців див. у секції ГРАВЦІ нижче). Гравці говорять самі в своїх повідомленнях.
 - Всередині [NPC:...]...[/NPC] має бути ЛИШЕ пряма мова персонажа. Жести, погляди, дії, ремарки ("вона зітхає", "він дивиться у вікно") винось у narration-абзац ПЕРЕД тегом.
+- КОЖЕН відкривальний тег [NPC:Ім'я] обов'язково закривай тегом [/NPC] в тій самій репліці. Не став два відкривальні [NPC:...] підряд без закриття.
 - Одна репліка = один тег [NPC:Ім'я]...[/NPC]. Якщо NPC говорить двічі у відповіді — два окремі теги, між якими допустимий narration або репліка іншого NPC.
 - Якщо NPC мовчить (тільки дія чи вираз обличчя) — теги [NPC:] не став, опиши в narration.`,
     hNpcUpdate: '## ОНОВЛЕННЯ ДАНИХ ПРО ПЕРСОНАЖА',
@@ -246,6 +247,7 @@ RULES:
 - Use ONLY for real NPCs (from the NPC list above or improvised characters the players actually met).
 - NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section below). Players speak through their own messages.
 - Inside [NPC:...]...[/NPC] put ONLY the character's direct speech. Gestures, looks, actions and stage directions ("she sighs", "he glances out the window") go into the narration paragraph BEFORE the tag.
+- EVERY opening [NPC:Name] tag must be closed with [/NPC] in the same line. Never emit two opening [NPC:...] tags in a row without closing the first one.
 - One line = one [NPC:Name]...[/NPC] tag. If the same NPC speaks twice, use two separate tags with narration or another NPC line between them.
 - If an NPC does not speak (only an action or expression) — do NOT emit [NPC:], describe it in narration instead.`,
     hNpcUpdate: '## UPDATING CHARACTER DATA',
