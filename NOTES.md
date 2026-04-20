@@ -1,5 +1,43 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-04-20 · Claude] — Noir landing: i18n + fixes
+
+### Problem
+1. Нотатки (testimony) занадто темні, важко читати. 2. Описи сценаріїв короткі — бракує зав'язки. 3. Потрібні UA/ES версії. 4. Не виділено що сценарії перегравувані.
+
+### Solution
+- `content.ts` — повний об'єкт з усіма рядками для EN / UA / ES.
+- `LandingClient.tsx` — 'use client' компонент з перемикачем мов EN · УК · ES у topbar.
+- `page.tsx` → тонка серверна обгортка (metadata + render LandingClient).
+- CSS `.note` — фон змінено на `#f2e6cb`, прибрано SVG-noise; `.note q` та `.note-sig` переписані для чіткого чорного тексту на світлому папері.
+- Тексти справ переписані: є зав'язка, деталі, і рядок `.case-replayable` (нова мітка з пунктирним бордером).
+- Linear: ANT-82 (redesign game UI to noir-dossier) — задача в Ideas.
+
+### Key decisions
+- Перемикач мов — client-side state, без next-intl або окремих роутів. Достатньо для design-lab.
+- Нотатки: простий `#f2e6cb` без шуму — достатньо атмосферно, набагато краще читається.
+
+---
+
+## [2026-04-20 · Claude] — Noir detective landing (design-lab)
+
+### Problem
+Потрібен крутий landing для Barri, натхненний tableforge.gg але у стилі noir-детектив + космічний хоррор.
+
+### Solution
+Новий роут `/design-lab/landing` (ізольований від основного layout через власний `layout.tsx` з next/font):
+- `layout.tsx` — Special Elite (typewriter), Playfair Display (display serif), IM Fell English (vintage body), UnifrakturMaguntia (occult blackletter).
+- `landing.css` — повна noir-палітра (ink/paper/amber/blood/bruise), film-grain overlay через SVG turbulence + анімований shift, vignette, стертий папір, подряпини.
+- `page.tsx` — sticky top bar (dossier tab) → hero (велетенський типографічний заголовок + нахилена картка-dossier з paperclip та CLASSIFIED-штампом) → whisper ticker → exhibits grid (6 плиток-доказів) → procedure (4 кроки-інструкції) → case files (Haunting, Last Telegram, teaser) → testimony (handwritten нотатки з воску-печаткою) → final CTA з circle-seal + flicker → footer.
+
+### Key decisions
+- Ізольований layout під `design-lab` — не чіпає основну шапку і глобальний stone-950 background.
+- Усі "фото" і декор — чистий CSS (градієнти, SVG noise), жодних зовнішніх ассетів.
+- Commit fully-noir: всі тексти англійською у стилі поліцейського рапорту ("Exhibit A", "Sworn Testimony", "Dossier Nº 1929"), ticker з атмосферними фрагментами, redact-span на слові «unspeakable».
+- CTA ведуть на `/` (сесії). При винесенні на корінь — route буде легко поміняти.
+
+---
+
 ## [2026-04-20 · Claude] — Bump до версії 0.4.0
 
 Версія піднята з 0.3.23 → 0.4.0. CHANGELOG отримав consolidated 0.4.0 entry, що підсумовує зміни поточного релізного циклу (Gemini caching, campaign disable, prompt fixes).
@@ -1489,3 +1527,49 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 ### ANT-45 status
 - Додатковий ручний repro через shared storage більше не підтвердив явний missing-materials стан для Opus-generated сценарію.
 - У shared data Opus-generated scenario assets уже присутні, і Anton окремо підтвердив, що зображення на Opus scenario вже видно.
+
+## 2026-04-20 — Competitive/UI strategy brief (Barri vs TableForge)
+- Підготовлено окремий документ: `analysis/BARRI_UI_COMPETITIVE_ROADMAP.md`.
+- Включено benchmark `Barri vs TableForge` + референси `Quest Portal`/`Alchemy RPG`.
+- Додано phased roadmap (Phase 0-4) з quality gates і premium noir design proposition для CoC/детективного позиціонування.
+
+## 2026-04-20 — Moodboards v1 (local)
+- Додано документ з 4 moodboard-напрямами: `analysis/BARRI_MOODBOARDS_V1.md`.
+- Рекомендовано hybrid-напрям `Noir Evidence Desk + Occult Minimal Luxe` для premium CoC UX.
+
+## 2026-04-20 — Visual concepts v1 (local HTML)
+- Створено локальний пакет: `analysis/visual-concepts-v1/`.
+- Додано 4 окремі візуальні концепти (A/B/C/D), кожен містить `Home` + `Chat` з фейковими даними.
+- Додано `index.html` для навігації, `shared.css`/`shared.js` для спільної поведінки та стилів.
+
+## 2026-04-20 — Visual concepts v2: Concept A (local HTML)
+- Створено новий пакет ітерації: `analysis/visual-concepts-v2/`.
+- Додано `Concept A v2` як окремий файл: `analysis/visual-concepts-v2/concept-a-noir-evidence-v2.html`.
+- Оновлено арт-дирекшен для A:
+  - постерний Home-first viewport з сильним атмосферним фоном;
+  - більш операційний Chat-layout (caseboard rail + stream + player/context rail);
+  - додано помітні, але стримані motion-ефекти (poster drift, staggered timeline/messages);
+  - покращено адаптивність під mobile через окремі брейкпойнти в `shared.css`.
+- Додано нові `index.html`, `README.md`, `shared.css`, `shared.js` для v2-пакету.
+
+## 2026-04-20 — Isolated homepage redesign (Concept A style)
+- Додано окремий route для редизайну головної, без заміни існуючої `/` сторінки:
+  - `src/app/design-lab/concept-a-home/page.tsx`
+- Додано окремий компонент `src/components/SessionListConceptA.tsx`.
+  - Логіка збережена з поточної головної (`sessions/scenarios loading`, `new game modal`, `session create/delete`, role picker).
+  - UI перероблено під стиль `Noir Evidence Desk` (hero з atmosphere image, amber-noir palette, case-oriented cards, themed modal).
+- Перевірка:
+  - `npm run lint -- src/components/SessionListConceptA.tsx src/app/design-lab/concept-a-home/page.tsx` (без errors).
+- Оновлення design-lab доступу: `/design-lab/concept-a-home` тепер відкривається без auth redirect.
+  - Якщо `/api/sessions` повертає `401`, сторінка переходить у preview mode з демо-даними (без редіректу на `/auth/login`).
+
+## 2026-04-20 — Landing concept v1 (AI Keeper for Investigative Horror)
+- Створено локальний лендинг-концепт: `analysis/landing-concepts-v1/concept-b-ai-keeper.html`.
+- Додано конверсійні секції: hero CTA, positioning vs generic AI DM, product flow, product tour, FAQ, waitlist.
+- Додано мікроанімації: reveal on scroll + subtle hero parallax.
+
+## 2026-04-20 — Landing redesign v2 + competitor analysis
+- Повністю перероблено `analysis/landing-concepts-v1/concept-b-ai-keeper.html` (premium v2).
+- Попередню версію збережено як `concept-b-ai-keeper-v1.html`.
+- Додано детальний аналіз конкурентів: `analysis/landing-concepts-v1/COMPETITOR_ANALYSIS_BARRI_LANDING_2026-04-20.md`.
+- У v2 додано: сильніша ієрархія, інтерактивний showcase, оновлені блоки позиціонування, мікроанімації.

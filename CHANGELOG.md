@@ -8,6 +8,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.0] — 2026-04-20
 
 ### Added
+- **Noir landing i18n + fixes**: EN/UA/ES language switcher, improved testimony readability (bright paper `#f2e6cb`, no noise overlay), expanded case file hooks with plot setup and replayability labels, client-side lang toggle in topbar.
+- **Noir-detective landing (design-lab)**: new `/design-lab/landing` route with an isolated layout and full noir aesthetic — Special Elite / Playfair / IM Fell English / UnifrakturMaguntia typography, film-grain + vignette overlays, dossier-card hero, whisper ticker, six exhibits, procedure, case-file gallery (Haunting / Last Telegram / teaser), sworn testimony, final wax-seal CTA. Pure CSS — no external imagery.
 - **Gemini implicit cache toggle**: admin setting `gemini_cache_enabled` (OFF by default). When ON — `systemInstruction` holds only `ruleset + static` (stable prefix); `dynamic` state is injected as a synthetic first user/model message pair in conversation history, enabling Gemini 2.5 Flash implicit caching (~75% token discount on ~1500 tokens/req). Debug log includes `geminiCacheMode: 'split'|'combined'` for A/B comparison.
 
 ### Changed
