@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.4] — 2026-04-21
+
+### Changed
+- **Landing CTA flow**: all primary CTAs (`enter-btn`, hero, case cards, final CTA) now point to `/auth/register` instead of `/sessions`.
+- **Auth redirect on landing**: authenticated users visiting `/` are immediately redirected to `/sessions` server-side (no flash).
+
+---
+
 ## [0.4.3] — 2026-04-21
 
 ### Added

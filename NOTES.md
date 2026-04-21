@@ -1619,3 +1619,9 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - `forgot-password` завжди повертає 200 незалежно від існування email — запобігає перерахуванню акаунтів.
 - Reset token має TTL 1 год (verify — 24 год).
 - `sendPasswordResetEmail` викликається fire-and-forget щоб не витікав timing.
+
+## 2026-04-21 — Landing CTA logic: register-first + auth redirect
+**Problem:** CTA кнопки лендінгу вели на `/sessions` (вимагала логіну), а не на реєстрацію. Авторизований користувач бачив лендінг замість прямого переходу на сесії.
+**Solution:**
+- `page.tsx` — server-side auth check: якщо є валідний `auth_token` cookie → `redirect('/sessions')`. Жодного flash.
+- `LandingClient.tsx` — всі CTA (`enter-btn`, hero `btn-primary`, `case-open`, final `btn-primary`) змінені з `/sessions` → `/auth/register`. Footer nav-link `/sessions` залишений без змін (це утилітарна навігація, не маркетинговий CTA).

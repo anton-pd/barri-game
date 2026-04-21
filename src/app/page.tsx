@@ -1,4 +1,7 @@
 import { Special_Elite, Playfair_Display, IM_Fell_English, UnifrakturMaguntia } from "next/font/google";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { verifyJwt } from "@/lib/auth";
 import LandingClient from "./LandingClient";
 import "./landing.css";
 
@@ -12,7 +15,12 @@ export const metadata = {
   description: "An AI-run Call of Cthulhu investigation, played in your browser. Your party, your choices, your unspeakable failures.",
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  const payload = token ? await verifyJwt(token) : null;
+  if (payload) redirect('/sessions');
+
   return (
     <div className={`${typewriter.variable} ${serif.variable} ${oldprint.variable} ${blackletter.variable} landing-root`}>
       <LandingClient />
