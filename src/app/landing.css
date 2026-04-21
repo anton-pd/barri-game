@@ -33,9 +33,9 @@
   --bruise-0: #3b2c4a;
   --bruise-1: #1f1428;
 
-  --font-typewriter: "Special Elite", ui-monospace, monospace;
+  --font-typewriter: "Special Elite", var(--font-ptmono), "PT Mono", ui-monospace, monospace;
   --font-serif: "Playfair Display", ui-serif, serif;
-  --font-oldprint: "IM Fell English", ui-serif, serif;
+  --font-oldprint: "IM Fell English", var(--font-ptserif), "PT Serif", ui-serif, serif;
   --font-blackletter: "UnifrakturMaguntia", serif;
 
   color: var(--paper-0);
