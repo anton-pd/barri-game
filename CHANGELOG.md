@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.5] — 2026-04-21
+
+### Fixed
+- **Cyrillic font fallbacks**: Special Elite and IM Fell English lack Cyrillic glyphs; Ukrainian text now falls back to PT Mono (typewriter) and PT Serif (oldprint) instead of system sans-serif. Playfair Display updated to include `cyrillic` subset.
+- **"Forgot code?" link**: `<Link>` was nested inside `<label>` (invalid HTML — browser strips interactive elements from labels). Moved to sibling `div.auth-field-labelrow` flex wrapper.
+
+---
+
 ## [0.4.4] — 2026-04-21
 
 ### Changed

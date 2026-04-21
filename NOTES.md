@@ -1625,3 +1625,12 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 **Solution:**
 - `page.tsx` — server-side auth check: якщо є валідний `auth_token` cookie → `redirect('/sessions')`. Жодного flash.
 - `LandingClient.tsx` — всі CTA (`enter-btn`, hero `btn-primary`, `case-open`, final `btn-primary`) змінені з `/sessions` → `/auth/register`. Footer nav-link `/sessions` залишений без змін (це утилітарна навігація, не маркетинговий CTA).
+
+## 2026-04-21 — "Forgot code?" link fix + Cyrillic fonts
+**Problem 1:** `<Link>` всередині `<label>` є невалідним HTML (interactive element inside label) — браузер вирізав посилання з DOM.
+**Fix:** Обгорнув лейбл і посилання в `div.auth-field-labelrow` (flex-row, space-between). Додав CSS-клас `.auth-forgot` в `auth.css`.
+
+**Problem 2:** Special Elite і IM Fell English не мають Cyrillic підтримки — текст на УК у кнопках/лейблах/тікері падав на системний sans-serif (Arial-подібний), що повністю ламало noir-typewriter естетику.
+**Fix:** Завантажено PT Mono (cyrillic+latin) і PT Serif (cyrillic+latin) як додаткові шрифти в `page.tsx` та `auth/layout.tsx`. Оновлено `landing.css`: `--font-typewriter` додано `"PT Mono"` як fallback, `--font-oldprint` — `"PT Serif"`. Playfair Display оновлено до subset `["latin", "cyrillic"]`.
+
+**Deployment lesson:** Завжди робити `git pull origin staging` на VPS перед `docker compose build`, інакше збирається старий код (COPY . . кешується).
