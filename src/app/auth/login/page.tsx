@@ -93,7 +93,15 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-field">
-            <label>Clearance Code</label>
+            <label>
+              Clearance Code
+              <Link
+                href="/auth/forgot-password"
+                style={{ float: 'right', fontFamily: 'var(--font-typewriter)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--blood-0)', textDecoration: 'none', borderBottom: '1px solid var(--blood-2)', paddingBottom: 1 }}
+              >
+                Forgot code?
+              </Link>
+            </label>
             <input
               type="password"
               value={password}

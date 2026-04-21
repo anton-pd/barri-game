@@ -1605,3 +1605,17 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Reused `landing.css` CSS variables directly — no duplication of color/font tokens.
 - `auth-card` uses `mix-blend-mode: multiply` on stamps for paper-over-dark visual accuracy.
 - Card rotated −0.5deg for subtle dossier feel without distracting from form usability.
+
+## 2026-04-21 — Password reset + email noir redesign
+**Problem:** Відсутній функціонал відновлення пароля; всі системні листи мали застарілий stone/emoji стиль несумісний з noir-dossier брендингом.
+**Solution:**
+- DB migration: `reset_token VARCHAR(64)` + `reset_expires TIMESTAMPTZ` + index (через `ALTER TABLE ADD COLUMN IF NOT EXISTS` в `initializeSchema()`).
+- New queries: `setPasswordResetToken`, `getUserByResetToken`, `updatePasswordAndClearResetToken` (queries.ts).
+- New API: `POST /api/auth/forgot-password` (генерує токен, завжди 200 — no enumeration), `POST /api/auth/reset-password` (валідує токен + оновлює хеш).
+- New pages: `/auth/forgot-password` та `/auth/reset-password?token=XXX` — обидві в noir-dossier стилі. Reset page використовує `useSearchParams` в `<Suspense>` (Next.js 16 requirement).
+- `email.ts` повністю переписаний: shared `noirEmailHtml()` helper з `border-bottom + border-right` трюком для blood-shadow кнопки (email-клієнти не підтримують box-shadow). Paper card (`#c3b088`) на ink-фоні (`#07060a`), Georgia/Courier New як email-сумісні замінники шрифтів. Два листи: verify + password reset.
+- Login page: додано inline "Forgot code?" link в label полю Clearance Code.
+**Key decisions:**
+- `forgot-password` завжди повертає 200 незалежно від існування email — запобігає перерахуванню акаунтів.
+- Reset token має TTL 1 год (verify — 24 год).
+- `sendPasswordResetEmail` викликається fire-and-forget щоб не витікав timing.

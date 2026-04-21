@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.3] — 2026-04-21
+
+### Added
+- **Password reset flow**: `POST /api/auth/forgot-password` + `POST /api/auth/reset-password` endpoints; `/auth/forgot-password` and `/auth/reset-password` pages in noir style. DB migration adds `reset_token` / `reset_expires` columns to `users`.
+- **Noir email templates**: `email.ts` fully redesigned — paper-card on ink background, blood-red button shadow (`border-bottom/right` trick for email client compat), typewriter labels. Covers verification and password reset emails.
+- **"Forgot code?" link** on login page pointing to `/auth/forgot-password`.
+
+---
+
 ## [0.4.2] — 2026-04-21
 
 ### Changed

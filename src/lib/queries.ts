@@ -38,6 +38,15 @@ export async function initializeSchema() {
   await sql`
     CREATE INDEX IF NOT EXISTS idx_users_verify_token ON users(verify_token)
   `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token   VARCHAR(64)
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires TIMESTAMPTZ
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token)
+  `;
 
   await sql`
     CREATE TABLE IF NOT EXISTS game_sessions (
@@ -816,4 +825,29 @@ export async function upsertSessionFeedback(
     RETURNING *
   `;
   return rows[0] as unknown as SessionFeedback;
+}
+
+export async function setPasswordResetToken(userId: string, resetToken: string): Promise<void> {
+  await sql`
+    UPDATE users
+    SET reset_token = ${resetToken}, reset_expires = NOW() + INTERVAL '1 hour', updated_at = NOW()
+    WHERE id = ${userId}
+  `;
+}
+
+export async function getUserByResetToken(token: string): Promise<(User & { password_hash: string }) | null> {
+  const rows = await sql`
+    SELECT id, email, role, email_verified, password_hash
+    FROM users
+    WHERE reset_token = ${token} AND reset_expires > NOW()
+  `;
+  return (rows[0] as unknown as (User & { password_hash: string })) || null;
+}
+
+export async function updatePasswordAndClearResetToken(userId: string, newPasswordHash: string): Promise<void> {
+  await sql`
+    UPDATE users
+    SET password_hash = ${newPasswordHash}, reset_token = NULL, reset_expires = NULL, updated_at = NOW()
+    WHERE id = ${userId}
+  `;
 }
