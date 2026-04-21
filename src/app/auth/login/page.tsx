@@ -93,16 +93,12 @@ export default function LoginPage() {
           </div>
 
           <div className="auth-field">
-            <label>
-              Clearance Code
-              <Link
-                href="/auth/forgot-password"
-                style={{ float: 'right', fontFamily: 'var(--font-typewriter)', fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--blood-0)', textDecoration: 'none', borderBottom: '1px solid var(--blood-2)', paddingBottom: 1 }}
-              >
-                Forgot code?
-              </Link>
-            </label>
+            <div className="auth-field-labelrow">
+              <label htmlFor="clearance-code">Clearance Code</label>
+              <Link href="/auth/forgot-password" className="auth-forgot">Forgot code?</Link>
+            </div>
             <input
+              id="clearance-code"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
