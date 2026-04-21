@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.2] — 2026-04-21
+
+### Changed
+- **Auth pages redesign**: Login, Register, and Verify pages now match the noir-dossier landing aesthetic — paper-textured dossier card with torn top edge, typewriter form labels, bottom-border inputs, blood-red stamp decorations, `btn-primary`-style CTA button. All three pages wrapped in shared `auth/layout.tsx` that loads the same 4 noir fonts and `landing-root` CSS variables.
+
+---
+
 ## [0.4.1] — 2026-04-20
 
 ### Changed

@@ -1592,3 +1592,16 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Попередню версію збережено як `concept-b-ai-keeper-v1.html`.
 - Додано детальний аналіз конкурентів: `analysis/landing-concepts-v1/COMPETITOR_ANALYSIS_BARRI_LANDING_2026-04-20.md`.
 - У v2 додано: сильніша ієрархія, інтерактивний showcase, оновлені блоки позиціонування, мікроанімації.
+
+## 2026-04-21 — Auth pages redesign (Noir Dossier style)
+**Problem:** Login, Register, and Verify pages used generic Tailwind/stone-color styling (rounded-2xl cards, emoji headers, bg-stone-950) — completely inconsistent with the noir-dossier landing aesthetic.
+**Solution:**
+- Created `src/app/auth/layout.tsx` — loads the same 4 noir fonts (Special Elite, Playfair Display, IM Fell English, UnifrakturMaguntia) and wraps in `landing-root` class, making all CSS variables available.
+- Created `src/app/auth/auth.css` — auth-specific components in noir style: paper-textured dossier card with torn top edge, punched hole detail, blood-red rotated stamp, typewriter form labels, bottom-border-only inputs, ink/blood CTA button with shadow offset, oldprint italic footer.
+- Rewrote `auth/login/page.tsx` — "Enter the Archive" card with "Restricted" stamp, "Miskatonic Bureau of Investigation" header, typewriter inputs.
+- Rewrote `auth/register/page.tsx` — "Begin Your Initiation" intake form; success state with "Application Filed" blood-stamp and dispatched-letter message.
+- Rewrote `auth/verify/page.tsx` — "Identity Verification" pending / "Seal Broken" error states with matching noir language.
+**Key decisions:**
+- Reused `landing.css` CSS variables directly — no duplication of color/font tokens.
+- `auth-card` uses `mix-blend-mode: multiply` on stamps for paper-over-dark visual accuracy.
+- Card rotated −0.5deg for subtle dossier feel without distracting from form usability.

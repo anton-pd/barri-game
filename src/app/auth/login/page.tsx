@@ -58,97 +58,76 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-950 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="text-5xl mb-3">🐙</div>
-          <h1 className="text-amber-500 text-xl tracking-widest uppercase font-normal">
-            Call of Cthulhu
-          </h1>
-          <p className="text-stone-500 text-xs italic tracking-widest mt-1">
-            Ph&apos;nglui mglw&apos;nafh Cthulhu R&apos;lyeh wgah&apos;nagl fhtagn
-          </p>
+    <div className="auth-page">
+      <div className="auth-topbar">
+        <Link href="/" className="auth-back-brand">
+          <span className="auth-seal">B</span>
+          <span className="auth-wordmark">Barri</span>
+        </Link>
+        <span className="auth-caseno">File · Auth/001</span>
+      </div>
+
+      <div className="auth-card reveal d1">
+        <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(10deg)' }}>
+          Restricted
+          <small>Authorised Only</small>
         </div>
 
-        {/* Card */}
-        <div className="bg-stone-900 border border-stone-800 rounded-2xl overflow-hidden">
-          <div className="px-8 py-6 border-b border-stone-800">
-            <h2 className="text-stone-200 text-base tracking-wide">Enter the Archive</h2>
-            <p className="text-stone-500 text-xs mt-1">Sign in to continue your investigation</p>
+        <div className="auth-card-hdr">
+          <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
+          <h2>Enter the Archive</h2>
+          <p>Present your credentials to proceed.</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <div className="auth-field">
+            <label>Investigator ID</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              placeholder="investigator@example.com"
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="px-8 py-6 space-y-4">
-            <div>
-              <label className="block text-stone-400 text-xs tracking-wide mb-1.5 uppercase">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoComplete="email"
-                className="w-full bg-stone-800 border border-stone-700 text-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-700 transition-colors"
-                placeholder="investigator@example.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-stone-400 text-xs tracking-wide mb-1.5 uppercase">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoComplete="current-password"
-                className="w-full bg-stone-800 border border-stone-700 text-stone-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-amber-700 transition-colors"
-                placeholder="••••••••"
-              />
-            </div>
-
-            {error && (
-              <p className="text-red-400 text-xs">{error}</p>
-            )}
-
-            {notVerified && (
-              <div className="bg-stone-800 border border-amber-900/50 rounded-lg p-3 space-y-2">
-                <p className="text-amber-400 text-xs">
-                  Your email has not been verified yet. Check your inbox or request a new link.
-                </p>
-                {resendSent ? (
-                  <p className="text-stone-400 text-xs">Verification email sent.</p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    className="text-amber-500 text-xs underline underline-offset-2 hover:text-amber-400"
-                  >
-                    Resend verification email
-                  </button>
-                )}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-amber-800 hover:bg-amber-700 disabled:opacity-50 text-amber-100 rounded-lg py-2.5 text-sm tracking-wide transition-colors mt-2"
-            >
-              {loading ? 'Entering...' : 'Enter'}
-            </button>
-          </form>
-
-          <div className="px-8 pb-6 text-center">
-            <p className="text-stone-500 text-xs">
-              Not yet initiated?{' '}
-              <Link href="/auth/register" className="text-amber-500 hover:text-amber-400 transition-colors">
-                Register
-              </Link>
-            </p>
+          <div className="auth-field">
+            <label>Clearance Code</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
           </div>
+
+          {error && <div className="auth-error">{error}</div>}
+
+          {notVerified && (
+            <div className="auth-warning">
+              <p>Identity not yet confirmed — check your post box for a verification letter.</p>
+              {resendSent ? (
+                <p>New letter dispatched.</p>
+              ) : (
+                <button type="button" onClick={handleResend} className="auth-warning-btn">
+                  Dispatch new letter
+                </button>
+              )}
+            </div>
+          )}
+
+          <button type="submit" disabled={loading} className="auth-submit">
+            <span>{loading ? 'Verifying...' : 'Access Archive'}</span>
+            <span>→</span>
+          </button>
+        </form>
+
+        <div className="auth-foot">
+          Not yet on file?{' '}
+          <Link href="/auth/register">Begin initiation</Link>
         </div>
       </div>
     </div>
