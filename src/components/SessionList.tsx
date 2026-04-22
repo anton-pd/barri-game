@@ -117,7 +117,7 @@ function statusStamp(s: SessionListEntry) {
     : { label: 'Активна',  mod: 'active' };
 }
 
-const sessionLabelsUk = ['перша','друга','третя','четверта','п'ята','шоста','сьома','восьма','дев'ята','десята'];
+const sessionLabelsUk = ["перша","друга","третя","четверта","п'ята","шоста","сьома","восьма","дев'ята","десята"];
 
 function difficultyMeta(d: string) {
   if (d === 'beginner')     return { label: 'Початківець', mod: 'beginner'     };
