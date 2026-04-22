@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import type { GameSession, Scenario, Player } from '@/types';
-// CHANGED: Use getRolesForScenario to get scenario-specific roles
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import type { GameSession, Scenario, Player, WorldState } from '@/types';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
-import AuthBar from './AuthBar';
 import { version as appVersion } from '../../package.json';
 
-const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 interface DraftPlayer {
   name: string;
@@ -17,18 +16,30 @@ interface DraftPlayer {
 
 const emptyDraft = (): DraftPlayer => ({ name: '', preset: null });
 
-const sessionLabelsUk = ['перша', 'друга', 'третя', 'четверта', 'п’ята', 'шоста', 'сьома', 'восьма', 'дев’ята', 'десята'];
+type SessionListEntry = GameSession & {
+  last_message?: string;
+  latest_summary?: string;
+  message_count?: number;
+};
 
-type SessionListEntry = GameSession & { last_message?: string };
 type RawSession = Partial<GameSession> & {
   players?: GameSession['players'] | string;
   world_state?: GameSession['world_state'] | string;
   last_message?: string;
+  latest_summary?: string;
+  message_count?: number;
 };
+
+interface UserInfo {
+  id: string;
+  email: string;
+  role: 'user' | 'admin';
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────────
 
 function stripMessagePreview(content?: string) {
   if (!content) return '';
-
   return content
     .replace(/\[NPC:[^\]]+\]([\s\S]*?)\[\/NPC\]/g, '$1')
     .replace(/\[IMAGE:[^\]]+\]/g, '')
@@ -42,162 +53,170 @@ function normalizeSession(session: RawSession): SessionListEntry {
   if (typeof players === 'string') {
     try { players = JSON.parse(players); } catch { players = []; }
   }
-
   let worldState = session.world_state;
   if (typeof worldState === 'string') {
     try { worldState = JSON.parse(worldState) as GameSession['world_state']; } catch { worldState = undefined; }
   }
-
   return {
     ...(session as GameSession),
     players: (players ?? []) as Player[],
     world_state: (worldState ?? {}) as GameSession['world_state'],
     status: (session.status ?? 'active') as GameSession['status'],
     last_message: stripMessagePreview(session.last_message),
+    latest_summary: session.latest_summary,
+    message_count: session.message_count,
   };
 }
 
+const READ_ONLY_CACHE_KEY = 'barri.readOnlySessions';
+
 function loadCachedReadOnlySessions(): SessionListEntry[] {
   if (typeof window === 'undefined') return [];
-
   try {
-    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
+    const raw = window.sessionStorage.getItem(READ_ONLY_CACHE_KEY);
     if (!raw) return [];
-
-    const cached = JSON.parse(raw) as SessionListEntry[];
-    return cached
-      .map((session) => normalizeSession(session))
-      .filter((session) => session.status === 'completed' || session.status === 'paused');
-  } catch {
-    return [];
-  }
+    return (JSON.parse(raw) as SessionListEntry[])
+      .map((s) => normalizeSession(s))
+      .filter((s) => s.status === 'completed' || s.status === 'paused');
+  } catch { return []; }
 }
 
 function removeCachedSession(id: string) {
   if (typeof window === 'undefined') return;
-
   try {
-    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
+    const raw = window.sessionStorage.getItem(READ_ONLY_CACHE_KEY);
     if (!raw) return;
-    const cached = JSON.parse(raw) as SessionListEntry[];
-    const next = cached.filter((session) => session.id !== id);
-    window.sessionStorage.setItem(READ_ONLY_SESSION_CACHE_KEY, JSON.stringify(next));
-  } catch {
-    // Ignore cache cleanup failures.
-  }
+    const next = (JSON.parse(raw) as SessionListEntry[]).filter((s) => s.id !== id);
+    window.sessionStorage.setItem(READ_ONLY_CACHE_KEY, JSON.stringify(next));
+  } catch { /* ignore */ }
 }
 
 function mergeSessions(primary: SessionListEntry[], fallback: SessionListEntry[]) {
   const byId = new Map<string, SessionListEntry>();
-
-  for (const session of fallback) {
-    byId.set(session.id, session);
-  }
-
-  for (const session of primary) {
-    byId.set(session.id, session);
-  }
-
-  return [...byId.values()].sort((a, b) => (
+  for (const s of fallback) byId.set(s.id, s);
+  for (const s of primary)  byId.set(s.id, s);
+  return [...byId.values()].sort((a, b) =>
     new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-  ));
+  );
 }
 
-function getSessionStatusMeta(session: SessionListEntry) {
-  const isCampaign = Boolean(session.campaign_id);
-
-  if (session.status === 'completed') {
-    return {
-      badge: isCampaign ? 'Вечір завершено' : 'Завершено',
-      badgeClass: 'border-emerald-900/60 bg-emerald-950/50 text-emerald-200',
-      cardClass: 'bg-stone-950/70 border-stone-800 hover:border-emerald-900/60',
-      arrowClass: 'text-emerald-700 group-hover:text-emerald-500',
-      subtitle: isCampaign ? 'Кампанійний вечір завершено' : 'Сесія доступна лише для перегляду',
-    };
-  }
-
-  if (session.status === 'paused') {
-    return {
-      badge: 'На паузі',
-      badgeClass: 'border-amber-900/60 bg-amber-950/50 text-amber-200',
-      cardClass: 'bg-stone-900 border-amber-900/50 hover:border-amber-800/70',
-      arrowClass: 'text-amber-700 group-hover:text-amber-500',
-      subtitle: 'Нові ходи тимчасово вимкнено',
-    };
-  }
-
-  return {
-    badge: isCampaign ? 'Кампанія' : 'Активна',
-    badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
-    cardClass: 'bg-stone-900 hover:bg-stone-800 border-stone-800 hover:border-stone-700',
-    arrowClass: 'text-amber-700 group-hover:text-amber-500',
-    subtitle: isCampaign ? 'Активний вечір кампанії' : 'Готова до продовження',
-  };
+/** Extract a thumbnail URL from sessionImages (most recently inserted value). */
+function getSessionThumbnail(worldState: WorldState | undefined): string | null {
+  const imgs = worldState?.sessionImages;
+  if (!imgs) return null;
+  const vals = Object.values(imgs);
+  return vals.length > 0 ? vals[vals.length - 1] : null;
 }
+
+/** Get stamp label + CSS modifier for session status. */
+function statusStamp(s: SessionListEntry) {
+  if (s.status === 'completed') return { label: 'Закрито',    mod: 'completed' };
+  if (s.status === 'paused')    return { label: 'На паузі',   mod: 'paused'    };
+  return s.campaign_id
+    ? { label: 'Кампанія', mod: 'active' }
+    : { label: 'Активна',  mod: 'active' };
+}
+
+const sessionLabelsUk = ['перша','друга','третя','четверта','п'ята','шоста','сьома','восьма','дев'ята','десята'];
+
+function difficultyMeta(d: string) {
+  if (d === 'beginner')     return { label: 'Початківець', mod: 'beginner'     };
+  if (d === 'intermediate') return { label: 'Середній',    mod: 'intermediate' };
+  return                           { label: 'Складний',    mod: 'advanced'     };
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
 
 export default function SessionList() {
-  const [sessions, setSessions] = useState<SessionListEntry[]>([]);
+  const router = useRouter();
+
+  const [sessions,  setSessions]  = useState<SessionListEntry[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [showNewGame, setShowNewGame] = useState(false);
-  const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
-  const [sessionName, setSessionName] = useState('');
-  const [drafts, setDrafts] = useState<DraftPlayer[]>([emptyDraft()]);
-  const [pickingRoleFor, setPickingRoleFor] = useState<number | null>(null);
-  const [language, setLanguage] = useState<'uk' | 'en'>('uk');
-  const [isCreating, setIsCreating] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [user,      setUser]      = useState<UserInfo | null>(null);
+  const [loading,   setLoading]   = useState(true);
+
+  // New-session modal
+  const [selectedScenario,  setSelectedScenario]  = useState<Scenario | null>(null);
+  const [sessionName,       setSessionName]        = useState('');
+  const [drafts,            setDrafts]             = useState<DraftPlayer[]>([emptyDraft()]);
+  const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
+  const [language,          setLanguage]            = useState<'uk' | 'en'>('uk');
+  const [isCreating,        setIsCreating]          = useState(false);
+
+  // ── Load data ────────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    async function loadData() {
+    async function load() {
       try {
-        const [sessionsRes, scenariosRes] = await Promise.all([
+        const [sessRes, scRes, meRes] = await Promise.all([
           fetch('/api/sessions'),
           fetch('/api/scenarios'),
+          fetch('/api/auth/me'),
+        ]);
+        if (sessRes.status === 401) { window.location.href = '/auth/login'; return; }
+        if (!sessRes.ok || !scRes.ok) { setLoading(false); return; }
+
+        const [rawSessions, rawScenarios, meData] = await Promise.all([
+          sessRes.json(),
+          scRes.json(),
+          meRes.ok ? meRes.json() : null,
         ]);
 
-        // Expired / invalid token → redirect to login
-        if (sessionsRes.status === 401) {
-          window.location.href = '/auth/login';
-          return;
-        }
-
-        if (!sessionsRes.ok || !scenariosRes.ok) {
-          console.error('Failed to load data', sessionsRes.status, scenariosRes.status);
-          setLoading(false);
-          return;
-        }
-
-        const [s, sc] = await Promise.all([sessionsRes.json(), scenariosRes.json()]);
-        
-        const parsedSessions = (Array.isArray(s) ? s : []).map((session) => normalizeSession(session as RawSession));
-        const cachedSessions = loadCachedReadOnlySessions();
-
-        setSessions(mergeSessions(parsedSessions, cachedSessions));
-        setScenarios(Array.isArray(sc) ? sc : []);
+        const parsed  = (Array.isArray(rawSessions) ? rawSessions : []).map((s) => normalizeSession(s as RawSession));
+        const cached  = loadCachedReadOnlySessions();
+        setSessions(mergeSessions(parsed, cached));
+        setScenarios(Array.isArray(rawScenarios) ? rawScenarios : []);
+        setUser(meData ?? null);
       } catch (err) {
         console.error('Network error loading data', err);
       } finally {
         setLoading(false);
       }
     }
-
-    loadData();
+    load();
   }, []);
 
+  // ── Auth actions ─────────────────────────────────────────────────────────────
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/auth/login');
+    router.refresh();
+  }
+
+  // ── New-session helpers ──────────────────────────────────────────────────────
+
+  const openModal = useCallback((sc: Scenario) => {
+    setSelectedScenario(sc);
+    setSessionName('');
+    setDrafts([emptyDraft()]);
+    setPickingRoleFor(null);
+    setLanguage('uk');
+  }, []);
+
+  function closeModal() {
+    setSelectedScenario(null);
+    setPickingRoleFor(null);
+  }
+
   function addDraft() {
-    if (drafts.length < 4) setDrafts((prev) => [...prev, emptyDraft()]);
+    if (drafts.length < 4) setDrafts((p) => [...p, emptyDraft()]);
   }
 
   function removeDraft(idx: number) {
-    if (drafts.length > 1) setDrafts((prev) => prev.filter((_, i) => i !== idx));
+    if (drafts.length > 1) setDrafts((p) => p.filter((_, i) => i !== idx));
   }
 
   function setDraftName(idx: number, name: string) {
-    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, name } : d)));
+    setDrafts((p) => p.map((d, i) => (i === idx ? { ...d, name } : d)));
   }
 
   function setDraftPreset(idx: number, preset: RolePreset) {
-    setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, preset } : d)));
+    setDrafts((p) => p.map((d, i) => (i === idx ? { ...d, preset } : d)));
     setPickingRoleFor(null);
   }
 
@@ -209,9 +228,7 @@ export default function SessionList() {
   async function createSession() {
     if (!canCreate || !selectedScenario) return;
     setIsCreating(true);
-
     const players: Player[] = drafts.map((d) => makePlayer(d.name.trim(), d.preset!));
-
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
@@ -219,7 +236,7 @@ export default function SessionList() {
         body: JSON.stringify({ scenarioId: selectedScenario.id, name: sessionName, players, language }),
       });
       if (!res.ok) throw new Error('Failed');
-      const session = await res.json();
+      const session = await res.json() as GameSession;
       window.location.href = `/session/${session.id}`;
     } catch {
       setIsCreating(false);
@@ -231,197 +248,281 @@ export default function SessionList() {
     e.stopPropagation();
     if (!confirm('Видалити цю сесію?')) return;
     await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-    setSessions((prev) => prev.filter((s) => s.id !== id));
+    setSessions((p) => p.filter((s) => s.id !== id));
     removeCachedSession(id);
   }
 
-  function closeModal() {
-    setShowNewGame(false);
-    setSelectedScenario(null);
-    setSessionName('');
-    setDrafts([emptyDraft()]);
-    setPickingRoleFor(null);
-    setLanguage('uk');
-  }
+  // ── Derived state ─────────────────────────────────────────────────────────────
 
-  const difficultyLabel = (d: string) => {
-    if (d === 'beginner')     return { text: 'Початківець', color: 'text-green-400',  bg: 'bg-green-900/30 border-green-800/40'  };
-    if (d === 'intermediate') return { text: 'Середній',    color: 'text-yellow-400', bg: 'bg-yellow-900/30 border-yellow-800/40' };
-    return                           { text: 'Складний',    color: 'text-red-400',    bg: 'bg-red-900/30 border-red-800/40'       };
-  };
+  const activeSessions    = sessions.filter((s) => s.status === 'active');
+  const pausedSessions    = sessions.filter((s) => s.status === 'paused');
+  const completedSessions = sessions.filter((s) => s.status === 'completed');
+  const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
 
-  const activeSessions = sessions.filter((session) => session.status === 'active');
-  const pausedSessions = sessions.filter((session) => session.status === 'paused');
-  const completedSessions = sessions.filter((session) => session.status === 'completed');
-  const sessionSections = [
-    { id: 'active', title: 'Активні сесії', sessions: activeSessions },
-    { id: 'paused', title: 'На паузі', sessions: pausedSessions },
-    { id: 'completed', title: 'Завершені сесії', sessions: completedSessions },
-  ].filter((section) => section.sessions.length > 0);
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100">
-      <div className="max-w-xl mx-auto px-4 py-8 sm:py-12">
+    <div className="sessions-page">
 
-        {/* Auth bar */}
-        <div className="flex justify-end mb-4">
-          <AuthBar />
+      {/* ── Topbar ── */}
+      <header className="topbar">
+        <Link href="/" className="mark" style={{ textDecoration: 'none' }}>
+          <span className="seal">B</span>
+          <span className="wordmark">Barri</span>
+        </Link>
+
+        <div className="topbar-right">
+          <span style={{
+            fontFamily: 'var(--font-typewriter)',
+            fontSize: '10px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+            color: 'var(--paper-3)',
+          }}>
+            v{appVersion}
+          </span>
+
+          {user && (
+            <div className="sessions-authbar">
+              {user.role === 'admin' && (
+                <Link href="/admin" className="sessions-authbar-admin">Admin</Link>
+              )}
+              <span className="sessions-authbar-email">{user.email}</span>
+              <button className="sessions-authbar-logout" onClick={handleLogout}>
+                Вийти
+              </button>
+            </div>
+          )}
         </div>
+      </header>
 
-        {/* Hero */}
-        <div className="text-center mb-10">
-          <p className="text-4xl mb-3 select-none">🐙</p>
-          <h1 className="text-3xl sm:text-4xl font-bold text-amber-500 tracking-tight mb-1">
-            Call of Cthulhu
-          </h1>
-          <p className="text-stone-500 text-sm">AI Keeper — Поклик Ктулху <span className="text-stone-700">· v{appVersion}</span></p>
-          <div className="mt-6 flex items-center gap-3 text-stone-800 select-none">
-            <div className="flex-1 h-px bg-stone-800" />
-            <span className="text-xs tracking-widest uppercase">Ph&apos;nglui mglw&apos;nafh</span>
-            <div className="flex-1 h-px bg-stone-800" />
+      {/* ── Bureau stats (Tier 2) ── */}
+      {!loading && sessions.length > 0 && (
+        <div className="bureau-stats">
+          <div className="bureau-stat">
+            <span className="bureau-stat-value">{activeSessions.length}</span>
+            <span className="bureau-stat-label">Активних</span>
+          </div>
+          {pausedSessions.length > 0 && (
+            <div className="bureau-stat">
+              <span className="bureau-stat-value">{pausedSessions.length}</span>
+              <span className="bureau-stat-label">На паузі</span>
+            </div>
+          )}
+          <div className="bureau-stat">
+            <span className="bureau-stat-value">{completedSessions.length}</span>
+            <span className="bureau-stat-label">Завершено</span>
+          </div>
+          <div className="bureau-stat">
+            <span className="bureau-stat-value">{totalMessages}</span>
+            <span className="bureau-stat-label">Повідомлень</span>
           </div>
         </div>
+      )}
 
-        {/* New game button */}
-        <button
-          onClick={() => setShowNewGame(true)}
-          className="w-full py-3.5 mb-8 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 rounded-2xl text-amber-100 font-semibold text-base transition-colors shadow-lg shadow-amber-950/30"
-        >
-          + Нова гра
-        </button>
+      {/* ── Open Investigations ── */}
+      <div className="sessions-section">
+        <div className="section-divider">
+          <span className="section-divider-title">Відкриті справи</span>
+        </div>
 
-        {/* Sessions */}
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-24 bg-stone-900 rounded-2xl animate-pulse border border-stone-800" />
+          <div className="sessions-loading-grid">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="sessions-loading-card" />
             ))}
           </div>
         ) : sessions.length === 0 ? (
-          <div className="text-center text-stone-600 py-12">
-            <p>Немає активних сесій. Почніть нову гру!</p>
+          /* Empty state (Tier 2) */
+          <div className="sessions-empty">
+            <span className="sessions-empty-glyph">ꝏ</span>
+            <h3>Жодних справ не відкрито</h3>
+            <p>Архів порожній. Оберіть справу нижче, щоб розпочати розслідування.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            <div className="flex flex-wrap gap-2 px-1">
-              <span className="text-xs rounded-full border border-stone-800 bg-stone-900 px-2.5 py-1 text-stone-400">
-                Активні: {activeSessions.length}
-              </span>
-              {pausedSessions.length > 0 && (
-                <span className="text-xs rounded-full border border-amber-900/60 bg-amber-950/30 px-2.5 py-1 text-amber-300">
-                  На паузі: {pausedSessions.length}
-                </span>
-              )}
-              {completedSessions.length > 0 && (
-                <span className="text-xs rounded-full border border-emerald-900/60 bg-emerald-950/30 px-2.5 py-1 text-emerald-300">
-                  Завершені: {completedSessions.length}
-                </span>
-              )}
-            </div>
+          <div className="session-cards-grid">
+            {sessions.map((s) => {
+              const stamp     = statusStamp(s);
+              const thumbnail = getSessionThumbnail(s.world_state);
+              const players   = s.players as Player[];
+              const location  = s.world_state?.currentLocation;
+              const campaignSession = s.campaign_id
+                ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
+                : null;
 
-            {sessionSections.map((section) => (
-              <div key={section.id} className="space-y-2">
-                <h2 className="text-[11px] text-stone-600 uppercase tracking-widest mb-3 px-1">{section.title}</h2>
-                {section.sessions.map((s) => {
-                  const statusMeta = getSessionStatusMeta(s);
+              return (
+                <Link
+                  key={s.id}
+                  href={`/session/${s.id}`}
+                  className="session-card"
+                >
+                  {/* Thumbnail */}
+                  <div className="session-card-thumb">
+                    {thumbnail ? (
+                      <img src={thumbnail} alt="" loading="lazy" />
+                    ) : (
+                      <div className="session-card-thumb-fallback">
+                        <span className="session-card-thumb-glyph">ꝏ</span>
+                      </div>
+                    )}
+                    <div className={`session-stamp session-stamp--${stamp.mod}`}>
+                      {stamp.label}
+                    </div>
+                  </div>
 
-                  return (
-                    <Link
-                      key={s.id}
-                      href={`/session/${s.id}`}
-                      className={`group flex items-center gap-3 border rounded-2xl p-4 transition-all ${statusMeta.cardClass}`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-stone-200 truncate">{s.name}</h3>
-                          <span className={`text-[11px] rounded-full border px-2 py-0.5 uppercase tracking-[0.16em] ${statusMeta.badgeClass}`}>
-                            {statusMeta.badge}
+                  {/* Body */}
+                  <div className="session-card-body">
+                    <div className="session-card-name">{s.name}</div>
+
+                    <div className="session-card-meta">
+                      <span>{s.scenario_id}</span>
+                      <span className="session-card-meta-dot">·</span>
+                      <span>{formatDate(s.updated_at)}</span>
+                      {campaignSession && (
+                        <>
+                          <span className="session-card-meta-dot">·</span>
+                          <span>{campaignSession}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {location && (
+                      <div className="session-location">{location}</div>
+                    )}
+
+                    {/* Previously... (Tier 2) */}
+                    {s.latest_summary && (
+                      <div className="session-summary">
+                        {s.latest_summary}
+                      </div>
+                    )}
+
+                    {/* Players */}
+                    {players.length > 0 && (
+                      <div className="session-players">
+                        {players.map((p, i) => (
+                          <span key={i} className="session-player-chip">
+                            {p.name}
+                            {p.hp !== undefined && (
+                              <> · HP&nbsp;{p.hp}&nbsp;·&nbsp;SAN&nbsp;{p.sanity}</>
+                            )}
                           </span>
-                          {s.campaign_id && (
-                            <span className="text-xs text-stone-600 shrink-0">
-                              Сесія: {sessionLabelsUk[(s.session_number || 1) - 1] || `${s.session_number}-та`}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-stone-500 mb-1.5">
-                          {s.scenario_id} · {new Date(s.updated_at).toLocaleDateString('uk-UA')} · {statusMeta.subtitle}
-                        </p>
-                        {s.last_message && (
-                          <p className="text-xs text-stone-500 truncate italic mb-2">«{s.last_message}»</p>
-                        )}
-                        <div className="flex flex-wrap gap-1">
-                          {(s.players as Player[]).map((p, i) => (
-                            <span key={i} className="text-xs bg-stone-800/80 group-hover:bg-stone-700 text-stone-400 rounded-full px-2 py-0.5 transition-colors">
-                              {p.name} · {p.role}
-                            </span>
-                          ))}
-                        </div>
+                        ))}
                       </div>
-                      <div className="flex flex-col items-center gap-2 shrink-0">
-                        <button
-                          onClick={(e) => deleteSession(s.id, e)}
-                          className="text-stone-700 hover:text-red-500 active:text-red-400 text-sm p-1.5 transition-colors"
-                          title="Видалити сесію"
-                        >
-                          🗑
-                        </button>
-                        <span className={`transition-colors ${statusMeta.arrowClass}`}>→</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
+                    )}
+
+                    {/* Footer */}
+                    <div className="session-card-footer">
+                      <button
+                        className="session-delete-btn"
+                        onClick={(e) => deleteSession(s.id, e)}
+                        title="Видалити сесію"
+                      >
+                        Видалити
+                      </button>
+                      <span className="session-enter-btn">
+                        Увійти <span aria-hidden="true">→</span>
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
 
-      {/* Modal — bottom sheet on mobile, centered on desktop */}
-      {showNewGame && (
-        <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 sm:p-4">
-          <div className="bg-stone-900 border border-stone-700 sm:rounded-2xl rounded-t-2xl w-full sm:max-w-lg max-h-[90dvh] overflow-y-auto overscroll-contain">
-            {/* Drag handle (mobile only) */}
-            <div className="sm:hidden flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-stone-700 rounded-full" />
+      {/* ── Available Case Files (always visible, Tier 1) ── */}
+      <div className="sessions-section">
+        <div className="section-divider">
+          <span className="section-divider-title">Доступні справи</span>
+        </div>
+
+        <div className="case-files-grid">
+          {scenarios.map((sc) => {
+            const diff = difficultyMeta(sc.difficulty);
+            const isCampaign = sc.sessionConfig?.isCampaign;
+            return (
+              <div key={sc.id} className="case-file-card">
+                <div>
+                  <span className={`case-file-difficulty case-file-difficulty--${diff.mod}`}>
+                    {diff.label}
+                  </span>
+                  <span className="case-file-badge">
+                    {isCampaign ? '· кампанія' : '· one-shot'}
+                  </span>
+                </div>
+                <div className="case-file-title">{sc.titleUk}</div>
+                <div className="case-file-era">{sc.era}</div>
+                <div className="case-file-desc">{sc.description}</div>
+                <button
+                  className="case-file-open-btn"
+                  onClick={() => openModal(sc)}
+                >
+                  <span>Розпочати розслідування</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── New-session modal ── */}
+      {selectedScenario && (
+        <div className="nsm-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+          <div className="nsm-sheet">
+            {/* Drag handle (mobile) */}
+            <div className="nsm-drag-handle">
+              <div className="nsm-drag-bar" />
             </div>
 
-            <div className="p-5">
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-base font-bold text-stone-200">Нова гра</h2>
-                <button onClick={closeModal} className="text-stone-500 hover:text-stone-300 active:text-stone-200 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-800 transition-colors text-xl leading-none">✕</button>
+            <div className="nsm-inner">
+              {/* Header */}
+              <div className="nsm-header">
+                <div>
+                  <div className="nsm-scenario-label">Справа</div>
+                  <div className="nsm-scenario-title">{selectedScenario.titleUk}</div>
+                </div>
+                <button className="nsm-close" onClick={closeModal} aria-label="Закрити">✕</button>
               </div>
 
               {/* Role picker overlay */}
               {pickingRoleFor !== null ? (
                 <div>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="nsm-role-picker-back">
                     <button
+                      className="nsm-role-picker-back-btn"
                       onClick={() => setPickingRoleFor(null)}
-                      className="text-amber-600 hover:text-amber-500 text-sm py-1 pr-2"
-                    >← Назад</button>
-                    <span className="text-sm text-stone-400">
+                    >
+                      ← Назад
+                    </button>
+                    <span className="nsm-role-picker-for">
                       Клас для {drafts[pickingRoleFor].name || `Гравця ${pickingRoleFor + 1}`}
                     </span>
                   </div>
-                  {/* CHANGED: Show roles scoped to selected scenario */}
-                  <div className="space-y-2">
-                    {(selectedScenario ? getRolesForScenario(selectedScenario) : []).map((preset) => (
+                  <div className="nsm-role-list">
+                    {getRolesForScenario(selectedScenario).map((preset) => (
                       <button
                         key={preset.id}
-                        onClick={() => setDraftPreset(pickingRoleFor, preset)}
-                        className="w-full text-left bg-stone-800 hover:bg-stone-750 active:bg-stone-700 border border-stone-700 hover:border-stone-600 rounded-xl p-3.5 transition-colors"
+                        className="nsm-role-option"
+                        onClick={() => setDraftPreset(pickingRoleFor!, preset)}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-semibold text-stone-200 text-sm">{preset.name}</span>
-                          <div className="flex gap-2 text-xs">
-                            <span className="text-red-400">HP {preset.hp}</span>
-                            <span className="text-purple-400">SAN {preset.sanity}</span>
+                        <div className="nsm-role-option-header">
+                          <span className="nsm-role-option-name">{preset.name}</span>
+                          <div className="nsm-role-option-stats">
+                            {preset.hp !== undefined && (
+                              <span style={{ color: 'var(--blood-0)' }}>HP {preset.hp}</span>
+                            )}
+                            {preset.sanity !== undefined && (
+                              <span style={{ color: 'var(--amber-2)' }}>SAN {preset.sanity}</span>
+                            )}
                           </div>
                         </div>
-                        <p className="text-xs text-stone-500 mb-2 leading-relaxed">{preset.description}</p>
-                        <div className="flex flex-wrap gap-1">
+                        <div className="nsm-role-option-desc">{preset.description}</div>
+                        <div className="nsm-role-option-skills">
                           {Object.entries(preset.skills).map(([skill, val]) => (
-                            <span key={skill} className="text-xs bg-stone-700 text-stone-400 rounded-full px-2 py-0.5">
+                            <span key={skill} className="nsm-skill-tag">
                               {skill} {val}
                             </span>
                           ))}
@@ -430,79 +531,32 @@ export default function SessionList() {
                     ))}
                   </div>
                 </div>
-
-              ) : !selectedScenario ? (
-                /* Scenario picker */
-                <div>
-                  <p className="text-xs text-stone-500 uppercase tracking-wide mb-3">Оберіть сценарій</p>
-                  <div className="space-y-2">
-                    {scenarios.map((sc) => {
-                      const diff = difficultyLabel(sc.difficulty);
-                      return (
-                        <button
-                          key={sc.id}
-                          onClick={() => setSelectedScenario(sc)}
-                          className="w-full text-left bg-stone-800 hover:bg-stone-750 active:bg-stone-700 border border-stone-700 hover:border-stone-600 rounded-xl p-4 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div>
-                              <h3 className="font-semibold text-stone-200 text-sm">{sc.titleUk}</h3>
-                              <p className="text-xs text-stone-500">{sc.era}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-1 shrink-0">
-                              <span className={`text-xs border rounded-full px-2 py-0.5 ${diff.color} ${diff.bg}`}>
-                                {diff.text}
-                              </span>
-                              {/* CHANGED: Show campaign/one-shot badge and player limits */}
-                              {sc.sessionConfig && (
-                                <span className="text-xs text-stone-600">
-                                  {sc.sessionConfig.isCampaign ? '📖 кампанія' : '⚡ one-shot'}
-                                  {' · '}{sc.sessionConfig.minPlayers}–{sc.sessionConfig.maxPlayers} гравці
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <p className="text-xs text-stone-500 leading-relaxed">{sc.description}</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
               ) : (
-                /* Player setup */
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 text-sm">
-                    <button
-                      onClick={() => setSelectedScenario(null)}
-                      className="text-amber-600 hover:text-amber-500 py-1 pr-2"
-                    >←</button>
-                    <span className="text-stone-400 truncate">{selectedScenario.titleUk}</span>
-                  </div>
-
-                  <div>
-                    <label className="text-xs text-stone-500 uppercase tracking-wide block mb-1.5">Назва сесії</label>
+                /* Player setup form */
+                <div className="nsm-form">
+                  {/* Session name */}
+                  <div className="nsm-field">
+                    <label htmlFor="nsm-name">Назва справи</label>
                     <input
+                      id="nsm-name"
                       type="text"
                       value={sessionName}
                       onChange={(e) => setSessionName(e.target.value)}
                       placeholder="Напр: Ніч у Бостоні"
-                      className="w-full bg-stone-800 border border-stone-700 focus:border-amber-700 rounded-xl px-3.5 py-2.5 text-sm text-stone-200 placeholder-stone-600 focus:outline-none transition-colors"
+                      autoComplete="off"
                     />
                   </div>
 
-                  <div>
-                    <label className="text-xs text-stone-500 uppercase tracking-wide block mb-1.5">Мова гри</label>
-                    <div className="flex gap-2">
+                  {/* Language */}
+                  <div className="nsm-field">
+                    <label>Мова гри</label>
+                    <div className="nsm-lang-toggle">
                       {(['uk', 'en'] as const).map((lang) => (
                         <button
                           key={lang}
+                          className={`nsm-lang-btn${language === lang ? ' nsm-lang-btn--active' : ''}`}
                           onClick={() => setLanguage(lang)}
-                          className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                            language === lang
-                              ? 'bg-amber-800/60 border-amber-700 text-amber-300'
-                              : 'bg-stone-800 border-stone-700 text-stone-500 hover:border-stone-600 hover:text-stone-400'
-                          }`}
+                          type="button"
                         >
                           {lang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}
                         </button>
@@ -510,23 +564,26 @@ export default function SessionList() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-stone-500 uppercase tracking-wide block mb-2">Гравці (1–4)</label>
-                    <div className="space-y-2.5">
+                  {/* Players */}
+                  <div className="nsm-field">
+                    <label>Гравці (1–4)</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {drafts.map((d, i) => (
-                        <div key={i} className="bg-stone-800/60 border border-stone-700/50 rounded-xl p-3.5">
-                          <div className="flex gap-2 items-center mb-2.5">
+                        <div key={i} className="nsm-player-card">
+                          <div className="nsm-player-row">
                             <input
                               type="text"
                               value={d.name}
                               onChange={(e) => setDraftName(i, e.target.value)}
                               placeholder={`Ім'я гравця ${i + 1}`}
-                              className="flex-1 bg-stone-700 border border-stone-600 focus:border-amber-700 rounded-lg px-3 py-2 text-sm text-stone-200 placeholder-stone-500 focus:outline-none transition-colors"
+                              autoComplete="off"
                             />
                             {drafts.length > 1 && (
                               <button
+                                className="nsm-remove-btn"
                                 onClick={() => removeDraft(i)}
-                                className="text-stone-600 hover:text-red-500 active:text-red-400 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-700 transition-colors"
+                                type="button"
+                                aria-label="Видалити гравця"
                               >
                                 ✕
                               </button>
@@ -535,29 +592,28 @@ export default function SessionList() {
 
                           {d.preset ? (
                             <button
+                              className="nsm-role-selected"
                               onClick={() => setPickingRoleFor(i)}
-                              className="w-full text-left bg-stone-700 hover:bg-stone-600 active:bg-stone-650 rounded-lg px-3 py-2.5 transition-colors"
+                              type="button"
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="text-sm font-medium text-stone-200">{d.preset.name}</span>
-                                <div className="flex gap-2 text-xs items-center">
-                                  <span className="text-red-400">HP {d.preset.hp}</span>
-                                  <span className="text-purple-400">SAN {d.preset.sanity}</span>
-                                  <span className="text-stone-500 text-[11px]">змінити →</span>
+                              <span className="nsm-role-name">{d.preset.name}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="nsm-role-stats">
+                                  {d.preset.hp !== undefined && (
+                                    <span style={{ color: 'var(--blood-0)' }}>HP {d.preset.hp}</span>
+                                  )}
+                                  {d.preset.sanity !== undefined && (
+                                    <span style={{ color: 'var(--amber-2)' }}>SAN {d.preset.sanity}</span>
+                                  )}
                                 </div>
-                              </div>
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {Object.entries(d.preset.skills).map(([skill, val]) => (
-                                  <span key={skill} className="text-xs text-stone-500">
-                                    {skill} {val}
-                                  </span>
-                                ))}
+                                <span className="nsm-role-change">змінити →</span>
                               </div>
                             </button>
                           ) : (
                             <button
+                              className="nsm-role-btn"
                               onClick={() => setPickingRoleFor(i)}
-                              className="w-full py-2.5 text-sm text-amber-700 hover:text-amber-500 active:text-amber-400 border border-dashed border-stone-600 hover:border-amber-800 rounded-xl transition-colors"
+                              type="button"
                             >
                               + Обрати клас
                             </button>
@@ -568,20 +624,25 @@ export default function SessionList() {
 
                     {drafts.length < 4 && (
                       <button
+                        className="nsm-add-player-btn"
                         onClick={addDraft}
-                        className="text-xs text-amber-700 hover:text-amber-500 active:text-amber-400 mt-3 py-1"
+                        type="button"
+                        style={{ marginTop: '10px' }}
                       >
                         + Додати гравця
                       </button>
                     )}
                   </div>
 
+                  {/* Submit */}
                   <button
+                    className="nsm-submit"
                     onClick={createSession}
                     disabled={!canCreate}
-                    className="w-full py-3 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-2xl text-amber-100 font-semibold text-base transition-colors"
+                    type="button"
                   >
-                    {isCreating ? 'Створення...' : 'Почати гру'}
+                    <span>{isCreating ? 'Відкриваємо справу...' : 'Відкрити справу'}</span>
+                    {!isCreating && <span aria-hidden="true">→</span>}
                   </button>
                 </div>
               )}

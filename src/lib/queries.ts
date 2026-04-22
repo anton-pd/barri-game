@@ -335,11 +335,13 @@ export async function getSessions(): Promise<(GameSession & { last_message?: str
 
 export async function getSessionsByUserId(
   userId: string
-): Promise<(GameSession & { last_message?: string })[]> {
+): Promise<(GameSession & { last_message?: string; latest_summary?: string; message_count?: number })[]> {
   const rows = await sql`
     SELECT
       gs.*,
-      m.content as last_message
+      m.content as last_message,
+      ss.summary as latest_summary,
+      COALESCE(mc.cnt, 0)::int as message_count
     FROM game_sessions gs
     LEFT JOIN LATERAL (
       SELECT content FROM messages
@@ -347,6 +349,16 @@ export async function getSessionsByUserId(
       ORDER BY created_at DESC
       LIMIT 1
     ) m ON true
+    LEFT JOIN LATERAL (
+      SELECT summary FROM session_summaries
+      WHERE session_id = gs.id
+      ORDER BY session_number DESC
+      LIMIT 1
+    ) ss ON true
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::int as cnt FROM messages
+      WHERE session_id = gs.id
+    ) mc ON true
     WHERE gs.user_id = ${userId}
     ORDER BY
       CASE gs.status
@@ -356,7 +368,7 @@ export async function getSessionsByUserId(
       END,
       gs.updated_at DESC
   `;
-  return rows as unknown as (GameSession & { last_message?: string })[];
+  return rows as unknown as (GameSession & { last_message?: string; latest_summary?: string; message_count?: number })[];
 }
 
 export async function createSession(

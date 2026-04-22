@@ -1634,3 +1634,23 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 **Fix:** Завантажено PT Mono (cyrillic+latin) і PT Serif (cyrillic+latin) як додаткові шрифти в `page.tsx` та `auth/layout.tsx`. Оновлено `landing.css`: `--font-typewriter` додано `"PT Mono"` як fallback, `--font-oldprint` — `"PT Serif"`. Playfair Display оновлено до subset `["latin", "cyrillic"]`.
 
 **Deployment lesson:** Завжди робити `git pull origin staging` на VPS перед `docker compose build`, інакше збирається старий код (COPY . . кешується).
+
+## 2026-04-22 — Sessions page noir redesign (Tier 1 + Tier 2)
+**Problem:** Sessions page `/sessions` was completely off-brand — stone Tailwind theme with no connection to the noir-dossier visual language of the landing and auth pages.
+
+**Solution:**
+- `src/app/sessions/layout.tsx` — NEW: loads all 6 noir fonts (same as auth layout) + `landing.css` + `sessions.css`, wraps in `landing-root`. Sessions page now inherits all noir CSS tokens.
+- `src/app/sessions/sessions.css` — NEW: full noir design system for sessions page. Covers: topbar auth section, bureau stats strip, section dividers, session cards (with thumbnail, torn edge, status stamp, location, summary, player chips), empty state, case file cards, new-session modal (all components use paper/ink/blood/amber token palette).
+- `src/components/SessionList.tsx` — REWRITTEN in full:
+  - **Tier 1**: scene thumbnail from `world_state.sessionImages` on each card; HP/SAN + role in player chips; current location tag on card; scenario cards always visible on page (no modal step for scenario selection); full noir card design (rotated paper cards, torn top edge, status stamps, typewriter/oldprint/serif fonts).
+  - **Tier 2**: "Previously..." summary from `session_summaries` table shown on card; bureau statistics strip (active/paused/completed/messages counts); empty state with blackletter glyph + "no cases open" copy.
+  - Topbar reuses `.topbar`/`.mark`/`.seal`/`.wordmark` classes from landing.css; auth section (email, admin link, logout) styled with noir CSS classes.
+  - New session flow simplified: scenarios visible on page, clicking "Розпочати розслідування" opens modal pre-configured for that scenario (no scenario picker step inside modal).
+  - User data (email, role) loaded from `/api/auth/me` alongside sessions/scenarios in a single `Promise.all`.
+- `src/lib/queries.ts` — `getSessionsByUserId` extended: adds `latest_summary` (LATERAL JOIN on `session_summaries`) and `message_count` (LATERAL COUNT on `messages`) to each session row.
+
+**Key decisions:**
+- `world_state.sessionImages` is keyed by message UUID (not time-ordered), so `Object.values().pop()` gives the last inserted image as thumbnail — imprecise but functionally correct for decorative use.
+- Scenarios section is always rendered below sessions; no need for a "New game" button that hides scenarios in a multi-step modal.
+- Bureau stats strip only shown when sessions exist (not on empty state).
+- Session card `session-card:nth-child(even)` rotates opposite direction — gives natural stack-of-papers feel.

@@ -5,6 +5,19 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.6] — 2026-04-22
+
+### Added
+- **Sessions page noir redesign (Tier 1 + Tier 2)**: full visual overhaul of `/sessions` to match noir-dossier design language.
+  - Session cards: scene thumbnail (from `world_state.sessionImages`), torn top edge, status stamp (АКТИВНА / НА ПАУЗІ / ЗАКРИТО), current location, player chips with HP/SAN, "Previously..." summary snippet.
+  - Scenario cards always visible on page — clicking opens the new-session modal pre-configured for that scenario (no multi-step modal picker).
+  - Bureau Statistics strip: active / paused / completed / total messages counts.
+  - Empty state for new users with blackletter glyph and copy.
+  - `sessions/layout.tsx` loads all noir fonts and CSS tokens via `landing-root`.
+- **`getSessionsByUserId` query extended**: now returns `latest_summary` (from `session_summaries`) and `message_count` (from `messages`) per session.
+
+---
+
 ## [0.4.5] — 2026-04-21
 
 ### Fixed
