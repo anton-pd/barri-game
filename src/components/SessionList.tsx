@@ -138,15 +138,34 @@ function SessionCard({
   s: SessionListEntry;
   onDelete: (id: string, e: React.MouseEvent) => void;
 }) {
-  const stamp          = statusStamp(s);
-  const thumbnail      = getSessionThumbnail(s.world_state);
-  const players        = s.players as Player[];
-  const location       = s.world_state?.currentLocation;
-  // Prefer AI-generated summary; fall back to last Keeper message preview
-  const snippet        = s.latest_summary || s.last_message || null;
+  const [confirming, setConfirming] = useState(false);
+
+  const stamp           = statusStamp(s);
+  const thumbnail       = getSessionThumbnail(s.world_state);
+  const players         = s.players as Player[];
+  const location        = s.world_state?.currentLocation;
+  const snippet         = s.latest_summary || s.last_message || null;
   const campaignSession = s.campaign_id
     ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
     : null;
+
+  function handleDeleteClick(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirming(true);
+  }
+
+  function handleConfirm(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete(s.id, e);
+  }
+
+  function handleCancel(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setConfirming(false);
+  }
 
   return (
     <Link href={`/session/${s.id}`} className="session-card">
@@ -182,12 +201,10 @@ function SessionCard({
 
         {location && <div className="session-location">{location}</div>}
 
-        {/* Last entry / summary snippet */}
         {snippet && (
           <div className="session-summary">{snippet}</div>
         )}
 
-        {/* Players — names only */}
         {players.length > 0 && (
           <div className="session-players">
             {players.map((p, i) => (
@@ -198,16 +215,31 @@ function SessionCard({
 
         {/* Footer */}
         <div className="session-card-footer">
-          <button
-            className="session-delete-btn"
-            onClick={(e) => onDelete(s.id, e)}
-            title="Видалити сесію"
-          >
-            Видалити
-          </button>
-          <span className="session-enter-btn">
-            Увійти <span aria-hidden="true">→</span>
-          </span>
+          {confirming ? (
+            <div className="session-delete-confirm">
+              <span className="session-delete-confirm-label">Видалити справу?</span>
+              <div className="session-delete-confirm-actions">
+                <button className="session-delete-confirm-yes" onClick={handleConfirm}>
+                  Так
+                </button>
+                <button className="session-delete-confirm-no" onClick={handleCancel}>
+                  Скасувати
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                className="session-delete-btn"
+                onClick={handleDeleteClick}
+              >
+                Видалити
+              </button>
+              <span className="session-enter-btn">
+                Увійти <span aria-hidden="true">→</span>
+              </span>
+            </>
+          )}
         </div>
       </div>
     </Link>
@@ -331,7 +363,6 @@ export default function SessionList() {
   async function deleteSession(id: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm('Видалити цю сесію?')) return;
     await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
     setSessions((p) => p.filter((s) => s.id !== id));
     removeCachedSession(id);

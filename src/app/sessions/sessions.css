@@ -353,15 +353,70 @@
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--paper-3);
+  color: var(--blood-0);
   background: none;
   border: none;
+  border-bottom: 1px solid var(--blood-2);
   cursor: pointer;
-  padding: 3px 0;
-  transition: color .2s;
-  opacity: 0.45;
+  padding: 3px 0 2px;
+  transition: color .18s, border-color .18s;
 }
-.session-delete-btn:hover { color: var(--blood-0); opacity: 1; }
+.session-delete-btn:hover {
+  color: var(--blood-1);
+  border-bottom-color: var(--blood-1);
+}
+
+/* Inline delete confirmation */
+.session-delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.session-delete-confirm-label {
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--blood-0);
+}
+
+.session-delete-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.session-delete-confirm-yes {
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-0);
+  background: var(--blood-1);
+  border: none;
+  padding: 4px 12px 3px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.session-delete-confirm-yes:hover { background: var(--blood-0); }
+
+.session-delete-confirm-no {
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-3);
+  background: none;
+  border: 1px solid rgba(107,90,62,0.35);
+  padding: 4px 12px 3px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.session-delete-confirm-no:hover {
+  border-color: var(--paper-3);
+  color: var(--paper-2);
+}
 
 .session-enter-btn {
   font-family: var(--font-typewriter);
