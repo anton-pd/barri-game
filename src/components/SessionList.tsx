@@ -129,6 +129,91 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// ── SessionCard sub-component ─────────────────────────────────────────────────
+
+function SessionCard({
+  s,
+  onDelete,
+}: {
+  s: SessionListEntry;
+  onDelete: (id: string, e: React.MouseEvent) => void;
+}) {
+  const stamp          = statusStamp(s);
+  const thumbnail      = getSessionThumbnail(s.world_state);
+  const players        = s.players as Player[];
+  const location       = s.world_state?.currentLocation;
+  // Prefer AI-generated summary; fall back to last Keeper message preview
+  const snippet        = s.latest_summary || s.last_message || null;
+  const campaignSession = s.campaign_id
+    ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
+    : null;
+
+  return (
+    <Link href={`/session/${s.id}`} className="session-card">
+      {/* Thumbnail */}
+      <div className="session-card-thumb">
+        {thumbnail ? (
+          <img src={thumbnail} alt="" loading="lazy" />
+        ) : (
+          <div className="session-card-thumb-fallback">
+            <span className="session-card-thumb-glyph">ꝏ</span>
+          </div>
+        )}
+        <div className={`session-stamp session-stamp--${stamp.mod}`}>
+          {stamp.label}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="session-card-body">
+        <div className="session-card-name">{s.name}</div>
+
+        <div className="session-card-meta">
+          <span>{s.scenario_id}</span>
+          <span className="session-card-meta-dot">·</span>
+          <span>{formatDate(s.updated_at)}</span>
+          {campaignSession && (
+            <>
+              <span className="session-card-meta-dot">·</span>
+              <span>{campaignSession}</span>
+            </>
+          )}
+        </div>
+
+        {location && <div className="session-location">{location}</div>}
+
+        {/* Last entry / summary snippet */}
+        {snippet && (
+          <div className="session-summary">{snippet}</div>
+        )}
+
+        {/* Players — names only */}
+        {players.length > 0 && (
+          <div className="session-players">
+            {players.map((p, i) => (
+              <span key={i} className="session-player-chip">{p.name}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="session-card-footer">
+          <button
+            className="session-delete-btn"
+            onClick={(e) => onDelete(s.id, e)}
+            title="Видалити сесію"
+          >
+            Видалити
+          </button>
+          <span className="session-enter-btn">
+            Увійти <span aria-hidden="true">→</span>
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function SessionList() {
@@ -254,9 +339,10 @@ export default function SessionList() {
 
   // ── Derived state ─────────────────────────────────────────────────────────────
 
+  const openSessions      = sessions.filter((s) => s.status === 'active' || s.status === 'paused');
+  const completedSessions = sessions.filter((s) => s.status === 'completed');
   const activeSessions    = sessions.filter((s) => s.status === 'active');
   const pausedSessions    = sessions.filter((s) => s.status === 'paused');
-  const completedSessions = sessions.filter((s) => s.status === 'completed');
   const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
 
   // ── Render ────────────────────────────────────────────────────────────────────
@@ -332,105 +418,30 @@ export default function SessionList() {
               <div key={i} className="sessions-loading-card" />
             ))}
           </div>
-        ) : sessions.length === 0 ? (
-          /* Empty state (Tier 2) */
+        ) : openSessions.length === 0 ? (
           <div className="sessions-empty">
             <span className="sessions-empty-glyph">ꝏ</span>
-            <h3>Жодних справ не відкрито</h3>
+            <h3>Жодних відкритих справ</h3>
             <p>Архів порожній. Оберіть справу нижче, щоб розпочати розслідування.</p>
           </div>
         ) : (
           <div className="session-cards-grid">
-            {sessions.map((s) => {
-              const stamp     = statusStamp(s);
-              const thumbnail = getSessionThumbnail(s.world_state);
-              const players   = s.players as Player[];
-              const location  = s.world_state?.currentLocation;
-              const campaignSession = s.campaign_id
-                ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
-                : null;
-
-              return (
-                <Link
-                  key={s.id}
-                  href={`/session/${s.id}`}
-                  className="session-card"
-                >
-                  {/* Thumbnail */}
-                  <div className="session-card-thumb">
-                    {thumbnail ? (
-                      <img src={thumbnail} alt="" loading="lazy" />
-                    ) : (
-                      <div className="session-card-thumb-fallback">
-                        <span className="session-card-thumb-glyph">ꝏ</span>
-                      </div>
-                    )}
-                    <div className={`session-stamp session-stamp--${stamp.mod}`}>
-                      {stamp.label}
-                    </div>
-                  </div>
-
-                  {/* Body */}
-                  <div className="session-card-body">
-                    <div className="session-card-name">{s.name}</div>
-
-                    <div className="session-card-meta">
-                      <span>{s.scenario_id}</span>
-                      <span className="session-card-meta-dot">·</span>
-                      <span>{formatDate(s.updated_at)}</span>
-                      {campaignSession && (
-                        <>
-                          <span className="session-card-meta-dot">·</span>
-                          <span>{campaignSession}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {location && (
-                      <div className="session-location">{location}</div>
-                    )}
-
-                    {/* Previously... (Tier 2) */}
-                    {s.latest_summary && (
-                      <div className="session-summary">
-                        {s.latest_summary}
-                      </div>
-                    )}
-
-                    {/* Players */}
-                    {players.length > 0 && (
-                      <div className="session-players">
-                        {players.map((p, i) => (
-                          <span key={i} className="session-player-chip">
-                            {p.name}
-                            {p.hp !== undefined && (
-                              <> · HP&nbsp;{p.hp}&nbsp;·&nbsp;SAN&nbsp;{p.sanity}</>
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Footer */}
-                    <div className="session-card-footer">
-                      <button
-                        className="session-delete-btn"
-                        onClick={(e) => deleteSession(s.id, e)}
-                        title="Видалити сесію"
-                      >
-                        Видалити
-                      </button>
-                      <span className="session-enter-btn">
-                        Увійти <span aria-hidden="true">→</span>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} />)}
           </div>
         )}
       </div>
+
+      {/* ── Closed Investigations (only if any) ── */}
+      {!loading && completedSessions.length > 0 && (
+        <div className="sessions-section">
+          <div className="section-divider">
+            <span className="section-divider-title">Закриті справи</span>
+          </div>
+          <div className="session-cards-grid">
+            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} />)}
+          </div>
+        </div>
+      )}
 
       {/* ── Available Case Files (always visible, Tier 1) ── */}
       <div className="sessions-section">
