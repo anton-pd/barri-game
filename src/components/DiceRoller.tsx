@@ -55,19 +55,23 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
 
   return (
     <div className="chat-dice-roller">
-      {/* Skill context */}
-      <p className="chat-dice-copy">
-        <span className="chat-dice-skill">{pendingRoll.skillName}</span>
-        {' — кинь ≤ '}
-        <span className="chat-dice-threshold">{pendingRoll.goodThreshold}</span>
-        {pendingRoll.context && (
-          <span className="chat-dice-context">{' · '}{pendingRoll.context}</span>
-        )}
-      </p>
+      <div className="chat-dice-head">
+        <div>
+          <p className="chat-dice-kicker">Skill check</p>
+          <p className="chat-dice-copy">
+            <span className="chat-dice-skill">{pendingRoll.skillName}</span>
+            {pendingRoll.context && (
+              <span className="chat-dice-context">{' · '}{pendingRoll.context}</span>
+            )}
+          </p>
+        </div>
+        <div className="chat-dice-target">
+          <span className="chat-dice-target-label">Ціль</span>
+          <strong>≤ {pendingRoll.goodThreshold}</strong>
+        </div>
+      </div>
 
-      {/* Dice row */}
       <div className="chat-dice-row">
-        {/* Tens */}
         <div className="chat-dice-col">
           <div className={`chat-die ${phase === 'rolling' ? 'is-rolling' : phase === 'done' ? 'is-done' : ''}`}>
             <span>
@@ -79,7 +83,6 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
 
         <span className="chat-dice-operator">+</span>
 
-        {/* Units */}
         <div className="chat-dice-col">
           <div className={`chat-die ${phase === 'rolling' ? 'is-rolling' : phase === 'done' ? 'is-done' : ''}`}>
             <span>
@@ -107,14 +110,13 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
         )}
       </div>
 
-      {/* Action */}
       <div className="chat-dice-action">
         {phase === 'idle' && (
           <button
             onClick={roll}
             className="chat-primary-btn"
           >
-            🎲 Кинути
+            🎲 Кинути d100
           </button>
         )}
         {phase === 'rolling' && (
@@ -125,7 +127,7 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
             onClick={() => onResult(total)}
             className={`chat-primary-btn ${isSuccess ? 'is-success' : 'is-fail'}`}
           >
-            {isSuccess ? '✓ Успіх' : '✗ Провал'} — надіслати {total}
+            {isSuccess ? '✓ Успіх' : '✗ Провал'} — підтвердити {total}
           </button>
         )}
       </div>

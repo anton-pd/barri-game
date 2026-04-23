@@ -1350,6 +1350,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const activePlayerData = session.players[activePlayer];
   const activeInventory = (activePlayerData?.inventory ?? []).filter(item => !item.broken && item.uses !== 0);
   const pendingRoll = session.world_state?.pendingRollResult;
+  const activePlayerStats = activePlayerData ? resolvePlayerStats(activePlayerData, rulesetId) : [];
 
   return (
     <div className="chat-root">
@@ -1816,6 +1817,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 )}
               </div>
 
+              {activePlayerStats.length > 0 && (
+                <div className="chat-stat-strip">
+                  {activePlayerStats.map((stat) => (
+                    <div key={stat.id} className="chat-stat-pill">
+                      <span className="chat-stat-pill-label">{stat.label}</span>
+                      <strong style={{ color: stat.color }}>
+                        {stat.value}{stat.hasMax && stat.max !== null ? `/${stat.max}` : ''}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {session.players.length > 1 && (
                 <div className="chat-player-selector">
                   {session.players.map((p, i) => (
@@ -1917,13 +1931,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                         disabled={isLoading || !input.trim()}
                         title="Додати в чергу (наступний гравець)"
                         className="chat-queue-btn"
-                      >+</button>
+                      >
+                        <span className="chat-tool-btn-icon">+</span>
+                        <span className="chat-tool-btn-label">Черга</span>
+                      </button>
                     )}
                     <button
                       onClick={() => sendMessage()}
                       disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
                       className="chat-send-btn"
-                    >➤</button>
+                    >
+                      <span className="chat-tool-btn-icon">➤</span>
+                      <span className="chat-tool-btn-label">Хід</span>
+                    </button>
                   </div>
                 </div>
               </div>

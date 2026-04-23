@@ -77,7 +77,10 @@ export default function VoiceButton({ onTranscript, disabled, sessionId }: Voice
         disabled
         className="chat-voice-btn chat-voice-btn--processing"
         title="Розпізнавання..."
-      >⏳</button>
+      >
+        <span className="chat-tool-btn-icon">⏳</span>
+        <span className="chat-tool-btn-label">STT</span>
+      </button>
     );
   }
 
@@ -88,7 +91,8 @@ export default function VoiceButton({ onTranscript, disabled, sessionId }: Voice
       className={`chat-voice-btn${isListening ? ' chat-voice-btn--listening' : ''}`}
       title={isListening ? 'Зупинити запис' : 'Говорити'}
     >
-      {isListening ? '⏹' : '🎤'}
+      <span className="chat-tool-btn-icon">{isListening ? '⏹' : '🎤'}</span>
+      <span className="chat-tool-btn-label">{isListening ? 'Стоп' : 'Голос'}</span>
     </button>
   );
 }

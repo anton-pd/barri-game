@@ -1767,3 +1767,17 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - `npm run build` passes on Next.js 16.2.3 / TypeScript.
 
 **Result:** the chat now reads as a deliberate investigation workspace: the transcript owns a centered reading spine, the inspector acts as a support rail, and the lower action area feels like one coherent place to play rather than several stacked system bars.
+
+## 2026-04-23 — ANT-91 noir instruments pass
+**Scope:** Follow-up to the workspace shell redesign to make the interactive controls feel like deliberate in-world instruments instead of generic utility buttons.
+
+**Solution:**
+- `src/components/GameChat.tsx` — added quick active-player stat pills to the control deck and upgraded queue/send controls from icon-only actions into readable tool buttons.
+- `src/components/VoiceButton.tsx` — restyled voice capture into a labeled instrument button with clearer states for idle, listening, and STT processing.
+- `src/components/DiceRoller.tsx` — reframed the d100 roller as a focused instrument surface with a dedicated check header, target display, and stronger confirm action copy.
+- `src/app/session/[id]/chat.css` — refined settings toggles, action buttons, dice device styling, volume control, stat pills, and mobile action-row behavior to match the new workspace shell.
+
+**Verification:**
+- `npm run build` passes on Next.js 16.2.3 / TypeScript.
+
+**Result:** voice, dice, and lower action controls now feel integrated with the noir workspace instead of floating as generic app controls; the active player state is also much easier to read at a glance during play.

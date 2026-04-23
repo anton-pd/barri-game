@@ -592,6 +592,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Game session UI**: completion CTA прибрано з основної статусної панелі активної сесії, щоб завершення не пропонувалось посеред проходження сценарію.
 - **Noir chat readability**: на staging пом’якшено фонову атмосферу головного чату, прибрано агресивну віньєтку з session view і зроблено message plane теплішим та рівнішим для довгого читання.
 - **Noir chat workspace**: головний чат перебудовано як окремий investigation workspace з центрованим reading rail, єдиним composer/control deck унизу та менш таб-залежним inspector rail праворуч.
+- **Noir chat instruments**: voice capture, dice roller, quick stats і action controls тепер оформлені як окремі ігрові інструменти, а не як набір generic utility-кнопок.
 
 ### Fixed
 - Ручне завершення сесії/кампанії більше не вискакує як primary action у центрі активної гри; доступ до нього перенесено в settings panel.
