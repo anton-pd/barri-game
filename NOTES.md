@@ -1722,3 +1722,15 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - `npm run build` passes on Next.js 16.2.3 / TypeScript.
 
 **Result:** sidebar content now reads like a filed investigation packet: who is on the case, what evidence exists, what each investigator carries, and which contacts are newly surfaced versus already known.
+
+## 2026-04-23 — ANT-90 chat background readability polish
+**Scope:** Small staging follow-up after visual review of the noir chat pass; the message plane felt too flat/gray and the inherited landing vignette made long-form reading noticeably worse.
+
+**Solution:**
+- `src/app/session/[id]/chat.css` — added a chat-specific override for `.landing-root::after` so session pages no longer inherit the aggressive landing vignette.
+- `src/app/session/[id]/chat.css` — rebalanced `chat-root` and `chat-messages` backgrounds toward a darker, warmer desk-paper surface with lighter ambient edge color and no harsh spotlight/vignette effect.
+
+**Verification:**
+- `npm run build` passes on Next.js 16.2.3 / TypeScript.
+
+**Result:** chat keeps the noir atmosphere, but the reading surface is calmer and more even, especially across the center/right side of wide desktop layouts.

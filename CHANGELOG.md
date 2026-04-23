@@ -590,6 +590,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Scenario generator UI**: статус генерації тепер показує актуальну primary model (`Claude Opus 4.7`) замість застарілого hardcoded `Claude Sonnet`.
 - **Scenario generator copy**: прибрано зайву згадку про ambient audio з JSON-generation екрана; materials/asset generation тепер описано як окремий крок.
 - **Game session UI**: completion CTA прибрано з основної статусної панелі активної сесії, щоб завершення не пропонувалось посеред проходження сценарію.
+- **Noir chat readability**: на staging пом’якшено фонову атмосферу головного чату, прибрано агресивну віньєтку з session view і зроблено message plane теплішим та рівнішим для довгого читання.
 
 ### Fixed
 - Ручне завершення сесії/кампанії більше не вискакує як primary action у центрі активної гри; доступ до нього перенесено в settings panel.
