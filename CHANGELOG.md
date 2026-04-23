@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.7] — 2026-04-23
+
+### Changed
+- **Game chat noir redesign**: `/session/[id]` now uses the same noir-dossier design system as the landing and sessions pages: ink/paper/amber/blood tokens, typewriter labels, paper Keeper narration, dark investigator replies, NPC evidence-style speech, and low-motion grain atmosphere.
+- **Case files panel redesign**: materials sidebar is now an evidence dossier with confidential header, tabbed paper/ink sections, player stat notes, generated/static image evidence cards, and NPC relationship stamps.
+- **Chat instruments redesign**: settings toggles, voice recording, ambient volume, dice roller, pending action queue, inventory strip, read-only banner, completion modal, and admin debug modal now share the same noir visual language.
+
+### Fixed
+- **DiceRoller React lint compatibility**: removed synchronous state reset inside an effect; the existing keyed remount handles reset behavior for new pending rolls.
+
+---
+
 ## [0.4.6] — 2026-04-22
 
 ### Added
