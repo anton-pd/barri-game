@@ -1734,3 +1734,36 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - `npm run build` passes on Next.js 16.2.3 / TypeScript.
 
 **Result:** chat keeps the noir atmosphere, but the reading surface is calmer and more even, especially across the center/right side of wide desktop layouts.
+
+## 2026-04-23 — noir chat UX audit after staging review
+**Scope:** Detailed UI audit of the new noir chat after staging review and screenshot feedback. Focus moved from pure styling to workspace structure: transcript framing, sidebar hierarchy, and bottom control layout.
+
+**Key findings:**
+- The main desktop shell is structurally too wide for the current transcript: `chat-main` stretches across the viewport, while actual message content stays capped and left-aligned, creating a large dead zone between transcript and dossier.
+- The session still inherits the landing shell (`landing-root`), which makes the chat feel like a themed landing variant rather than its own dedicated investigation workspace.
+- Bottom controls are fragmented into separate stacked bars: player selector, pending queue, inventory strip, dice state, and composer. This adds chrome and weakens the “one place to act” feeling.
+- The dossier sidebar is visually rich but interaction-heavy; key case context is split across four equal tabs, so users need to mode-switch for orientation.
+- Transcript rhythm is still closer to raw message bubbles than a composed investigation log: keeper slabs dominate, player replies drift right, and the reading spine is weak on wide desktop.
+
+**Follow-up issues created (state: AI Improvements, assignee: Codex):**
+- `ANT-94` — centered desktop reading shell with a dedicated session workspace layout.
+- `ANT-95` — unified composer/control deck for player, queue, inventory, dice, and input.
+- `ANT-96` — inspector-rail redesign for case files with persistent summary and contextual detail.
+- `ANT-97` — transcript rhythm pass for bubble widths, grouping, and reading cadence.
+
+**Implementation direction:**
+- Treat the chat as an editorial workspace, not a full-canvas background.
+- Give transcript, inspector, and composer explicit roles and widths.
+- Reduce tabbing and stacked chrome in favor of one clear reading spine plus one supporting rail.
+
+## 2026-04-23 — ANT-94/95/96/97 workspace shell implementation
+**Scope:** Implemented the proposed structural redesign of the noir chat workspace after the staging audit: centered reading rail, unified composer deck, lighter inspector rail, and tighter transcript rhythm.
+
+**Solution:**
+- `src/components/GameChat.tsx` — refactored the session view into three aligned zones: topbar rail, transcript rail, and bottom control deck. Added control meta chips, moved player/queue/inventory/dice/input into one composer area, and introduced a persistent dossier overview above the inspector tabs.
+- `src/app/session/[id]/chat.css` — rebuilt layout styling around an explicit desktop workspace shell instead of a full-width canvas. Added centered rails, reframed the transcript surface, tightened bubble widths/alignment, reduced inspector dominance, and updated mobile behavior for the new structure.
+
+**Verification:**
+- `npm run build` passes on Next.js 16.2.3 / TypeScript.
+
+**Result:** the chat now reads as a deliberate investigation workspace: the transcript owns a centered reading spine, the inspector acts as a support rail, and the lower action area feels like one coherent place to play rather than several stacked system bars.
