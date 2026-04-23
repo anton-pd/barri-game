@@ -51,6 +51,7 @@
 
 .chat-topbar-shell {
   padding-top: 12px;
+  flex-shrink: 0;
 }
 
 .chat-topbar-rail,
@@ -445,13 +446,14 @@
 
 .chat-transcript-shell {
   flex: 1 1 auto;
+  display: flex;
   min-height: 0;
   padding-block: 16px 12px;
   overflow: hidden;
 }
 
 .chat-transcript-rail {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
 }
@@ -740,6 +742,7 @@
 
 .chat-control-shell {
   padding-block: 0 16px;
+  flex-shrink: 0;
 }
 
 .chat-control-deck,
