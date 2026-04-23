@@ -313,6 +313,10 @@ function CaseFilesPanel({
     ...metNpcs.map((n) => ({ id: n.id, name: n.name, description: n.description })),
     ...(dynamicNpcs ?? []).filter((d) => !(metNpcs.some((n) => n.id === d.id))).map((d) => ({ ...d, isDynamic: true })),
   ];
+  const sessionEvidenceCount = Object.keys(dynamicImages).length;
+  const archiveEvidenceCount = visibleImages.length;
+  const activeNpcCount = allNpcs.length;
+  const inventoryCount = players.reduce((total, player) => total + (player.inventory?.length ?? 0), 0);
 
   const fullscreenOverlay = fullscreen && typeof document !== 'undefined'
     ? createPortal(
@@ -334,6 +338,7 @@ function CaseFilesPanel({
           <div>
             <p className="case-panel-kicker">Confidential</p>
             <h2>Матеріали справи</h2>
+            <p className="case-panel-fileid">Case file: {scenarioId}</p>
           </div>
           {onClose && (
             <button
@@ -342,6 +347,13 @@ function CaseFilesPanel({
               title="Закрити"
             >✕</button>
           )}
+        </div>
+
+        <div className="case-meta-strip">
+          <span className="case-meta-chip">Осіб у справі: {players.length}</span>
+          <span className="case-meta-chip">Предметів: {inventoryCount}</span>
+          <span className="case-meta-chip">Контактів: {activeNpcCount}</span>
+          <span className="case-meta-chip">Exhibits: {sessionEvidenceCount + archiveEvidenceCount}</span>
         </div>
 
         {/* Tabs */}
@@ -363,6 +375,26 @@ function CaseFilesPanel({
           {/* ── Briefing ── */}
           {tab === 'briefing' && (
             <div className="case-section">
+              <div className="case-cover-sheet">
+                <div className="case-cover-row">
+                  <span className="case-cover-label">Filed under</span>
+                  <strong>{scenarioId}</strong>
+                </div>
+                <div className="case-cover-grid">
+                  <div>
+                    <span className="case-cover-label">Investigators</span>
+                    <strong>{players.length}</strong>
+                  </div>
+                  <div>
+                    <span className="case-cover-label">Persons of interest</span>
+                    <strong>{activeNpcCount}</strong>
+                  </div>
+                  <div>
+                    <span className="case-cover-label">Known exhibits</span>
+                    <strong>{sessionEvidenceCount + archiveEvidenceCount}</strong>
+                  </div>
+                </div>
+              </div>
               {!briefing ? (
                 <p className="case-empty">Опис відсутній</p>
               ) : (
@@ -413,6 +445,26 @@ function CaseFilesPanel({
                       ))}
                     </div>
                   )}
+                  <div className="case-inventory-block">
+                    <p className="case-note-label">Інвентар</p>
+                    {(p.inventory?.length ?? 0) === 0 ? (
+                      <p className="case-card-copy">Поки що без речових доказів і спорядження.</p>
+                    ) : (
+                      <div className="case-item-list">
+                        {(p.inventory ?? []).map((item) => (
+                          <div key={item.id} className={`case-item${item.broken ? ' is-broken' : ''}${item.equipped ? ' is-equipped' : ''}`}>
+                            <div className="case-item-head">
+                              <span>{item.name}</span>
+                              <small>
+                                {item.broken ? 'зламано' : item.uses === -1 ? '∞' : `×${item.uses}`}
+                              </small>
+                            </div>
+                            <p>{item.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -426,8 +478,12 @@ function CaseFilesPanel({
                 <div>
                   <p className="case-note-label">Сесійні матеріали</p>
                   <div className="case-evidence-list">
-                    {Object.entries(dynamicImages).map(([msgId, meta]) => (
+                    {Object.entries(dynamicImages).map(([msgId, meta], index) => (
                       <div key={msgId} className="case-evidence">
+                        <div className="case-evidence-head">
+                          <span className="case-evidence-stamp">Exhibit S-{index + 1}</span>
+                          <span className="case-evidence-type">{meta.type}</span>
+                        </div>
                         <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
                         <p title={meta.prompt}>
                           {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
@@ -449,8 +505,12 @@ function CaseFilesPanel({
               {!loadingImgs && visibleImages.length === 0 && Object.keys(dynamicImages).length === 0 && (
                 <p className="case-empty">Матеріали ще генеруються...</p>
               )}
-              {visibleImages.map((img) => (
+              {visibleImages.map((img, index) => (
                 <div key={img.id} className="case-evidence">
+                  <div className="case-evidence-head">
+                    <span className="case-evidence-stamp">Archive {index + 1}</span>
+                    <span className="case-evidence-type">scenario</span>
+                  </div>
                   <img
                     src={img.url}
                     alt={img.label}
@@ -485,7 +545,10 @@ function CaseFilesPanel({
                     <div key={npc.id} className="case-card case-card--npc">
                       <div className="case-card-head">
                         <span>{npc.name}</span>
-                        <small className={`case-relation ${relClass}`}>{relLabel}</small>
+                        <div className="case-card-head-tags">
+                          {npc.isDynamic && <small className="case-origin-tag">Новий контакт</small>}
+                          <small className={`case-relation ${relClass}`}>{relLabel}</small>
+                        </div>
                       </div>
                       {npc.description && (
                         <p className="case-card-copy">{npc.description}</p>

@@ -1709,3 +1709,16 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 
 **Notes:**
 - `StatsBar.tsx` is currently not mounted by `GameChat`; active player stats are presented through the redesigned Case Files player tab instead.
+
+## 2026-04-23 — ANT-90 case files dossier pass
+**Scope:** Follow-up on the noir chat migration to push `CaseFilesPanel` from “styled sidebar” into a clearer evidence-dossier surface.
+
+**Solution:**
+- `GameChat.tsx` — upgraded `CaseFilesPanel` with case metadata strip, case-file id, cover-sheet summary, inventory-aware player cards, exhibit/archive heads for images, and dynamic-contact tagging for NPCs.
+- `src/app/session/[id]/chat.css` — added dossier-specific sidebar styles: metadata chips, cover sheet, inventory blocks, evidence stamps, origin tags, and tighter responsive behavior for the cover grid.
+
+**Verification:**
+- `npm run lint` passes with existing warnings only (`<img>` warnings and unrelated unused `createCampaign` import in `src/app/api/sessions/route.ts`).
+- `npm run build` passes on Next.js 16.2.3 / TypeScript.
+
+**Result:** sidebar content now reads like a filed investigation packet: who is on the case, what evidence exists, what each investigator carries, and which contacts are newly surfaced versus already known.

@@ -5,6 +5,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.8] — 2026-04-23
+
+### Changed
+- **Case files dossier pass**: the session sidebar now reads more like a filed investigation packet than a generic tab panel.
+  - Header now shows case file metadata and quick dossier counters.
+  - Briefing tab includes a cover-sheet summary for investigators, contacts, and exhibits.
+  - Player tab now includes inventory summaries with equipped/broken states in addition to stats and skills.
+  - Materials tab now uses exhibit/archive labels for generated and scenario images.
+  - NPC tab now distinguishes dynamic contacts and emphasizes relationship stamps.
+
+---
+
 ## [0.4.7] — 2026-04-23
 
 ### Changed
