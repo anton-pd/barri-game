@@ -5,6 +5,24 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.7] — 2026-04-24
+
+### Added
+- **Game Chat noir redesign**: full visual overhaul of the game session UI (`/session/[id]`) to match the noir-dossier design language.
+  - New `session/[id]/layout.tsx`: wraps game page in `landing-root` with all 6 noir fonts.
+  - New `session/[id]/chat.css`: ~450 lines of semantic noir chat classes.
+  - Keeper narration bubbles: aged paper gradient, IM Fell English italic, quotation mark glyph, notched top-left corner.
+  - NPC speech bubbles: darker paper with blood-red left border accent.
+  - Player action bubbles: ink-dark background, typewriter font.
+  - Header: location, status badge (active/paused/complete), back button — all in noir palette.
+  - Settings panel: keeper-style toggle, ambient volume, completion stats, manual-end controls — all redesigned.
+  - Input zone: telegraphic bottom-border textarea, ink-background send button with blood shadow.
+  - Inventory strip, player selector, pending action pills, dice hint — all redesigned.
+  - Completion modal: dossier-card overlay with noir feedback form.
+  - Grain animation disabled in chat context (static 13% opacity) to prevent eye strain during long sessions.
+
+---
+
 ## [0.4.6] — 2026-04-22
 
 ### Added

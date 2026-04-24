@@ -1267,29 +1267,29 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
   const playerName = session.players[activePlayer]?.name || 'Гравець';
 
+  const statusBadgeMod =
+    session.status === 'completed' ? 'completed' :
+    session.status === 'paused'    ? 'paused'    : 'active';
+
   return (
-    <div className="flex h-dvh bg-stone-950 text-stone-200 overflow-hidden">
+    <div className="chat-root flex h-dvh overflow-hidden">
       {/* Left: game column */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
+      <div className="chat-header flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <Link
-            href="/sessions"
-            className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors shrink-0"
-            title="Назад"
-          >←</Link>
+          <Link href="/sessions" className="chat-back-btn" title="Назад">←</Link>
           <div className="min-w-0">
-            <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
-            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-tight">
-              <span className="truncate text-stone-500">
+            <h1 className="chat-session-name truncate">{session.name}</h1>
+            <div className="chat-header-sub">
+              <span className="chat-location truncate">
                 {currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}
               </span>
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 uppercase tracking-[0.16em] ${statusMeta.badgeClass}`}>
+              <span className={`chat-status-badge chat-status-badge--${statusBadgeMod}`}>
                 {statusMeta.badge}
               </span>
               {session.campaign_id && (
-                <span className="inline-flex items-center rounded-full border border-stone-700 bg-stone-900 px-2 py-0.5 uppercase tracking-[0.16em] text-stone-400">
+                <span className="chat-status-badge chat-status-badge--active">
                   Сесія {session.session_number || 1}
                 </span>
               )}
@@ -1298,30 +1298,26 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {speakingId && (
-            <button
-              onClick={stopAudio}
-              className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 active:bg-stone-500 text-stone-300 transition-colors text-sm"
-              title="Зупинити"
-            >⏹</button>
+            <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити">⏹</button>
           )}
           <button
             onClick={() => setShowSidebar((v) => !v)}
-            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors text-sm"
+            className="chat-icon-btn md:hidden"
             title="Матеріали справи"
           >📋</button>
           <button
             onClick={() => setShowSettings((v) => !v)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${showSettings ? 'bg-stone-700 text-stone-200' : 'bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400'}`}
-            title="Налаштування звуку"
+            className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
+            title="Налаштування"
           >⚙️</button>
         </div>
       </div>
 
       {/* Collapsible settings panel */}
       {showSettings && (
-        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 bg-stone-900/95 border-b border-stone-800 text-xs">
-          {/* CHANGED: KeeperStyle selector */}
-          <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
+        <div className="chat-settings-panel flex flex-wrap items-center gap-2 text-xs">
+          {/* KeeperStyle selector */}
+          <div className="chat-settings-keeper-group">
             {(['passive', 'balanced', 'active'] as const).map((s) => (
               <button
                 key={s}
@@ -1331,18 +1327,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
                   'Кіпер активно підштовхує сюжет'
                 }
-                className={`px-2.5 py-1.5 transition-colors text-xs ${
-                  keeperStyle === s
-                    ? 'bg-amber-800 text-amber-100 font-medium'
-                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
-                }`}
+                className={`chat-settings-keeper-btn${keeperStyle === s ? ' chat-settings-keeper-btn--active' : ''}`}
               >
                 {s === 'passive' ? 'Пасив' : s === 'balanced' ? 'Баланс' : 'Актив'}
               </button>
             ))}
           </div>
 
-          <div className="w-px h-4 bg-stone-700" />
+          <div className="chat-settings-divider" />
 
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
           <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
@@ -1351,55 +1343,47 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           {isAdmin && (
             <button
               onClick={exportChatLog}
-              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-stone-300 text-xs border border-amber-900/40"
+              className="chat-settings-aux-btn"
               title="Export full chat log (markdown, admin)"
             >
               ⬇ Export log
             </button>
           )}
           {ambientEnabled && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
-              <span className="text-stone-500">🔈</span>
+            <div className="chat-settings-volume-row">
+              <span>🔈</span>
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={ambientVolume}
                 onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                className="w-20 accent-amber-600"
+                className="w-20"
                 title="Гучність ambient"
               />
-              <span className="text-stone-500">🔊</span>
+              <span>🔊</span>
             </div>
           )}
 
           {sessionIsReadOnly && completionStats && (
             <>
-              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
+              <div className="chat-settings-divider hidden sm:block" />
+              <div className="chat-settings-stats">
                 <span>{statusMeta.summary}</span>
-                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
-                  Повідомлень: {completionStats.messageCount}
-                </span>
-                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
-                  Від кіпера: {completionStats.keeperMessageCount}
-                </span>
-                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
-                  Тривалість: {completionStats.durationMinutes} хв
-                </span>
+                <span className="chat-settings-stat-pill">Повідомлень: {completionStats.messageCount}</span>
+                <span className="chat-settings-stat-pill">Від кіпера: {completionStats.keeperMessageCount}</span>
+                <span className="chat-settings-stat-pill">Тривалість: {completionStats.durationMinutes} хв</span>
               </div>
             </>
           )}
 
           {canManuallyEndSession && (
             <>
-              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
-              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-800 bg-stone-950/70 px-2.5 py-1.5">
-                <span className="text-stone-500">
-                  Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.
-                </span>
+              <div className="chat-settings-divider hidden sm:block" />
+              <div className="chat-settings-end-row">
+                <span>Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.</span>
                 <button
                   onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
                   disabled={isUpdatingStatus || isLoading}
-                  className="inline-flex h-8 items-center justify-center rounded-lg border border-amber-800/70 bg-amber-950/50 px-3 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
+                  className="chat-settings-end-btn--primary"
                 >
                   {isUpdatingStatus
                     ? 'Завершення...'
@@ -1409,7 +1393,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   <button
                     onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
                     disabled={isUpdatingStatus || isLoading}
-                    className="inline-flex h-8 items-center justify-center rounded-lg border border-stone-700 bg-stone-900 px-3 text-xs font-medium text-stone-300 transition-colors hover:border-stone-600 hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
+                    className="chat-settings-end-btn--secondary"
                   >
                     {statusMeta.completeLabel}
                   </button>
@@ -1421,7 +1405,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {statusError && (
-        <div className="border-b border-stone-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+        <div className="chat-status-error">
           {statusError}
         </div>
       )}
@@ -1475,11 +1459,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {completionRequest && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
-          <div className="w-full rounded-t-2xl border border-stone-700 bg-stone-900 p-5 sm:max-w-lg sm:rounded-2xl">
-            <div className="flex items-start justify-between gap-4">
+        <div className="chat-completion-overlay">
+          <div className="chat-completion-card">
+            <div className="flex items-start justify-between gap-4 mb-4">
               <div>
-                <h2 className="text-base font-semibold text-stone-100">
+                <h2 className="chat-completion-title">
                   {completionRequest.endedEarly
                     ? (completionRequest.mode === 'finish-evening'
                         ? 'Достроково завершити вечір'
@@ -1488,7 +1472,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                           : 'Достроково закрити сесію')
                     : (session.campaign_id ? 'Завершити кампанію' : 'Завершити сесію')}
                 </h2>
-                <p className="mt-1 text-sm leading-relaxed text-stone-400">
+                <p className="chat-completion-desc">
                   {completionRequest.endedEarly
                     ? 'Сесія завершиться вручну раніше природного фіналу. За бажанням можна лишити оцінку та короткий коментар.'
                     : 'Кіпер завершить історію, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.'}
@@ -1496,23 +1480,23 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               </div>
               <button
                 onClick={() => setCompletionRequest(null)}
-                className="rounded-lg bg-stone-800 px-2.5 py-1.5 text-sm text-stone-300 transition-colors hover:bg-stone-700"
+                className="chat-settings-aux-btn"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Оцінка гри</p>
-              <div className="mt-2 flex gap-2">
+            <div className="mb-4">
+              <p className="chat-bubble-label chat-bubble-label--keeper mb-2">Оцінка гри</p>
+              <div className="flex gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
                     key={value}
                     onClick={() => setFeedbackRating(value)}
-                    className={`h-11 w-11 rounded-xl border text-sm font-semibold transition-colors ${
+                    className={`h-10 w-10 rounded-lg border font-semibold text-sm transition-colors ${
                       feedbackRating === value
-                        ? 'border-amber-600 bg-amber-800 text-amber-100'
-                        : 'border-stone-700 bg-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-700'
+                        ? 'border-amber-600/70 bg-amber-900/50 text-amber-200'
+                        : 'border-stone-700 bg-stone-800/60 text-stone-400 hover:border-stone-600'
                     }`}
                   >
                     {value}
@@ -1521,8 +1505,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               </div>
             </div>
 
-            <div className="mt-5">
-              <label htmlFor="session-feedback" className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
+            <div className="mb-5">
+              <label htmlFor="session-feedback" className="chat-bubble-label chat-bubble-label--keeper">
                 Коментар для покращення
               </label>
               <textarea
@@ -1531,40 +1515,39 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 onChange={(event) => setFeedbackComment(event.target.value)}
                 rows={4}
                 placeholder="Що сподобалось, а що варто підкрутити?"
-                className="mt-2 w-full rounded-2xl border border-stone-700 bg-stone-800 px-3.5 py-3 text-sm leading-relaxed text-stone-200 placeholder-stone-600 focus:border-stone-600 focus:outline-none"
+                className="chat-textarea mt-2 w-full"
+                style={{ fontSize: 14 }}
               />
             </div>
 
-            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button
-                onClick={() => setCompletionRequest(null)}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
-              >
-                Ще не зараз
-              </button>
-              <button
-                onClick={() => submitCompletion(completionRequest.mode, {
-                  endedEarly: completionRequest.endedEarly,
-                  trigger: completionRequest.trigger,
-                  includeFeedback: true,
-                })}
-                disabled={isUpdatingStatus}
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-amber-800 px-4 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-700 active:bg-amber-900 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
-              >
-                {isUpdatingStatus
-                  ? 'Завершення...'
-                  : (completionRequest.endedEarly ? 'Закрити зараз' : 'Подякувати й завершити')}
-              </button>
-            </div>
+            <button
+              onClick={() => submitCompletion(completionRequest.mode, {
+                endedEarly: completionRequest.endedEarly,
+                trigger: completionRequest.trigger,
+                includeFeedback: true,
+              })}
+              disabled={isUpdatingStatus}
+              className="chat-completion-btn--primary"
+            >
+              {isUpdatingStatus
+                ? 'Завершення...'
+                : (completionRequest.endedEarly ? 'Закрити зараз' : 'Подякувати й завершити')}
+            </button>
+            <button
+              onClick={() => setCompletionRequest(null)}
+              className="chat-completion-btn--cancel"
+            >
+              Ще не зараз
+            </button>
           </div>
         </div>
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="chat-messages flex-1 overflow-y-auto">
         {messages.length === 0 && !isLoading && (
-          <div className="text-center text-stone-600 text-sm mt-8">
-            <p className="text-2xl mb-2">📜</p>
+          <div className="chat-empty-state">
+            <span className="chat-empty-glyph">ꝏ</span>
             <p>Гра починається...</p>
           </div>
         )}
@@ -1592,18 +1575,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <button
                 onClick={() => handleReplay(msg.id, displayContent)}
                 disabled={isLoadingA}
-                className={`text-xs mt-1 ml-1 transition-colors ${
-                  isPlaying   ? 'text-amber-500 animate-pulse' :
-                  isLoadingA  ? 'text-stone-600 cursor-wait'   :
-                                'text-stone-600 hover:text-stone-400'
-                }`}
+                className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : isLoadingA ? ' chat-replay-btn--loading' : ''}`}
               >
                 {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
               </button>
               {isAdmin && !isUser && (
                 <button
                   onClick={() => openDebug(msg.id)}
-                  className="text-xs mt-1 text-stone-600 hover:text-amber-400 transition-colors"
+                  className="chat-replay-btn"
                   title="Show LLM prompt + raw output (admin)"
                 >
                   🐛 debug
@@ -1617,8 +1596,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             return (
               <div key={msg.id} className="flex justify-end">
                 <div className="max-w-[85%]">
-                  {player && <p className="text-xs text-stone-500 mb-1 text-right">{player.name}</p>}
-                  <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-700 text-stone-100 rounded-tr-sm">
+                  {player && <p className="chat-bubble-label chat-bubble-label--user">{player.name}</p>}
+                  <div className="chat-bubble--user">
                     {displayContent}
                   </div>
                 </div>
@@ -1640,8 +1619,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     return (
                       <div key={si} className="flex justify-start">
                         <div className="max-w-[85%]">
-                          {si === 0 && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
-                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
+                          {si === 0 && <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>}
+                          <div className="chat-bubble--keeper">
                             {renderText(seg.text)}
                             {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
@@ -1654,8 +1633,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     return (
                       <div key={si} className="flex justify-start pl-4">
                         <div className="max-w-[85%]">
-                          <p className="text-xs text-amber-500 mb-1">{seg.name}</p>
-                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed italic bg-stone-800/60 text-stone-200 rounded-tl-sm border border-amber-900/40">
+                          <p className="chat-bubble-label chat-bubble-label--npc">{seg.name}</p>
+                          <div className="chat-bubble--npc">
                             {renderText(seg.text)}
                             {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
@@ -1673,8 +1652,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           return (
             <div key={msg.id} className="flex justify-start">
               <div className="max-w-[85%]">
-                <p className="text-xs text-amber-700 mb-1">Кіпер</p>
-                <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
+                <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+                <div className="chat-bubble--keeper">
                   {renderText(displayContent)}
                   {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                 </div>
@@ -1686,11 +1665,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-stone-800 border border-stone-700 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="chat-loading-bubble">
+              <div className="chat-loading-dots">
+                <span className="chat-loading-dot" style={{ animationDelay: '0ms' }} />
+                <span className="chat-loading-dot" style={{ animationDelay: '150ms' }} />
+                <span className="chat-loading-dot" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -1700,12 +1679,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       </div>
 
       {sessionIsReadOnly ? (
-        <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
-          <div className="rounded-2xl border border-stone-800 bg-stone-950/60 px-4 py-4">
-            <p className="text-sm font-semibold text-stone-100 mb-1">
+        <div className="chat-readonly-zone">
+          <div className="chat-readonly-card">
+            <p className="chat-readonly-title">
               {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
             </p>
-            <p className="text-sm leading-relaxed text-stone-400">
+            <p className="chat-readonly-text">
               Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
             </p>
           </div>
@@ -1714,16 +1693,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         <>
           {/* Player selector */}
           {session.players.length > 1 && (
-            <div className="flex gap-1.5 px-3 py-2 bg-stone-900 border-t border-stone-800">
+            <div className="chat-player-selector">
               {session.players.map((p, i) => (
                 <button
                   key={i}
                   onClick={() => setActivePlayer(i)}
-                  className={`text-xs px-3 py-2 rounded-xl transition-colors min-h-[36px] ${
-                    activePlayer === i
-                      ? 'bg-amber-800 text-amber-100 font-medium'
-                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 active:bg-stone-600'
-                  }`}
+                  className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
                 >
                   {p.name}
                 </button>
@@ -1733,18 +1708,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Pending actions queue */}
           {pendingActions.length > 0 && (
-            <div className="px-3 pt-2 pb-1 bg-stone-900 border-t border-stone-800 flex flex-wrap gap-1">
+            <div className="chat-pending-strip">
               {pendingActions.map((a, i) => (
-                <span
-                  key={i}
-                  className="flex items-center gap-1 text-xs bg-stone-700 text-stone-200 rounded-full px-2 py-1"
-                >
-                  <span className="text-amber-500 font-medium">{session.players[a.playerIdx]?.name}</span>
-                  <span className="text-stone-400 max-w-[140px] truncate">{a.text}</span>
-                  <button
-                    onClick={() => removePending(i)}
-                    className="text-stone-500 hover:text-stone-300 ml-0.5"
-                  >✕</button>
+                <span key={i} className="chat-pending-pill">
+                  <span className="chat-pending-pill__name">{session.players[a.playerIdx]?.name}</span>
+                  <span className="chat-pending-pill__text">{a.text}</span>
+                  <button onClick={() => removePending(i)} className="chat-pending-pill__remove">✕</button>
                 </span>
               ))}
             </div>
@@ -1752,7 +1721,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Inventory strip — active player's usable items */}
           {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
-            <div className="px-3 py-1.5 bg-stone-900 border-t border-stone-800 flex gap-1.5 overflow-x-auto scrollbar-none">
+            <div className="chat-inventory-strip">
               {session.players[activePlayer].inventory
                 .filter(item => !item.broken && item.uses !== 0)
                 .map(item => (
@@ -1760,11 +1729,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     key={item.id}
                     onClick={() => handleUseItem(activePlayer, item.id, item.name)}
                     title={item.description}
-                    className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700 active:bg-stone-600 transition-colors whitespace-nowrap"
+                    className="chat-inventory-item"
                   >
                     {item.equipped ? '⚔' : '📦'} {item.name}
-                    {item.uses > 0 && <span className="text-stone-500">×{item.uses}</span>}
-                    {item.uses === -1 && <span className="text-stone-500">∞</span>}
+                    {item.uses > 0 && <span className="chat-inventory-item__uses">×{item.uses}</span>}
+                    {item.uses === -1 && <span className="chat-inventory-item__uses">∞</span>}
                   </button>
                 ))}
             </div>
@@ -1788,21 +1757,21 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Physical dice hint */}
           {session.world_state?.pendingRollResult && diceMode === 'physical' && (
-            <div className="px-3 py-2 bg-stone-900 border-t border-stone-800 flex items-center gap-2">
+            <div className="chat-dice-hint">
               <span className="text-lg">🎲</span>
-              <span className="text-xs text-stone-400">
-                <span className="text-amber-400 font-medium">{session.world_state.pendingRollResult.skillName}</span>
+              <span>
+                <span className="chat-dice-hint__skill">{session.world_state.pendingRollResult.skillName}</span>
                 {' — кинь ≤ '}
-                <span className="text-amber-300 font-mono">{session.world_state.pendingRollResult.goodThreshold}</span>
+                <span className="chat-dice-hint__threshold">{session.world_state.pendingRollResult.goodThreshold}</span>
                 {' і введи результат'}
               </span>
             </div>
           )}
 
           {/* Input */}
-          <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+          <div className="chat-input-zone">
             <div className="flex gap-2 items-end">
-              <div className="flex-1 bg-stone-800 rounded-2xl border border-stone-700 focus-within:border-stone-600 overflow-hidden transition-colors">
+              <div className="chat-input-wrap flex-1">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -1810,7 +1779,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   onKeyDown={handleKeyDown}
                   placeholder={`${playerName}: дія або слова...`}
                   rows={2}
-                  className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3.5 py-2.5 resize-none focus:outline-none leading-relaxed"
+                  className="chat-textarea"
                   style={{ fontSize: 16 }}
                   disabled={isLoading}
                 />
@@ -1822,13 +1791,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     onClick={queueAction}
                     disabled={isLoading || !input.trim()}
                     title="Додати в чергу (наступний гравець)"
-                    className="w-9 h-9 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-xl text-stone-300 transition-colors text-base font-bold flex items-center justify-center"
+                    className="chat-icon-btn"
                   >+</button>
                 )}
                 <button
                   onClick={() => sendMessage()}
                   disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-                  className="w-9 h-9 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
+                  className="chat-send-btn"
                 >➤</button>
               </div>
             </div>
@@ -1839,12 +1808,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       </div>{/* end game column */}
 
       {/* Right: case files panel — always visible on desktop, full-screen overlay on mobile */}
-      <div className={`
-        md:relative md:flex md:w-64 md:shrink-0
-        fixed inset-0 z-50
-        transition-transform duration-200
-        ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
-      `}>
+      <div className={`chat-sidebar md:relative md:flex md:w-64 md:shrink-0 fixed inset-0 z-50 transition-transform duration-200 ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
         <CaseFilesPanel
           scenarioId={session.scenario_id}
           rulesetId={rulesetId}

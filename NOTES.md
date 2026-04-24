@@ -1654,3 +1654,37 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Scenarios section is always rendered below sessions; no need for a "New game" button that hides scenarios in a multi-step modal.
 - Bureau stats strip only shown when sessions exist (not on empty state).
 - Session card `session-card:nth-child(even)` rotates opposite direction — gives natural stack-of-papers feel.
+
+## 2026-04-24 — Game Chat noir redesign
+**Problem:** GameChat.tsx used raw Tailwind stone/amber color classes throughout — completely inconsistent with the noir-dossier design language applied to the landing, auth, and sessions pages.
+
+**Solution:**
+- `src/app/session/[id]/layout.tsx` — NEW: wraps game session page in `landing-root` with all 6 noir fonts (Special Elite, Playfair Display, IM Fell English, UnifrakturMaguntia, PT Mono, PT Serif). Imports `landing.css` and new `chat.css`.
+- `src/app/session/[id]/chat.css` — NEW: ~450 lines of noir-specific chat UI classes covering:
+  - `chat-root`, `chat-header`, `chat-back-btn`, `chat-session-name`, `chat-header-sub`, `chat-location`, `chat-status-badge` (active/paused/complete variants)
+  - `chat-icon-btn`, `chat-icon-btn--active`
+  - `chat-settings-panel`, `chat-settings-divider`, `chat-settings-keeper-group/btn`, `chat-settings-aux-btn`, `chat-settings-volume-row`, `chat-settings-stats`, `chat-settings-end-row/btn`
+  - `chat-messages`, `chat-empty-state`, `chat-empty-glyph`
+  - `chat-bubble-label` (keeper/npc/user variants)
+  - `chat-bubble--keeper` (aged paper, IM Fell italic, quotation mark glyph), `chat-bubble--npc` (paper-2 with blood left border), `chat-bubble--user` (ink-2, typewriter)
+  - `chat-replay-btn` with `--playing` (amber pulse animation) and `--loading` states
+  - `chat-loading-bubble`, `chat-loading-dots`, `chat-loading-dot` (bounce animation)
+  - `chat-readonly-zone`, `chat-readonly-card`, `chat-readonly-title`, `chat-readonly-text`
+  - `chat-player-selector`, `chat-player-btn`, `chat-player-btn--active`
+  - `chat-pending-strip`, `chat-pending-pill`, `chat-pending-pill__name/text/remove`
+  - `chat-inventory-strip`, `chat-inventory-item`, `chat-inventory-item__uses`
+  - `chat-dice-hint`, `chat-dice-hint__skill/threshold`
+  - `chat-input-zone`, `chat-input-wrap` (bottom-border only, telegraphic), `chat-textarea`, `chat-send-btn` (ink background, blood-shadow offset)
+  - `chat-completion-overlay`, `chat-completion-card/title/desc/btn--primary/btn--cancel`
+  - `chat-status-error`
+  - `chat-sidebar`
+  - Grain animation disabled in chat context via `.landing-root:has(.chat-root)::before { animation: none; opacity: 0.13 }`
+- `src/components/GameChat.tsx` — All Tailwind color/typography classes in the main game UI replaced with semantic noir CSS class names. Structural Tailwind (flex, gap, overflow, w/h, max-w, min-w, shrink, truncate) kept unchanged.
+
+**Key decisions:**
+- `chat-bubble--keeper` uses paper-0→paper-1 gradient with `border-radius: 4px 16px 16px 16px` (notched top-left corner) and a CSS `::before` quote glyph — creates a "torn from a journal" feel.
+- `chat-bubble--npc` uses `paper-2` (darker aged paper) with `border-left: 3px solid var(--blood-2)` — marks NPC speech as "evidence from a witness".
+- `chat-bubble--user` uses `ink-2` with typewriter font — player actions feel like telegram dispatches.
+- Empty state uses UnifrakturMaguntia glyph `ꝏ` instead of emoji — consistent with blackletter dossier aesthetic.
+- Grain animation disabled in chat for UX (hours of use, would cause eye strain). Reduced to 13% static opacity instead.
+- Subcomponents `Toggle`, `DynamicImage`, `CaseFilesPanel`, and admin debug panel retain Tailwind colors — these are lower-priority and will be addressed in a follow-up (Tier 3 or later).
