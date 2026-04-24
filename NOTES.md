@@ -1781,14 +1781,3 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - `npm run build` passes on Next.js 16.2.3 / TypeScript.
 
 **Result:** voice, dice, and lower action controls now feel integrated with the noir workspace instead of floating as generic app controls; the active player state is also much easier to read at a glance during play.
-
-## 2026-04-23 — ANT-91 transcript scroll hotfix
-**Scope:** Post-deploy fix after staging review of the new workspace shell; the transcript lost its independent scroll region because the new transcript wrapper chain did not fully constrain height.
-
-**Solution:**
-- `src/app/session/[id]/chat.css` — made `chat-transcript-shell` an explicit flex container and marked the topbar/control shells as non-shrinking, so `chat-messages` once again receives a stable bounded height and `overflow-y: auto` works correctly.
-
-**Verification:**
-- `npm run build` passes on Next.js 16.2.3 / TypeScript.
-
-**Result:** main chat transcript scroll is restored without changing the visual layout decisions from the workspace shell pass.
