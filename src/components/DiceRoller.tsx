@@ -18,6 +18,10 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
+  useEffect(() => {
+    setPhase('idle');
+  }, [pendingRoll.skillName, pendingRoll.goodThreshold]);
+
   function roll() {
     if (phase !== 'idle') return;
 
@@ -54,52 +58,52 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
   const isSuccess = phase === 'done' && total <= pendingRoll.goodThreshold;
 
   return (
-    <div className="chat-dice-roller">
+    <div className="px-4 pt-3 pb-3 bg-stone-900 border-t border-stone-800">
       {/* Skill context */}
-      <p className="chat-dice-copy">
-        <span className="chat-dice-skill">{pendingRoll.skillName}</span>
+      <p className="text-xs text-center text-stone-500 mb-3">
+        <span className="text-amber-400 font-medium">{pendingRoll.skillName}</span>
         {' — кинь ≤ '}
-        <span className="chat-dice-threshold">{pendingRoll.goodThreshold}</span>
+        <span className="text-amber-300 font-mono font-semibold">{pendingRoll.goodThreshold}</span>
         {pendingRoll.context && (
-          <span className="chat-dice-context">{' · '}{pendingRoll.context}</span>
+          <span className="text-stone-600">{' · '}{pendingRoll.context}</span>
         )}
       </p>
 
       {/* Dice row */}
-      <div className="chat-dice-row">
+      <div className="flex items-center justify-center gap-3">
         {/* Tens */}
-        <div className="chat-dice-col">
-          <div className={`chat-die ${phase === 'rolling' ? 'is-rolling' : phase === 'done' ? 'is-done' : ''}`}>
-            <span>
+        <div className="flex flex-col items-center gap-1">
+          <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center bg-stone-800 transition-colors ${phase === 'rolling' ? 'border-amber-600' : phase === 'done' ? 'border-stone-500' : 'border-stone-700'}`}>
+            <span className="font-mono text-2xl font-bold text-stone-100">
               {phase === 'idle' ? '–' : (tensDisplay * 10).toString().padStart(2, '0')}
             </span>
           </div>
-          <span className="chat-die-label">десятки</span>
+          <span className="text-[10px] text-stone-600 uppercase tracking-wider">десятки</span>
         </div>
 
-        <span className="chat-dice-operator">+</span>
+        <span className="text-stone-700 text-lg pb-5">+</span>
 
         {/* Units */}
-        <div className="chat-dice-col">
-          <div className={`chat-die ${phase === 'rolling' ? 'is-rolling' : phase === 'done' ? 'is-done' : ''}`}>
-            <span>
+        <div className="flex flex-col items-center gap-1">
+          <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center bg-stone-800 transition-colors ${phase === 'rolling' ? 'border-amber-600' : phase === 'done' ? 'border-stone-500' : 'border-stone-700'}`}>
+            <span className="font-mono text-2xl font-bold text-stone-100">
               {phase === 'idle' ? '–' : unitsDisplay}
             </span>
           </div>
-          <span className="chat-die-label">одиниці</span>
+          <span className="text-[10px] text-stone-600 uppercase tracking-wider">одиниці</span>
         </div>
 
         {/* Result */}
         {phase === 'done' && (
           <>
-            <span className="chat-dice-operator">=</span>
-            <div className="chat-dice-col">
-              <div className={`chat-die chat-die--result ${isSuccess ? 'is-success' : 'is-fail'}`}>
-                <span>
+            <span className="text-stone-700 text-lg pb-5">=</span>
+            <div className="flex flex-col items-center gap-1">
+              <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center ${isSuccess ? 'bg-green-900/30 border-green-600' : 'bg-red-900/20 border-red-700'}`}>
+                <span className={`font-mono text-2xl font-bold ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
                   {total}
                 </span>
               </div>
-              <span className={`chat-die-label ${isSuccess ? 'is-success' : 'is-fail'}`}>
+              <span className={`text-[10px] uppercase tracking-wider font-medium ${isSuccess ? 'text-green-500' : 'text-red-500'}`}>
                 {isSuccess ? 'успіх' : 'провал'}
               </span>
             </div>
@@ -108,22 +112,22 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
       </div>
 
       {/* Action */}
-      <div className="chat-dice-action">
+      <div className="flex justify-center mt-4">
         {phase === 'idle' && (
           <button
             onClick={roll}
-            className="chat-primary-btn"
+            className="px-6 py-2 bg-amber-900 hover:bg-amber-800 active:bg-amber-950 rounded-xl text-sm font-medium text-amber-100 border border-amber-700/50 transition-colors"
           >
             🎲 Кинути
           </button>
         )}
         {phase === 'rolling' && (
-          <span className="chat-dice-rolling">котяться...</span>
+          <span className="text-xs text-stone-600 tracking-widest animate-pulse">котяться...</span>
         )}
         {phase === 'done' && (
           <button
             onClick={() => onResult(total)}
-            className={`chat-primary-btn ${isSuccess ? 'is-success' : 'is-fail'}`}
+            className={`px-6 py-2 rounded-xl text-sm font-medium text-white border transition-colors ${isSuccess ? 'bg-green-800 hover:bg-green-700 border-green-600/50' : 'bg-red-900 hover:bg-red-800 border-red-700/50'}`}
           >
             {isSuccess ? '✓ Успіх' : '✗ Провал'} — надіслати {total}
           </button>

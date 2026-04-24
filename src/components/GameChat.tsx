@@ -61,6 +61,7 @@ function getStatusMeta(session: GameSession) {
             : 'Сесію завершено. Чат збережено в режимі лише для перегляду.'),
       completeLabel: isCampaign ? 'Завершити кампанію достроково' : 'Закрити сесію достроково',
       finishLabel: isCampaign ? 'Завершити вечір достроково' : '',
+      badgeClass: 'border-emerald-800/70 bg-emerald-950/60 text-emerald-200',
     };
   }
 
@@ -71,6 +72,7 @@ function getStatusMeta(session: GameSession) {
       summary: 'Нові ходи тимчасово вимкнено. Поточну історію можна спокійно переглядати.',
       completeLabel: '',
       finishLabel: '',
+      badgeClass: 'border-amber-800/70 bg-amber-950/60 text-amber-200',
     };
   }
 
@@ -82,6 +84,7 @@ function getStatusMeta(session: GameSession) {
       : 'Сесія триває. Кіпер має завершити сесію, коли сценарій справді пройдено.',
     completeLabel: isCampaign ? 'Завершити кампанію достроково' : 'Закрити сесію достроково',
     finishLabel: isCampaign ? 'Завершити вечір достроково' : '',
+    badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
   };
 }
 
@@ -120,13 +123,13 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
   return (
     <button
       onClick={onChange}
-      className="chat-toggle"
+      className="flex items-center gap-2 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
       title={`${checked ? 'Вимкнути' : 'Увімкнути'} ${label}`}
     >
-      <span className={`chat-toggle-track${checked ? ' is-on' : ''}`}>
-        <span className="chat-toggle-thumb" />
+      <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-green-600' : 'bg-stone-600'}`}>
+        <span className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 mt-0.5 ${checked ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
       </span>
-      <span>{label}</span>
+      <span className="text-xs">{label}</span>
     </button>
   );
 }
@@ -200,13 +203,13 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
 
   if (error && !resolvedSrc) {
     return (
-      <div className="chat-image-error" style={{ minHeight: 120 }}>
-        <span>Не вдалося згенерувати зображення</span>
+      <div className="mt-2 rounded-xl bg-stone-800 border border-stone-700 flex flex-col items-center justify-center gap-2 py-4" style={{ minHeight: 120 }}>
+        <span className="text-stone-400 text-xs">Не вдалося згенерувати зображення</span>
         <button
           type="button"
           onClick={() => { fetched.current = true; doFetch(); }}
           disabled={loading}
-          className="chat-small-btn"
+          className="text-xs px-3 py-1 rounded bg-stone-700 hover:bg-stone-600 text-stone-200 disabled:opacity-50"
         >
           {loading ? 'Спроба…' : '↻ Спробувати ще раз'}
         </button>
@@ -216,8 +219,8 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
 
   if (!resolvedSrc) {
     return (
-      <div className="chat-image-loading" style={{ height: 160 }}>
-        <span className="chat-image-loading-text">Генерується зображення...</span>
+      <div className="mt-2 rounded-xl overflow-hidden bg-stone-800 animate-pulse flex items-center justify-center border border-stone-700" style={{ height: 160 }}>
+        <span className="text-stone-500 text-xs font-medium uppercase tracking-wide">Генерується зображення...</span>
       </div>
     );
   }
@@ -228,15 +231,15 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
         src={resolvedSrc}
         alt=""
         onClick={() => setFullscreen(true)}
-        className="chat-dynamic-img"
+        className="mt-2 rounded-xl w-full object-cover cursor-zoom-in border border-stone-600"
         style={{ maxHeight: 220 }}
       />
       {fullscreen && typeof document !== 'undefined' && createPortal(
         <div
-          className="chat-lightbox"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setFullscreen(false)}
         >
-          <img src={resolvedSrc} alt="" />
+          <img src={resolvedSrc} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
         </div>,
         document.body
       )}
@@ -317,10 +320,10 @@ function CaseFilesPanel({
   const fullscreenOverlay = fullscreen && typeof document !== 'undefined'
     ? createPortal(
         <div
-          className="chat-lightbox"
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
           onClick={() => setFullscreen(null)}
         >
-          <img src={fullscreen} alt="" />
+          <img src={fullscreen} alt="" className="max-w-full max-h-full rounded-xl shadow-2xl" />
         </div>,
         document.body
       )
@@ -328,29 +331,30 @@ function CaseFilesPanel({
 
   return (
     <>
-      <div className="case-panel">
+      <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
         {/* Header */}
-        <div className="case-panel-header">
-          <div>
-            <p className="case-panel-kicker">Confidential</p>
-            <h2>Матеріали справи</h2>
-          </div>
+        <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
           {onClose && (
             <button
               onClick={onClose}
-              className="chat-icon-btn case-panel-close"
+              className="w-9 h-9 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 transition-colors text-base font-bold"
               title="Закрити"
             >✕</button>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="case-tabs">
+        <div className="flex border-b border-stone-700">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`case-tab${tab === t.id ? ' is-active' : ''}`}
+              className={`flex-1 text-xs py-2 transition-colors ${
+                tab === t.id
+                  ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
+                  : 'text-stone-500 hover:text-stone-300'
+              }`}
             >
               {t.label}
             </button>
@@ -358,26 +362,26 @@ function CaseFilesPanel({
         </div>
 
         {/* Content */}
-        <div className="case-panel-body">
+        <div className="flex-1 overflow-y-auto">
 
           {/* ── Briefing ── */}
           {tab === 'briefing' && (
-            <div className="case-section">
+            <div className="p-4 space-y-4">
               {!briefing ? (
-                <p className="case-empty">Опис відсутній</p>
+                <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
               ) : (
                 <>
-                  <div className="case-note">
-                    <p className="case-note-label">Обстановка</p>
-                    <p>{briefing.setting}</p>
+                  <div>
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
                   </div>
-                  <div className="case-note">
-                    <p className="case-note-label">Що сталось</p>
-                    <p className="whitespace-pre-line">{briefing.premise}</p>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
+                    <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
                   </div>
-                  <div className="case-note">
-                    <p className="case-note-label">Завдання</p>
-                    <p>{briefing.objective}</p>
+                  <div className="border-t border-stone-700 pt-3">
+                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
+                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
                   </div>
                 </>
               )}
@@ -386,17 +390,17 @@ function CaseFilesPanel({
 
           {/* ── Players ── */}
           {tab === 'players' && (
-            <div className="case-section">
+            <div className="p-3 space-y-4">
               {players.map((p, i) => (
-                <div key={i} className="case-card">
-                  <div className="case-card-head">
-                    <span>{p.name}</span>
-                    <small>{p.role}</small>
+                <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-semibold text-stone-100">{p.name}</span>
+                    <span className="text-xs text-amber-600">{p.role}</span>
                   </div>
                   {p.background && (
-                    <p className="case-card-copy">{p.background}</p>
+                    <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
                   )}
-                  <div className="case-stat-row">
+                  <div className="flex gap-3 text-xs pt-1 flex-wrap">
                     {resolvePlayerStats(p, rulesetId).map((s) => (
                       <span key={s.id} style={{ color: s.color }}>
                         {s.label} {s.value}{s.hasMax && s.max !== null ? `/${s.max}` : ''}
@@ -404,11 +408,11 @@ function CaseFilesPanel({
                     ))}
                   </div>
                   {Object.keys(p.skills).length > 0 && (
-                    <div className="case-skill-grid">
+                    <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
                       {Object.entries(p.skills).map(([skill, val]) => (
-                        <div key={skill}>
-                          <span>{skill}</span>
-                          <b>{val}</b>
+                        <div key={skill} className="flex justify-between">
+                          <span className="text-xs text-stone-500 truncate">{skill}</span>
+                          <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
                         </div>
                       ))}
                     </div>
@@ -420,16 +424,16 @@ function CaseFilesPanel({
 
           {/* ── Images ── */}
           {tab === 'images' && (
-            <div className="case-section">
+            <div className="p-3 space-y-3">
               {/* Session-generated images */}
               {Object.keys(dynamicImages).length > 0 && (
                 <div>
-                  <p className="case-note-label">Сесійні матеріали</p>
-                  <div className="case-evidence-list">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сесійні матеріали</p>
+                  <div className="space-y-2">
                     {Object.entries(dynamicImages).map(([msgId, meta]) => (
-                      <div key={msgId} className="case-evidence">
+                      <div key={msgId}>
                         <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
-                        <p title={meta.prompt}>
+                        <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
                           {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
                         </p>
                       </div>
@@ -439,26 +443,26 @@ function CaseFilesPanel({
               )}
               {/* Static scenario images */}
               {Object.keys(dynamicImages).length > 0 && (visibleImages.length > 0 || loadingImgs) && (
-                <div className="case-divider">
-                  <p className="case-note-label">Сценарні матеріали</p>
+                <div className="border-t border-stone-800 pt-3">
+                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
                 </div>
               )}
               {loadingImgs && (
-                <p className="case-empty">Завантаження...</p>
+                <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
               )}
               {!loadingImgs && visibleImages.length === 0 && Object.keys(dynamicImages).length === 0 && (
-                <p className="case-empty">Матеріали ще генеруються...</p>
+                <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
               )}
               {visibleImages.map((img) => (
-                <div key={img.id} className="case-evidence">
+                <div key={img.id}>
                   <img
                     src={img.url}
                     alt={img.label}
                     onClick={() => setFullscreen(img.url)}
-                    className="case-evidence-img"
+                    className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
                     style={{ maxHeight: 160 }}
                   />
-                  <p>{img.label}</p>
+                  <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
                 </div>
               ))}
             </div>
@@ -466,32 +470,32 @@ function CaseFilesPanel({
 
           {/* ── NPCs ── */}
           {tab === 'npcs' && (
-            <div className="case-section">
+            <div className="p-3 space-y-3">
               {allNpcs.length === 0 ? (
-                <p className="case-empty">Персонажі ще не зустрічались</p>
+                <p className="text-xs text-stone-500 text-center py-6">Персонажі ще не зустрічались</p>
               ) : (
                 allNpcs.map((npc) => {
                   const relation = npcRelations[npc.id];
-                  const relClass =
-                    relation === 'friendly' ? 'is-friendly' :
-                    relation === 'hostile'  ? 'is-hostile'  :
-                    relation === 'neutral'  ? 'is-neutral'  :
-                                             'is-unknown';
+                  const relColor =
+                    relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
+                    relation === 'hostile'  ? 'text-red-400 bg-red-900/30'   :
+                    relation === 'neutral'  ? 'text-stone-400 bg-stone-700'  :
+                                             'text-amber-400 bg-amber-900/30';
                   const relLabel =
                     relation === 'friendly' ? 'Дружній'    :
                     relation === 'hostile'  ? 'Ворожий'    :
                     relation === 'neutral'  ? 'Нейтральний': 'Невідомо';
                   return (
-                    <div key={npc.id} className="case-card case-card--npc">
-                      <div className="case-card-head">
-                        <span>{npc.name}</span>
-                        <small className={`case-relation ${relClass}`}>{relLabel}</small>
+                    <div key={npc.id} className="bg-stone-800 rounded-lg p-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
                       </div>
                       {npc.description && (
-                        <p className="case-card-copy">{npc.description}</p>
+                        <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
                       )}
                       {npcDetails?.[npc.id]?.notes && (
-                        <p className="case-npc-note">{npcDetails[npc.id].notes}</p>
+                        <p className="text-xs text-amber-200/80 leading-relaxed border-t border-stone-700 pt-1.5 mt-1">{npcDetails[npc.id].notes}</p>
                       )}
                     </div>
                   );
@@ -1264,50 +1268,50 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const playerName = session.players[activePlayer]?.name || 'Гравець';
 
   return (
-    <div className="chat-root">
+    <div className="flex h-dvh bg-stone-950 text-stone-200 overflow-hidden">
       {/* Left: game column */}
-      <div className="chat-main">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="chat-header">
-        <div className="chat-header-main">
+      <div className="flex items-center justify-between px-3 py-2 bg-stone-900 border-b border-stone-800">
+        <div className="flex items-center gap-2 min-w-0">
           <Link
             href="/sessions"
-            className="chat-back-btn"
+            className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors shrink-0"
             title="Назад"
           >←</Link>
-          <div className="chat-header-copy">
-            <h1 className="chat-session-name">{session.name}</h1>
-            <div className="chat-header-sub">
-              <span className="chat-location">
+          <div className="min-w-0">
+            <h1 className="text-sm font-semibold text-stone-200 truncate leading-tight">{session.name}</h1>
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] leading-tight">
+              <span className="truncate text-stone-500">
                 {currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}
               </span>
-              <span className={`chat-status-badge chat-status-badge--${session.status ?? 'active'}`}>
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 uppercase tracking-[0.16em] ${statusMeta.badgeClass}`}>
                 {statusMeta.badge}
               </span>
               {session.campaign_id && (
-                <span className="chat-status-badge chat-status-badge--chapter">
+                <span className="inline-flex items-center rounded-full border border-stone-700 bg-stone-900 px-2 py-0.5 uppercase tracking-[0.16em] text-stone-400">
                   Сесія {session.session_number || 1}
                 </span>
               )}
             </div>
           </div>
         </div>
-        <div className="chat-header-actions">
+        <div className="flex items-center gap-1.5 shrink-0">
           {speakingId && (
             <button
               onClick={stopAudio}
-              className="chat-icon-btn"
+              className="w-8 h-8 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 active:bg-stone-500 text-stone-300 transition-colors text-sm"
               title="Зупинити"
             >⏹</button>
           )}
           <button
             onClick={() => setShowSidebar((v) => !v)}
-            className="chat-icon-btn chat-mobile-only"
+            className="md:hidden w-8 h-8 flex items-center justify-center rounded-lg bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400 transition-colors text-sm"
             title="Матеріали справи"
           >📋</button>
           <button
             onClick={() => setShowSettings((v) => !v)}
-            className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors text-sm ${showSettings ? 'bg-stone-700 text-stone-200' : 'bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-400'}`}
             title="Налаштування звуку"
           >⚙️</button>
         </div>
@@ -1315,9 +1319,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       {/* Collapsible settings panel */}
       {showSettings && (
-        <div className="chat-settings-panel">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 bg-stone-900/95 border-b border-stone-800 text-xs">
           {/* CHANGED: KeeperStyle selector */}
-          <div className="chat-segmented-control">
+          <div className="flex items-center bg-stone-800 rounded-lg overflow-hidden border border-stone-700">
             {(['passive', 'balanced', 'active'] as const).map((s) => (
               <button
                 key={s}
@@ -1327,14 +1331,18 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
                   'Кіпер активно підштовхує сюжет'
                 }
-                className={`chat-segmented-option${keeperStyle === s ? ' is-active' : ''}`}
+                className={`px-2.5 py-1.5 transition-colors text-xs ${
+                  keeperStyle === s
+                    ? 'bg-amber-800 text-amber-100 font-medium'
+                    : 'text-stone-400 hover:text-stone-200 hover:bg-stone-700'
+                }`}
               >
                 {s === 'passive' ? 'Пасив' : s === 'balanced' ? 'Баланс' : 'Актив'}
               </button>
             ))}
           </div>
 
-          <div className="chat-settings-divider" />
+          <div className="w-px h-4 bg-stone-700" />
 
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
           <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
@@ -1343,38 +1351,38 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           {isAdmin && (
             <button
               onClick={exportChatLog}
-              className="chat-small-btn"
+              className="px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 rounded-lg text-stone-300 text-xs border border-amber-900/40"
               title="Export full chat log (markdown, admin)"
             >
               ⬇ Export log
             </button>
           )}
           {ambientEnabled && (
-            <div className="chat-volume-control">
-              <span>🔈</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 rounded-lg">
+              <span className="text-stone-500">🔈</span>
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={ambientVolume}
                 onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                className="chat-volume-slider"
+                className="w-20 accent-amber-600"
                 title="Гучність ambient"
               />
-              <span>🔊</span>
+              <span className="text-stone-500">🔊</span>
             </div>
           )}
 
           {sessionIsReadOnly && completionStats && (
             <>
-              <div className="chat-settings-divider chat-settings-divider--desktop" />
-              <div className="chat-settings-copy">
+              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-500">
                 <span>{statusMeta.summary}</span>
-                <span className="chat-meta-pill">
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
                   Повідомлень: {completionStats.messageCount}
                 </span>
-                <span className="chat-meta-pill">
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
                   Від кіпера: {completionStats.keeperMessageCount}
                 </span>
-                <span className="chat-meta-pill">
+                <span className="rounded-full border border-stone-800 bg-stone-950/60 px-2 py-0.5">
                   Тривалість: {completionStats.durationMinutes} хв
                 </span>
               </div>
@@ -1383,15 +1391,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {canManuallyEndSession && (
             <>
-              <div className="chat-settings-divider chat-settings-divider--desktop" />
-              <div className="chat-warning-panel">
-                <span className="chat-warning-copy">
+              <div className="hidden h-4 w-px bg-stone-700 sm:block" />
+              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-stone-800 bg-stone-950/70 px-2.5 py-1.5">
+                <span className="text-stone-500">
                   Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.
                 </span>
                 <button
                   onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
                   disabled={isUpdatingStatus || isLoading}
-                  className="chat-warning-btn"
+                  className="inline-flex h-8 items-center justify-center rounded-lg border border-amber-800/70 bg-amber-950/50 px-3 text-xs font-medium text-amber-200 transition-colors hover:bg-amber-900/60 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
                 >
                   {isUpdatingStatus
                     ? 'Завершення...'
@@ -1401,7 +1409,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   <button
                     onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
                     disabled={isUpdatingStatus || isLoading}
-                    className="chat-secondary-btn"
+                    className="inline-flex h-8 items-center justify-center rounded-lg border border-stone-700 bg-stone-900 px-3 text-xs font-medium text-stone-300 transition-colors hover:border-stone-600 hover:bg-stone-800 disabled:cursor-not-allowed disabled:border-stone-800 disabled:bg-stone-900 disabled:text-stone-600"
                   >
                     {statusMeta.completeLabel}
                   </button>
@@ -1413,33 +1421,33 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {statusError && (
-        <div className="chat-error-banner">
+        <div className="border-b border-stone-800 bg-red-950/30 px-3 py-2 text-sm text-red-300">
           {statusError}
         </div>
       )}
 
       {debugFor && (
-        <div className="chat-modal-backdrop">
-          <div className="chat-modal chat-modal--wide">
-            <div className="chat-modal-header">
+        <div className="fixed inset-0 z-50 flex items-stretch bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
+          <div className="flex w-full flex-col overflow-hidden rounded-t-2xl border border-stone-700 bg-stone-950 sm:max-h-[85vh] sm:max-w-4xl sm:rounded-2xl">
+            <div className="flex items-center justify-between gap-2 border-b border-stone-800 px-4 py-3">
               <div>
-                <h2>Keeper message debug</h2>
-                <p className="chat-modal-subtitle">msg {debugFor}</p>
+                <h2 className="text-sm font-semibold text-stone-100">Keeper message debug</h2>
+                <p className="text-[11px] text-stone-500 break-all">msg {debugFor}</p>
               </div>
-              <div className="chat-modal-actions">
+              <div className="flex items-center gap-2">
                 {debugData !== null && (
                   <>
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(JSON.stringify(debugData, null, 2));
                       }}
-                      className="chat-small-btn"
+                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
                     >
                       Copy JSON
                     </button>
                     <button
                       onClick={downloadDebug}
-                      className="chat-small-btn"
+                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
                     >
                       ⬇ .json
                     </button>
@@ -1447,17 +1455,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 )}
                 <button
                   onClick={closeDebug}
-                  className="chat-small-btn"
+                  className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-300 hover:bg-stone-700"
                 >
                   ✕
                 </button>
               </div>
             </div>
-            <div className="chat-modal-body chat-modal-body--mono">
-              {debugError && <p className="chat-accent-copy">{debugError}</p>}
-              {!debugError && debugData === null && <p className="chat-muted-copy">Loading…</p>}
+            <div className="flex-1 overflow-auto p-4 text-xs text-stone-300">
+              {debugError && <p className="text-amber-400">{debugError}</p>}
+              {!debugError && debugData === null && <p className="text-stone-500">Loading…</p>}
               {!debugError && debugData !== null && (
-                <pre>
+                <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed">
                   {JSON.stringify(debugData, null, 2)}
                 </pre>
               )}
@@ -1467,11 +1475,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {completionRequest && (
-        <div className="chat-modal-backdrop chat-modal-backdrop--sheet">
-          <div className="chat-modal chat-modal--sheet">
-            <div className="chat-modal-header">
+        <div className="fixed inset-0 z-50 flex items-end bg-black/80 p-0 sm:items-center sm:justify-center sm:p-4">
+          <div className="w-full rounded-t-2xl border border-stone-700 bg-stone-900 p-5 sm:max-w-lg sm:rounded-2xl">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <h2>
+                <h2 className="text-base font-semibold text-stone-100">
                   {completionRequest.endedEarly
                     ? (completionRequest.mode === 'finish-evening'
                         ? 'Достроково завершити вечір'
@@ -1480,7 +1488,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                           : 'Достроково закрити сесію')
                     : (session.campaign_id ? 'Завершити кампанію' : 'Завершити сесію')}
                 </h2>
-                <p className="chat-modal-copy">
+                <p className="mt-1 text-sm leading-relaxed text-stone-400">
                   {completionRequest.endedEarly
                     ? 'Сесія завершиться вручну раніше природного фіналу. За бажанням можна лишити оцінку та короткий коментар.'
                     : 'Кіпер завершить історію, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.'}
@@ -1488,20 +1496,24 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               </div>
               <button
                 onClick={() => setCompletionRequest(null)}
-                className="chat-small-btn"
+                className="rounded-lg bg-stone-800 px-2.5 py-1.5 text-sm text-stone-300 transition-colors hover:bg-stone-700"
               >
                 ✕
               </button>
             </div>
 
-            <div className="chat-form-block">
-              <p className="chat-field-label">Оцінка гри</p>
-              <div className="chat-rating-row">
+            <div className="mt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">Оцінка гри</p>
+              <div className="mt-2 flex gap-2">
                 {[1, 2, 3, 4, 5].map((value) => (
                   <button
                     key={value}
                     onClick={() => setFeedbackRating(value)}
-                    className={`chat-rating-btn${feedbackRating === value ? ' is-active' : ''}`}
+                    className={`h-11 w-11 rounded-xl border text-sm font-semibold transition-colors ${
+                      feedbackRating === value
+                        ? 'border-amber-600 bg-amber-800 text-amber-100'
+                        : 'border-stone-700 bg-stone-800 text-stone-300 hover:border-stone-600 hover:bg-stone-700'
+                    }`}
                   >
                     {value}
                   </button>
@@ -1509,8 +1521,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               </div>
             </div>
 
-            <div className="chat-form-block">
-              <label htmlFor="session-feedback" className="chat-field-label">
+            <div className="mt-5">
+              <label htmlFor="session-feedback" className="text-xs font-semibold uppercase tracking-[0.18em] text-stone-500">
                 Коментар для покращення
               </label>
               <textarea
@@ -1519,14 +1531,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 onChange={(event) => setFeedbackComment(event.target.value)}
                 rows={4}
                 placeholder="Що сподобалось, а що варто підкрутити?"
-                className="chat-modal-textarea"
+                className="mt-2 w-full rounded-2xl border border-stone-700 bg-stone-800 px-3.5 py-3 text-sm leading-relaxed text-stone-200 placeholder-stone-600 focus:border-stone-600 focus:outline-none"
               />
             </div>
 
-            <div className="chat-modal-footer">
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 onClick={() => setCompletionRequest(null)}
-                className="chat-secondary-btn chat-secondary-btn--large"
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-stone-700 bg-stone-900 px-4 text-sm font-medium text-stone-200 transition-colors hover:border-stone-600 hover:bg-stone-800"
               >
                 Ще не зараз
               </button>
@@ -1537,7 +1549,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   includeFeedback: true,
                 })}
                 disabled={isUpdatingStatus}
-                className="chat-primary-btn chat-primary-btn--large"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-amber-800 px-4 text-sm font-semibold text-amber-100 transition-colors hover:bg-amber-700 active:bg-amber-900 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
               >
                 {isUpdatingStatus
                   ? 'Завершення...'
@@ -1549,11 +1561,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {/* Messages */}
-      <div className="chat-messages">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && !isLoading && (
-          <div className="chat-empty-state">
-            <p className="chat-empty-glyph">📜</p>
-            <p className="chat-empty-text">Гра починається...</p>
+          <div className="text-center text-stone-600 text-sm mt-8">
+            <p className="text-2xl mb-2">📜</p>
+            <p>Гра починається...</p>
           </div>
         )}
 
@@ -1576,18 +1588,22 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // Replay button — shared across all bubbles of the same message
           const replayBtn = (
-            <span className="chat-bubble-actions">
+            <span className="inline-flex items-center gap-2">
               <button
                 onClick={() => handleReplay(msg.id, displayContent)}
                 disabled={isLoadingA}
-                className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : ''}${isLoadingA ? ' chat-replay-btn--loading' : ''}`}
+                className={`text-xs mt-1 ml-1 transition-colors ${
+                  isPlaying   ? 'text-amber-500 animate-pulse' :
+                  isLoadingA  ? 'text-stone-600 cursor-wait'   :
+                                'text-stone-600 hover:text-stone-400'
+                }`}
               >
                 {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
               </button>
               {isAdmin && !isUser && (
                 <button
                   onClick={() => openDebug(msg.id)}
-                  className="chat-debug-btn"
+                  className="text-xs mt-1 text-stone-600 hover:text-amber-400 transition-colors"
                   title="Show LLM prompt + raw output (admin)"
                 >
                   🐛 debug
@@ -1599,10 +1615,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           // ── User message ────────────────────────────────────────────────────
           if (isUser) {
             return (
-              <div key={msg.id} className="chat-msg-row chat-msg-row--user">
-                <div className="chat-bubble-wrap chat-bubble-wrap--user">
-                  {player && <p className="chat-bubble-label chat-bubble-label--right">{player.name}</p>}
-                  <div className="chat-bubble--user">
+              <div key={msg.id} className="flex justify-end">
+                <div className="max-w-[85%]">
+                  {player && <p className="text-xs text-stone-500 mb-1 text-right">{player.name}</p>}
+                  <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-700 text-stone-100 rounded-tr-sm">
                     {displayContent}
                   </div>
                 </div>
@@ -1617,15 +1633,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           if (splitBubbles) {
             // Render each segment as its own bubble; replay button on last
             return (
-              <div key={msg.id} className="chat-msg-group">
+              <div key={msg.id} className="space-y-2">
                 {segs.map((seg, si) => {
                   const isLast = si === segs.length - 1;
                   if (seg.type === 'narration') {
                     return (
-                      <div key={si} className="chat-msg-row">
-                        <div className="chat-bubble-wrap">
-                          {si === 0 && <p className="chat-bubble-label">Кіпер</p>}
-                          <div className="chat-bubble--keeper">
+                      <div key={si} className="flex justify-start">
+                        <div className="max-w-[85%]">
+                          {si === 0 && <p className="text-xs text-amber-700 mb-1">Кіпер</p>}
+                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
                             {renderText(seg.text)}
                             {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
@@ -1636,10 +1652,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   } else {
                     // NPC bubble
                     return (
-                      <div key={si} className="chat-msg-row chat-msg-row--npc">
-                        <div className="chat-bubble-wrap">
-                          <p className="chat-bubble-label chat-bubble-label--npc">{seg.name}</p>
-                          <div className="chat-bubble--npc">
+                      <div key={si} className="flex justify-start pl-4">
+                        <div className="max-w-[85%]">
+                          <p className="text-xs text-amber-500 mb-1">{seg.name}</p>
+                          <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed italic bg-stone-800/60 text-stone-200 rounded-tl-sm border border-amber-900/40">
                             {renderText(seg.text)}
                             {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                           </div>
@@ -1655,10 +1671,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // ── Standard single-bubble assistant message ─────────────────────────
           return (
-            <div key={msg.id} className="chat-msg-row">
-              <div className="chat-bubble-wrap">
-                <p className="chat-bubble-label">Кіпер</p>
-                <div className="chat-bubble--keeper">
+            <div key={msg.id} className="flex justify-start">
+              <div className="max-w-[85%]">
+                <p className="text-xs text-amber-700 mb-1">Кіпер</p>
+                <div className="rounded-2xl px-4 py-3 text-sm leading-relaxed bg-stone-800 text-stone-200 rounded-tl-sm border border-stone-700">
                   {renderText(displayContent)}
                   {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
                 </div>
@@ -1669,12 +1685,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         })}
 
         {isLoading && (
-          <div className="chat-msg-row">
-            <div className="chat-loading-bubble">
-              <div className="chat-loading-dots">
-                <span className="chat-loading-dot" />
-                <span className="chat-loading-dot" />
-                <span className="chat-loading-dot" />
+          <div className="flex justify-start">
+            <div className="bg-stone-800 border border-stone-700 rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -1684,12 +1700,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       </div>
 
       {sessionIsReadOnly ? (
-        <div className="chat-readonly-zone">
-          <div className="chat-readonly-card">
-            <p className="chat-readonly-title">
+        <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+          <div className="rounded-2xl border border-stone-800 bg-stone-950/60 px-4 py-4">
+            <p className="text-sm font-semibold text-stone-100 mb-1">
               {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
             </p>
-            <p className="chat-readonly-text">
+            <p className="text-sm leading-relaxed text-stone-400">
               Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
             </p>
           </div>
@@ -1698,12 +1714,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         <>
           {/* Player selector */}
           {session.players.length > 1 && (
-            <div className="chat-player-selector">
+            <div className="flex gap-1.5 px-3 py-2 bg-stone-900 border-t border-stone-800">
               {session.players.map((p, i) => (
                 <button
                   key={i}
                   onClick={() => setActivePlayer(i)}
-                  className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
+                  className={`text-xs px-3 py-2 rounded-xl transition-colors min-h-[36px] ${
+                    activePlayer === i
+                      ? 'bg-amber-800 text-amber-100 font-medium'
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 active:bg-stone-600'
+                  }`}
                 >
                   {p.name}
                 </button>
@@ -1713,17 +1733,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Pending actions queue */}
           {pendingActions.length > 0 && (
-            <div className="chat-pending-strip">
+            <div className="px-3 pt-2 pb-1 bg-stone-900 border-t border-stone-800 flex flex-wrap gap-1">
               {pendingActions.map((a, i) => (
                 <span
                   key={i}
-                  className="chat-pending-pill"
+                  className="flex items-center gap-1 text-xs bg-stone-700 text-stone-200 rounded-full px-2 py-1"
                 >
-                  <span className="chat-pending-pill-name">{session.players[a.playerIdx]?.name}</span>
-                  <span className="chat-pending-pill-text">{a.text}</span>
+                  <span className="text-amber-500 font-medium">{session.players[a.playerIdx]?.name}</span>
+                  <span className="text-stone-400 max-w-[140px] truncate">{a.text}</span>
                   <button
                     onClick={() => removePending(i)}
-                    className="chat-pending-pill-remove"
+                    className="text-stone-500 hover:text-stone-300 ml-0.5"
                   >✕</button>
                 </span>
               ))}
@@ -1732,7 +1752,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Inventory strip — active player's usable items */}
           {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
-            <div className="chat-inventory-strip">
+            <div className="px-3 py-1.5 bg-stone-900 border-t border-stone-800 flex gap-1.5 overflow-x-auto scrollbar-none">
               {session.players[activePlayer].inventory
                 .filter(item => !item.broken && item.uses !== 0)
                 .map(item => (
@@ -1740,11 +1760,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     key={item.id}
                     onClick={() => handleUseItem(activePlayer, item.id, item.name)}
                     title={item.description}
-                    className="chat-inventory-item"
+                    className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg border bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700 active:bg-stone-600 transition-colors whitespace-nowrap"
                   >
                     {item.equipped ? '⚔' : '📦'} {item.name}
-                    {item.uses > 0 && <span className="chat-inventory-uses">×{item.uses}</span>}
-                    {item.uses === -1 && <span className="chat-inventory-uses">∞</span>}
+                    {item.uses > 0 && <span className="text-stone-500">×{item.uses}</span>}
+                    {item.uses === -1 && <span className="text-stone-500">∞</span>}
                   </button>
                 ))}
             </div>
@@ -1768,21 +1788,21 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           {/* Physical dice hint */}
           {session.world_state?.pendingRollResult && diceMode === 'physical' && (
-            <div className="chat-dice-hint">
-              <span className="chat-dice-hint-icon">🎲</span>
-              <span>
-                <span className="chat-dice-hint-skill">{session.world_state.pendingRollResult.skillName}</span>
+            <div className="px-3 py-2 bg-stone-900 border-t border-stone-800 flex items-center gap-2">
+              <span className="text-lg">🎲</span>
+              <span className="text-xs text-stone-400">
+                <span className="text-amber-400 font-medium">{session.world_state.pendingRollResult.skillName}</span>
                 {' — кинь ≤ '}
-                <span className="chat-dice-hint-value">{session.world_state.pendingRollResult.goodThreshold}</span>
+                <span className="text-amber-300 font-mono">{session.world_state.pendingRollResult.goodThreshold}</span>
                 {' і введи результат'}
               </span>
             </div>
           )}
 
           {/* Input */}
-          <div className="chat-input-zone">
-            <div className="chat-input-row">
-              <div className="chat-input-wrap">
+          <div className="px-3 pb-safe-or-3 pb-3 pt-2 bg-stone-900 border-t border-stone-800">
+            <div className="flex gap-2 items-end">
+              <div className="flex-1 bg-stone-800 rounded-2xl border border-stone-700 focus-within:border-stone-600 overflow-hidden transition-colors">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -1790,25 +1810,25 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   onKeyDown={handleKeyDown}
                   placeholder={`${playerName}: дія або слова...`}
                   rows={2}
-                  className="chat-textarea"
+                  className="w-full bg-transparent text-stone-200 placeholder-stone-600 text-sm px-3.5 py-2.5 resize-none focus:outline-none leading-relaxed"
                   style={{ fontSize: 16 }}
                   disabled={isLoading}
                 />
               </div>
-              <div className="chat-input-actions">
+              <div className="flex flex-col gap-1.5">
                 <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
                 {session.players.length > 1 && (
                   <button
                     onClick={queueAction}
                     disabled={isLoading || !input.trim()}
                     title="Додати в чергу (наступний гравець)"
-                    className="chat-queue-btn"
+                    className="w-9 h-9 bg-stone-700 hover:bg-stone-600 active:bg-stone-500 disabled:bg-stone-800 disabled:cursor-not-allowed rounded-xl text-stone-300 transition-colors text-base font-bold flex items-center justify-center"
                   >+</button>
                 )}
                 <button
                   onClick={() => sendMessage()}
                   disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-                  className="chat-send-btn"
+                  className="w-9 h-9 bg-amber-800 hover:bg-amber-700 active:bg-amber-900 disabled:bg-stone-700 disabled:cursor-not-allowed rounded-xl text-white transition-colors flex items-center justify-center"
                 >➤</button>
               </div>
             </div>
@@ -1819,7 +1839,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       </div>{/* end game column */}
 
       {/* Right: case files panel — always visible on desktop, full-screen overlay on mobile */}
-      <div className={`chat-sidebar-shell${showSidebar ? ' is-open' : ''}`}>
+      <div className={`
+        md:relative md:flex md:w-64 md:shrink-0
+        fixed inset-0 z-50
+        transition-transform duration-200
+        ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+      `}>
         <CaseFilesPanel
           scenarioId={session.scenario_id}
           rulesetId={rulesetId}
