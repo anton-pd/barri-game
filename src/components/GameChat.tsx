@@ -302,10 +302,10 @@ function CaseFilesPanel({
   }, [imagesScenarioId, scenarioId, tab]);
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'briefing', label: 'Справa' },
-    { id: 'players',  label: 'Команда' },
+    { id: 'briefing', label: 'Опис' },
+    { id: 'players',  label: 'Гравці' },
     { id: 'images',   label: 'Матеріали' },
-    { id: 'npcs',     label: 'Контакти' },
+    { id: 'npcs',     label: 'Персонажі' },
   ];
 
   const metNpcs = npcs.filter((n) => n.id in npcRelations);
@@ -317,9 +317,6 @@ function CaseFilesPanel({
   const archiveEvidenceCount = visibleImages.length;
   const activeNpcCount = allNpcs.length;
   const inventoryCount = players.reduce((total, player) => total + (player.inventory?.length ?? 0), 0);
-  const premisePreview = briefing?.premise
-    ? (briefing.premise.length > 180 ? `${briefing.premise.slice(0, 180).trim()}…` : briefing.premise)
-    : null;
 
   const fullscreenOverlay = fullscreen && typeof document !== 'undefined'
     ? createPortal(
@@ -357,25 +354,6 @@ function CaseFilesPanel({
           <span className="case-meta-chip">Предметів: {inventoryCount}</span>
           <span className="case-meta-chip">Контактів: {activeNpcCount}</span>
           <span className="case-meta-chip">Exhibits: {sessionEvidenceCount + archiveEvidenceCount}</span>
-        </div>
-
-        <div className="case-overview">
-          <div className="case-overview-card case-overview-card--primary">
-            <span className="case-overview-label">Current objective</span>
-            <p>{briefing?.objective ?? 'Зберіть докази, зводьте контакти й рухайте справу вперед.'}</p>
-          </div>
-          <div className="case-overview-grid">
-            <div className="case-overview-card">
-              <span className="case-overview-label">Setting</span>
-              <p>{briefing?.setting ?? 'Обстановка ще уточнюється по ходу справи.'}</p>
-            </div>
-            {premisePreview && (
-              <div className="case-overview-card">
-                <span className="case-overview-label">Case summary</span>
-                <p>{premisePreview}</p>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Tabs */}
@@ -1347,165 +1325,161 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   }
 
   const playerName = session.players[activePlayer]?.name || 'Гравець';
-  const activePlayerData = session.players[activePlayer];
-  const activeInventory = (activePlayerData?.inventory ?? []).filter(item => !item.broken && item.uses !== 0);
-  const pendingRoll = session.world_state?.pendingRollResult;
 
   return (
     <div className="chat-root">
       {/* Left: game column */}
       <div className="chat-main">
-        <div className="chat-topbar-shell">
-          <div className="chat-topbar-rail">
-            <div className="chat-header">
-              <div className="chat-header-main">
-                <Link
-                  href="/sessions"
-                  className="chat-back-btn"
-                  title="Назад"
-                >←</Link>
-                <div className="chat-header-copy">
-                  <h1 className="chat-session-name">{session.name}</h1>
-                  <div className="chat-header-sub">
-                    <span className="chat-location">
-                      {currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}
-                    </span>
-                    <span className={`chat-status-badge chat-status-badge--${session.status ?? 'active'}`}>
-                      {statusMeta.badge}
-                    </span>
-                    {session.campaign_id && (
-                      <span className="chat-status-badge chat-status-badge--chapter">
-                        Сесія {session.session_number || 1}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="chat-header-actions">
-                {speakingId && (
-                  <button
-                    onClick={stopAudio}
-                    className="chat-icon-btn"
-                    title="Зупинити"
-                  >⏹</button>
-                )}
-                <button
-                  onClick={() => setShowSidebar((v) => !v)}
-                  className="chat-icon-btn chat-mobile-only"
-                  title="Матеріали справи"
-                >📋</button>
-                <button
-                  onClick={() => setShowSettings((v) => !v)}
-                  className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
-                  title="Налаштування звуку"
-                >⚙️</button>
-              </div>
+      {/* Header */}
+      <div className="chat-header">
+        <div className="chat-header-main">
+          <Link
+            href="/sessions"
+            className="chat-back-btn"
+            title="Назад"
+          >←</Link>
+          <div className="chat-header-copy">
+            <h1 className="chat-session-name">{session.name}</h1>
+            <div className="chat-header-sub">
+              <span className="chat-location">
+                {currentLocationName ?? (currentLocation ? currentLocation.replace(/_/g, ' ') : `Акт ${session.world_state?.act || 1}`)}
+              </span>
+              <span className={`chat-status-badge chat-status-badge--${session.status ?? 'active'}`}>
+                {statusMeta.badge}
+              </span>
+              {session.campaign_id && (
+                <span className="chat-status-badge chat-status-badge--chapter">
+                  Сесія {session.session_number || 1}
+                </span>
+              )}
             </div>
-
-            {showSettings && (
-              <div className="chat-settings-panel">
-                <div className="chat-segmented-control">
-                  {(['passive', 'balanced', 'active'] as const).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => changeKeeperStyle(s)}
-                      title={
-                        s === 'passive'  ? 'Кіпер чекає дій гравців' :
-                        s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
-                        'Кіпер активно підштовхує сюжет'
-                      }
-                      className={`chat-segmented-option${keeperStyle === s ? ' is-active' : ''}`}
-                    >
-                      {s === 'passive' ? 'Пасив' : s === 'balanced' ? 'Баланс' : 'Актив'}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="chat-settings-divider" />
-
-                <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
-                <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
-                <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
-
-                {isAdmin && (
-                  <button
-                    onClick={exportChatLog}
-                    className="chat-small-btn"
-                    title="Export full chat log (markdown, admin)"
-                  >
-                    ⬇ Export log
-                  </button>
-                )}
-                {ambientEnabled && (
-                  <div className="chat-volume-control">
-                    <span>🔈</span>
-                    <input
-                      type="range" min={0} max={1} step={0.05}
-                      value={ambientVolume}
-                      onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
-                      className="chat-volume-slider"
-                      title="Гучність ambient"
-                    />
-                    <span>🔊</span>
-                  </div>
-                )}
-
-                {sessionIsReadOnly && completionStats && (
-                  <>
-                    <div className="chat-settings-divider chat-settings-divider--desktop" />
-                    <div className="chat-settings-copy">
-                      <span>{statusMeta.summary}</span>
-                      <span className="chat-meta-pill">
-                        Повідомлень: {completionStats.messageCount}
-                      </span>
-                      <span className="chat-meta-pill">
-                        Від кіпера: {completionStats.keeperMessageCount}
-                      </span>
-                      <span className="chat-meta-pill">
-                        Тривалість: {completionStats.durationMinutes} хв
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {canManuallyEndSession && (
-                  <>
-                    <div className="chat-settings-divider chat-settings-divider--desktop" />
-                    <div className="chat-warning-panel">
-                      <span className="chat-warning-copy">
-                        Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.
-                      </span>
-                      <button
-                        onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
-                        disabled={isUpdatingStatus || isLoading}
-                        className="chat-warning-btn"
-                      >
-                        {isUpdatingStatus
-                          ? 'Завершення...'
-                          : (session.campaign_id ? statusMeta.finishLabel : statusMeta.completeLabel)}
-                      </button>
-                      {session.campaign_id && (
-                        <button
-                          onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
-                          disabled={isUpdatingStatus || isLoading}
-                          className="chat-secondary-btn"
-                        >
-                          {statusMeta.completeLabel}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
-
-            {statusError && (
-              <div className="chat-error-banner">
-                {statusError}
-              </div>
-            )}
           </div>
         </div>
+        <div className="chat-header-actions">
+          {speakingId && (
+            <button
+              onClick={stopAudio}
+              className="chat-icon-btn"
+              title="Зупинити"
+            >⏹</button>
+          )}
+          <button
+            onClick={() => setShowSidebar((v) => !v)}
+            className="chat-icon-btn chat-mobile-only"
+            title="Матеріали справи"
+          >📋</button>
+          <button
+            onClick={() => setShowSettings((v) => !v)}
+            className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
+            title="Налаштування звуку"
+          >⚙️</button>
+        </div>
+      </div>
+
+      {/* Collapsible settings panel */}
+      {showSettings && (
+        <div className="chat-settings-panel">
+          {/* CHANGED: KeeperStyle selector */}
+          <div className="chat-segmented-control">
+            {(['passive', 'balanced', 'active'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => changeKeeperStyle(s)}
+                title={
+                  s === 'passive'  ? 'Кіпер чекає дій гравців' :
+                  s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
+                  'Кіпер активно підштовхує сюжет'
+                }
+                className={`chat-segmented-option${keeperStyle === s ? ' is-active' : ''}`}
+              >
+                {s === 'passive' ? 'Пасив' : s === 'balanced' ? 'Баланс' : 'Актив'}
+              </button>
+            ))}
+          </div>
+
+          <div className="chat-settings-divider" />
+
+          <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
+          <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
+          <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
+
+          {isAdmin && (
+            <button
+              onClick={exportChatLog}
+              className="chat-small-btn"
+              title="Export full chat log (markdown, admin)"
+            >
+              ⬇ Export log
+            </button>
+          )}
+          {ambientEnabled && (
+            <div className="chat-volume-control">
+              <span>🔈</span>
+              <input
+                type="range" min={0} max={1} step={0.05}
+                value={ambientVolume}
+                onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                className="chat-volume-slider"
+                title="Гучність ambient"
+              />
+              <span>🔊</span>
+            </div>
+          )}
+
+          {sessionIsReadOnly && completionStats && (
+            <>
+              <div className="chat-settings-divider chat-settings-divider--desktop" />
+              <div className="chat-settings-copy">
+                <span>{statusMeta.summary}</span>
+                <span className="chat-meta-pill">
+                  Повідомлень: {completionStats.messageCount}
+                </span>
+                <span className="chat-meta-pill">
+                  Від кіпера: {completionStats.keeperMessageCount}
+                </span>
+                <span className="chat-meta-pill">
+                  Тривалість: {completionStats.durationMinutes} хв
+                </span>
+              </div>
+            </>
+          )}
+
+          {canManuallyEndSession && (
+            <>
+              <div className="chat-settings-divider chat-settings-divider--desktop" />
+              <div className="chat-warning-panel">
+                <span className="chat-warning-copy">
+                  Якщо треба зупинити гру раніше фіналу, сесію можна закрити тут вручну.
+                </span>
+                <button
+                  onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
+                  disabled={isUpdatingStatus || isLoading}
+                  className="chat-warning-btn"
+                >
+                  {isUpdatingStatus
+                    ? 'Завершення...'
+                    : (session.campaign_id ? statusMeta.finishLabel : statusMeta.completeLabel)}
+                </button>
+                {session.campaign_id && (
+                  <button
+                    onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
+                    disabled={isUpdatingStatus || isLoading}
+                    className="chat-secondary-btn"
+                  >
+                    {statusMeta.completeLabel}
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {statusError && (
+        <div className="chat-error-banner">
+          {statusError}
+        </div>
+      )}
 
       {debugFor && (
         <div className="chat-modal-backdrop">
@@ -1638,298 +1612,271 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       )}
 
       {/* Messages */}
-      <div className="chat-transcript-shell">
-        <div className="chat-transcript-rail">
-          <div className="chat-messages">
-            {messages.length === 0 && !isLoading && (
-              <div className="chat-empty-state">
-                <p className="chat-empty-glyph">📜</p>
-                <p className="chat-empty-text">Гра починається...</p>
-              </div>
-            )}
-
-            {messages.map((msg) => {
-              const isUser     = msg.role === 'user';
-              const player     = isUser && msg.player_idx !== null ? session.players[msg.player_idx] : null;
-              const isPlaying  = speakingId === msg.id;
-              const isLoadingA = loadingAudioIds.has(msg.id);
-
-              const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
-              const displayContent = stripNpcTags(
-                imageTagMatch
-                  ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
-                  : msg.content
-              );
-              const imgMeta = imageTagMatch
-                ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
-                : (!isUser ? dynamicImages[msg.id] : undefined);
-
-              const replayBtn = (
-                <span className="chat-bubble-actions">
-                  <button
-                    onClick={() => handleReplay(msg.id, displayContent)}
-                    disabled={isLoadingA}
-                    className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : ''}${isLoadingA ? ' chat-replay-btn--loading' : ''}`}
-                  >
-                    {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
-                  </button>
-                  {isAdmin && !isUser && (
-                    <button
-                      onClick={() => openDebug(msg.id)}
-                      className="chat-debug-btn"
-                      title="Show LLM prompt + raw output (admin)"
-                    >
-                      🐛 debug
-                    </button>
-                  )}
-                </span>
-              );
-
-              if (isUser) {
-                return (
-                  <div key={msg.id} className="chat-msg-row chat-msg-row--user">
-                    <div className="chat-bubble-wrap chat-bubble-wrap--user">
-                      {player && <p className="chat-bubble-label chat-bubble-label--right">{player.name}</p>}
-                      <div className="chat-bubble--user">
-                        {displayContent}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              const segs = msgSegments[msg.id];
-              const splitBubbles = segs && hasNpcSpeech(segs);
-
-              if (splitBubbles) {
-                return (
-                  <div key={msg.id} className="chat-msg-group">
-                    {segs.map((seg, si) => {
-                      const isLast = si === segs.length - 1;
-                      if (seg.type === 'narration') {
-                        return (
-                          <div key={si} className="chat-msg-row">
-                            <div className="chat-bubble-wrap">
-                              {si === 0 && <p className="chat-bubble-label">Кіпер</p>}
-                              <div className="chat-bubble--keeper">
-                                {renderText(seg.text)}
-                                {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
-                              </div>
-                              {isLast && replayBtn}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={si} className="chat-msg-row chat-msg-row--npc">
-                          <div className="chat-bubble-wrap">
-                            <p className="chat-bubble-label chat-bubble-label--npc">{seg.name}</p>
-                            <div className="chat-bubble--npc">
-                              {renderText(seg.text)}
-                              {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
-                            </div>
-                            {isLast && replayBtn}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              }
-
-              return (
-                <div key={msg.id} className="chat-msg-row">
-                  <div className="chat-bubble-wrap">
-                    <p className="chat-bubble-label">Кіпер</p>
-                    <div className="chat-bubble--keeper">
-                      {renderText(displayContent)}
-                      {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
-                    </div>
-                    {replayBtn}
-                  </div>
-                </div>
-              );
-            })}
-
-            {isLoading && (
-              <div className="chat-msg-row">
-                <div className="chat-loading-bubble">
-                  <div className="chat-loading-dots">
-                    <span className="chat-loading-dot" />
-                    <span className="chat-loading-dot" />
-                    <span className="chat-loading-dot" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
+      <div className="chat-messages">
+        {messages.length === 0 && !isLoading && (
+          <div className="chat-empty-state">
+            <p className="chat-empty-glyph">📜</p>
+            <p className="chat-empty-text">Гра починається...</p>
           </div>
-        </div>
+        )}
+
+        {messages.map((msg) => {
+          const isUser     = msg.role === 'user';
+          const player     = isUser && msg.player_idx !== null ? session.players[msg.player_idx] : null;
+          const isPlaying  = speakingId === msg.id;
+          const isLoadingA = loadingAudioIds.has(msg.id);
+
+          // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
+          const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
+          const displayContent = stripNpcTags(
+            imageTagMatch
+              ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
+              : msg.content
+          );
+          const imgMeta = imageTagMatch
+            ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
+            : (!isUser ? dynamicImages[msg.id] : undefined);
+
+          // Replay button — shared across all bubbles of the same message
+          const replayBtn = (
+            <span className="chat-bubble-actions">
+              <button
+                onClick={() => handleReplay(msg.id, displayContent)}
+                disabled={isLoadingA}
+                className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : ''}${isLoadingA ? ' chat-replay-btn--loading' : ''}`}
+              >
+                {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
+              </button>
+              {isAdmin && !isUser && (
+                <button
+                  onClick={() => openDebug(msg.id)}
+                  className="chat-debug-btn"
+                  title="Show LLM prompt + raw output (admin)"
+                >
+                  🐛 debug
+                </button>
+              )}
+            </span>
+          );
+
+          // ── User message ────────────────────────────────────────────────────
+          if (isUser) {
+            return (
+              <div key={msg.id} className="chat-msg-row chat-msg-row--user">
+                <div className="chat-bubble-wrap chat-bubble-wrap--user">
+                  {player && <p className="chat-bubble-label chat-bubble-label--right">{player.name}</p>}
+                  <div className="chat-bubble--user">
+                    {displayContent}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // ── Assistant message with NPC bubbles ──────────────────────────────
+          const segs = msgSegments[msg.id];
+          const splitBubbles = segs && hasNpcSpeech(segs);
+
+          if (splitBubbles) {
+            // Render each segment as its own bubble; replay button on last
+            return (
+              <div key={msg.id} className="chat-msg-group">
+                {segs.map((seg, si) => {
+                  const isLast = si === segs.length - 1;
+                  if (seg.type === 'narration') {
+                    return (
+                      <div key={si} className="chat-msg-row">
+                        <div className="chat-bubble-wrap">
+                          {si === 0 && <p className="chat-bubble-label">Кіпер</p>}
+                          <div className="chat-bubble--keeper">
+                            {renderText(seg.text)}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
+                          </div>
+                          {isLast && replayBtn}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // NPC bubble
+                    return (
+                      <div key={si} className="chat-msg-row chat-msg-row--npc">
+                        <div className="chat-bubble-wrap">
+                          <p className="chat-bubble-label chat-bubble-label--npc">{seg.name}</p>
+                          <div className="chat-bubble--npc">
+                            {renderText(seg.text)}
+                            {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
+                          </div>
+                          {isLast && replayBtn}
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
+            );
+          }
+
+          // ── Standard single-bubble assistant message ─────────────────────────
+          return (
+            <div key={msg.id} className="chat-msg-row">
+              <div className="chat-bubble-wrap">
+                <p className="chat-bubble-label">Кіпер</p>
+                <div className="chat-bubble--keeper">
+                  {renderText(displayContent)}
+                  {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
+                </div>
+                {replayBtn}
+              </div>
+            </div>
+          );
+        })}
+
+        {isLoading && (
+          <div className="chat-msg-row">
+            <div className="chat-loading-bubble">
+              <div className="chat-loading-dots">
+                <span className="chat-loading-dot" />
+                <span className="chat-loading-dot" />
+                <span className="chat-loading-dot" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
       </div>
 
       {sessionIsReadOnly ? (
-        <div className="chat-control-shell">
-          <div className="chat-control-rail">
-            <div className="chat-readonly-zone">
-              <div className="chat-readonly-card">
-                <p className="chat-readonly-title">
-                  {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
-                </p>
-                <p className="chat-readonly-text">
-                  Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
-                </p>
-              </div>
-            </div>
+        <div className="chat-readonly-zone">
+          <div className="chat-readonly-card">
+            <p className="chat-readonly-title">
+              {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
+            </p>
+            <p className="chat-readonly-text">
+              Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
+            </p>
           </div>
         </div>
       ) : (
-        <div className="chat-control-shell">
-          <div className="chat-control-rail">
-            <div className="chat-control-deck">
-              <div className="chat-control-meta">
-                <div className="chat-control-chip chat-control-chip--active">
-                  <span className="chat-control-chip-label">Говорить</span>
-                  <strong>{playerName}</strong>
-                  {activePlayerData?.role && <span>{activePlayerData.role}</span>}
-                </div>
-                {session.players.length > 1 && (
-                  <div className="chat-control-chip">
-                    <span className="chat-control-chip-label">Черга</span>
-                    <strong>{pendingActions.length}</strong>
-                    <span>{pendingActions.length === 0 ? 'порожньо' : 'ходів очікує'}</span>
-                  </div>
-                )}
-                {activeInventory.length > 0 && (
-                  <div className="chat-control-chip">
-                    <span className="chat-control-chip-label">Під рукою</span>
-                    <strong>{activeInventory.length}</strong>
-                    <span>активних предметів</span>
-                  </div>
-                )}
-                {pendingRoll && (
-                  <div className="chat-control-chip chat-control-chip--alert">
-                    <span className="chat-control-chip-label">Кидок</span>
-                    <strong>{pendingRoll.skillName}</strong>
-                    <span>ціль: {pendingRoll.goodThreshold}</span>
-                  </div>
-                )}
-              </div>
+        <>
+          {/* Player selector */}
+          {session.players.length > 1 && (
+            <div className="chat-player-selector">
+              {session.players.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActivePlayer(i)}
+                  className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
 
-              {session.players.length > 1 && (
-                <div className="chat-player-selector">
-                  {session.players.map((p, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActivePlayer(i)}
-                      className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* Pending actions queue */}
+          {pendingActions.length > 0 && (
+            <div className="chat-pending-strip">
+              {pendingActions.map((a, i) => (
+                <span
+                  key={i}
+                  className="chat-pending-pill"
+                >
+                  <span className="chat-pending-pill-name">{session.players[a.playerIdx]?.name}</span>
+                  <span className="chat-pending-pill-text">{a.text}</span>
+                  <button
+                    onClick={() => removePending(i)}
+                    className="chat-pending-pill-remove"
+                  >✕</button>
+                </span>
+              ))}
+            </div>
+          )}
 
-              {pendingActions.length > 0 && (
-                <div className="chat-pending-strip">
-                  {pendingActions.map((a, i) => (
-                    <span
-                      key={i}
-                      className="chat-pending-pill"
-                    >
-                      <span className="chat-pending-pill-name">{session.players[a.playerIdx]?.name}</span>
-                      <span className="chat-pending-pill-text">{a.text}</span>
-                      <button
-                        onClick={() => removePending(i)}
-                        className="chat-pending-pill-remove"
-                      >✕</button>
-                    </span>
-                  ))}
-                </div>
-              )}
+          {/* Inventory strip — active player's usable items */}
+          {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
+            <div className="chat-inventory-strip">
+              {session.players[activePlayer].inventory
+                .filter(item => !item.broken && item.uses !== 0)
+                .map(item => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleUseItem(activePlayer, item.id, item.name)}
+                    title={item.description}
+                    className="chat-inventory-item"
+                  >
+                    {item.equipped ? '⚔' : '📦'} {item.name}
+                    {item.uses > 0 && <span className="chat-inventory-uses">×{item.uses}</span>}
+                    {item.uses === -1 && <span className="chat-inventory-uses">∞</span>}
+                  </button>
+                ))}
+            </div>
+          )}
 
-              {activeInventory.length > 0 && (
-                <div className="chat-inventory-strip">
-                  {activeInventory.map(item => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleUseItem(activePlayer, item.id, item.name)}
-                      title={item.description}
-                      className="chat-inventory-item"
-                    >
-                      {item.equipped ? '⚔' : '📦'} {item.name}
-                      {item.uses > 0 && <span className="chat-inventory-uses">×{item.uses}</span>}
-                      {item.uses === -1 && <span className="chat-inventory-uses">∞</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* Dice roller — virtual mode */}
+          {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
+            <DiceRoller
+              key={`${session.world_state.pendingRollResult.skillName}-${session.world_state.pendingRollResult.goodThreshold}-${session.world_state.pendingRollResult.characterIdx}`}
+              pendingRoll={session.world_state.pendingRollResult}
+              onResult={(result) => {
+                // Optimistically hide dice before LLM responds with [CLEAR_PENDING_ROLL]
+                setSession((s) => ({
+                  ...s,
+                  world_state: { ...s.world_state, pendingRollResult: undefined },
+                }));
+                sendMessage(result.toString());
+              }}
+            />
+          )}
 
-              {pendingRoll && diceMode === 'virtual' && (
-                <DiceRoller
-                  key={`${pendingRoll.skillName}-${pendingRoll.goodThreshold}-${pendingRoll.characterIdx}`}
-                  pendingRoll={pendingRoll}
-                  onResult={(result) => {
-                    setSession((s) => ({
-                      ...s,
-                      world_state: { ...s.world_state, pendingRollResult: undefined },
-                    }));
-                    sendMessage(result.toString());
-                  }}
+          {/* Physical dice hint */}
+          {session.world_state?.pendingRollResult && diceMode === 'physical' && (
+            <div className="chat-dice-hint">
+              <span className="chat-dice-hint-icon">🎲</span>
+              <span>
+                <span className="chat-dice-hint-skill">{session.world_state.pendingRollResult.skillName}</span>
+                {' — кинь ≤ '}
+                <span className="chat-dice-hint-value">{session.world_state.pendingRollResult.goodThreshold}</span>
+                {' і введи результат'}
+              </span>
+            </div>
+          )}
+
+          {/* Input */}
+          <div className="chat-input-zone">
+            <div className="chat-input-row">
+              <div className="chat-input-wrap">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={`${playerName}: дія або слова...`}
+                  rows={2}
+                  className="chat-textarea"
+                  style={{ fontSize: 16 }}
+                  disabled={isLoading}
                 />
-              )}
-
-              {pendingRoll && diceMode === 'physical' && (
-                <div className="chat-dice-hint">
-                  <span className="chat-dice-hint-icon">🎲</span>
-                  <span>
-                    <span className="chat-dice-hint-skill">{pendingRoll.skillName}</span>
-                    {' — кинь ≤ '}
-                    <span className="chat-dice-hint-value">{pendingRoll.goodThreshold}</span>
-                    {' і введи результат'}
-                  </span>
-                </div>
-              )}
-
-              <div className="chat-input-zone">
-                <div className="chat-input-row">
-                  <div className="chat-input-wrap">
-                    <textarea
-                      ref={textareaRef}
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      placeholder={`${playerName}: дія або слова...`}
-                      rows={2}
-                      className="chat-textarea"
-                      style={{ fontSize: 16 }}
-                      disabled={isLoading}
-                    />
-                    <p className="chat-input-helper">
-                      `Enter` — надіслати · `Shift+Enter` — новий рядок
-                    </p>
-                  </div>
-                  <div className="chat-input-actions">
-                    <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
-                    {session.players.length > 1 && (
-                      <button
-                        onClick={queueAction}
-                        disabled={isLoading || !input.trim()}
-                        title="Додати в чергу (наступний гравець)"
-                        className="chat-queue-btn"
-                      >+</button>
-                    )}
-                    <button
-                      onClick={() => sendMessage()}
-                      disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-                      className="chat-send-btn"
-                    >➤</button>
-                  </div>
-                </div>
+              </div>
+              <div className="chat-input-actions">
+                <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
+                {session.players.length > 1 && (
+                  <button
+                    onClick={queueAction}
+                    disabled={isLoading || !input.trim()}
+                    title="Додати в чергу (наступний гравець)"
+                    className="chat-queue-btn"
+                  >+</button>
+                )}
+                <button
+                  onClick={() => sendMessage()}
+                  disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
+                  className="chat-send-btn"
+                >➤</button>
               </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       </div>{/* end game column */}
