@@ -768,9 +768,9 @@
 
 .stat-row {
   display: grid;
-  grid-template-columns: 32px 24px 1fr 56px 24px;
+  grid-template-columns: 36px 1fr 56px;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .stat-row__label {
   font-family: var(--font-mono);
@@ -779,29 +779,6 @@
   text-transform: uppercase;
   color: var(--paper-2);
 }
-.stat-row__btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 3px;
-  background: var(--ink-3);
-  border: 1px solid rgba(107,90,62,0.3);
-  color: var(--paper-1);
-  font-size: 14px;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.stat-row__btn:hover {
-  background: var(--ink-1);
-  color: var(--amber-0);
-  border-color: rgba(212,161,83,0.4);
-}
-.stat-row__btn--minus:hover { color: var(--blood-0); border-color: rgba(181,50,31,0.5); }
-.stat-row__btn--plus:hover  { color: var(--amber-0); border-color: rgba(212,161,83,0.5); }
-
 .stat-row__track {
   position: relative;
   height: 8px;
@@ -933,6 +910,5 @@
 @media (max-width: 640px) {
   .stats-bar { padding: 6px 8px; }
   .stats-card { flex: 1 1 100%; min-width: 0; }
-  .stat-row { grid-template-columns: 28px 22px 1fr 50px 22px; gap: 4px; }
-  .stat-row__btn { width: 22px; height: 22px; font-size: 13px; }
+  .stat-row { grid-template-columns: 32px 1fr 50px; gap: 6px; }
 }
