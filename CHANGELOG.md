@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.9] — 2026-05-08
 
 ### Changed
+- **Composer rail (ANT-101)**: collapsed five stacked strips below the transcript (player tabs, queue, inventory, dice hint, input) into a single `.composer-rail` container. Shared background + border, single safe-area inset, `ХІД` label anchors the active-player tabs, queued actions sit on the right with a dashed divider; on ≤640px the queue wraps into its own row.
 - **Mobile UX polish (ANT-104)**:
   - Sessions topbar: on ≤720px collapses version + admin link + email + sign-out into a circular avatar menu (initial of the email) with scrim and ARIA roles.
   - Chat case-files panel: replaced Tailwind right-side overlay with a semantic `.chat-sidebar`. Desktop keeps a 320px inspector rail; mobile (≤767px) becomes a bottom-sheet (88vh) with drag handle, scrim, and tap-to-close.

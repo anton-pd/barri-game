@@ -1,5 +1,23 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-05-08 · Claude] — ANT-101: composer rail unification
+
+### Problem
+Під чатом стояло 5 окремих horizontal strips (player tabs, queue, inventory, dice hint, input), у кожного своє `background: var(--ink-1)` + `border-top` — візуально розпадались на ярус сходинок. На mobile додатково забирали вертикалі.
+
+### Solution
+- Обернув усе в єдиний `.composer-rail` (`<div>`) з одним `border-top` і одним фоном. Inner strips усередині отримують `background: transparent; border-top: none` через каскад. Padding узгоджено (10/14 desktop, 6/10 mobile).
+- Top "meta" рядок: лейбл `ХІД` + tabs гравців зліва, queue chips справа (через `margin-left: auto` + `border-left: dashed`).
+- Inventory chips і dice prompt лишилися окремими секціями всередині rail, але без зайвої chrome.
+- Input + actions column (Voice / queue + / Send) — один gap-8 рядок.
+- На mobile (≤640px) queue chips опускаються в новий рядок з `border-top: dashed` (бо `margin-left: auto` ламає wrap).
+- `.composer-rail` має `padding-bottom: max(8px, env(safe-area-inset-bottom))` для iOS home indicator.
+
+### Key decisions
+- Лишив окремий рендер DiceRoller в межах rail (не намагався вмонтувати в композер row), щоб не ламати анімацію слот-машини.
+- ARIA: `role="tablist"` на player switcher, `role="tab" aria-selected` на кнопках, `aria-label` на queue/input/actions.
+- Старі CSS класи `.chat-player-selector`, `.chat-pending-strip`, `.chat-input-zone` лишилися визначеними (чіпси і pills все ще їх використовують), але JSX більше не виставляє контейнерні класи з зайвими borders/backgrounds — їх перебиває composer-rail.
+
 ## [2026-05-08 · Claude] — ANT-104: mobile UX polish
 
 ### Problem
