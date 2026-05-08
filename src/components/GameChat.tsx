@@ -1564,11 +1564,18 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           </div>
         )}
 
-        {messages.map((msg) => {
+        {messages.map((msg, idx) => {
           const isUser     = msg.role === 'user';
           const player     = isUser && msg.player_idx !== null ? session.players[msg.player_idx] : null;
           const isPlaying  = speakingId === msg.id;
           const isLoadingA = loadingAudioIds.has(msg.id);
+          const prev       = idx > 0 ? messages[idx - 1] : null;
+          // Same-role consecutive turns share a rail label and tighten spacing.
+          // For user, also require the same player_idx so different players still get their name shown.
+          const sameAsPrev = !!prev && prev.role === msg.role && (
+            !isUser || prev.player_idx === msg.player_idx
+          );
+          const rowClass = sameAsPrev ? ' chat-msg--grouped' : '';
 
           // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
           const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
@@ -1606,9 +1613,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           // ── User message ────────────────────────────────────────────────────
           if (isUser) {
             return (
-              <div key={msg.id} className="flex justify-end">
+              <div key={msg.id} className={`flex justify-end${rowClass}`}>
                 <div className="max-w-[85%]">
-                  {player && <p className="chat-bubble-label chat-bubble-label--user">{player.name}</p>}
+                  {player && !sameAsPrev && (
+                    <p className="chat-bubble-label chat-bubble-label--user">{player.name}</p>
+                  )}
                   <div className="chat-bubble--user">
                     {displayContent}
                   </div>
@@ -1624,14 +1633,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           if (splitBubbles) {
             // Render each segment as its own bubble; replay button on last
             return (
-              <div key={msg.id} className="space-y-2">
+              <div key={msg.id} className={`space-y-2${rowClass}`}>
                 {segs.map((seg, si) => {
                   const isLast = si === segs.length - 1;
                   if (seg.type === 'narration') {
                     return (
                       <div key={si} className="flex justify-start">
-                        <div className="max-w-[85%]">
-                          {si === 0 && <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>}
+                        <div className="max-w-[92%]">
+                          {si === 0 && !sameAsPrev && (
+                            <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+                          )}
                           <div className="chat-bubble--keeper">
                             {renderText(seg.text)}
                             {isLast && imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}
@@ -1662,9 +1673,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // ── Standard single-bubble assistant message ─────────────────────────
           return (
-            <div key={msg.id} className="flex justify-start">
-              <div className="max-w-[85%]">
-                <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+            <div key={msg.id} className={`flex justify-start${rowClass}`}>
+              <div className="max-w-[92%]">
+                {!sameAsPrev && (
+                  <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+                )}
                 <div className="chat-bubble--keeper">
                   {renderText(displayContent)}
                   {imgMeta && <DynamicImage prompt={imgMeta.prompt} type={imgMeta.type} sessionId={session.id} msgId={msg.id} url={session.world_state.sessionImages?.[msg.id]} onUrlGenerated={handleUrlGenerated} />}

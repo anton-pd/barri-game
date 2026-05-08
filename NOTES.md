@@ -1,5 +1,20 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-05-08 · Claude] — ANT-100: reading column + transcript rhythm
+
+### Problem
+На 1440px+ між кінцем кіперської бульки (760px max) і правим rail (320px) лишався dead-zone. Лейбли `Кіпер` / playerName повторювались на кожному ході, навіть коли той самий мовець говорив підряд.
+
+### Solution
+- `.chat-messages` тепер обмежений `max-width: 820px` і центрований (`margin: 0 auto`). Padding піднятий до `18px 24px 28px` (mobile 14px). Bubble max-width: keeper/NPC підняв до 92% (бо контейнер уже сам обмежений), user — до 75%, щоб дії гравця читались як короткі реплики справа.
+- JSX: для `messages.map` додав `prev` lookup і прапор `sameAsPrev` (та сама `role`, для user ще той самий `player_idx`). Якщо так — ховаємо рейкову лейблу і застосовуємо `chat-msg--grouped` (`margin-top: -10px`), щоб repeated turns читались як один блок.
+- Працює і для split-bubble assistant (NPC + наративні), і для standard single-bubble.
+
+### Key decisions
+- Лейбл NPC завжди показується (різні NPC у послідовних повідомленнях — не рідкість, не стискаємо).
+- Replay button лишається на кожному окремому повідомленні, бо озвучення — на rівні message.id.
+- 820px reading-column обрав за editorial baseline (~75 ch для IM Fell English + Special Elite на 15px).
+
 ## [2026-05-08 · Claude] — ANT-101: composer rail unification
 
 ### Problem
