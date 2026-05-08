@@ -1,5 +1,20 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-05-08 · Claude] — ANT-98: StatsBar regression — повернуто HP/SAN/Luck у чат
+
+### Problem
+Після ребренду noir компонент `StatsBar.tsx` залишився в коді, але ніхто його не імпортував — `grep -rn StatsBar src/` повертав лише сам файл. Як наслідок: гравці не бачили HP / SAN / Luck під час гри ні на desktop, ні на mobile, хоча сервер ці поля справно мутує через `[DELTA:]` теги.
+
+### Solution
+- `GameChat.tsx`: імпорт `StatsBar`, рендер у шапці одразу під `chat-header`, перед collapsible settings panel. Додав `handleUpdatePlayers` (PATCH `/api/sessions/:id` з новим масивом `players` + локальний `setSession`).
+- `StatsBar.tsx`: рестайл з Tailwind stone/amber під семантичні CSS-класи з noir-токенами. Підтримка `activePlayer`, `onSelectPlayer`, `readOnly`. Клік на header картки тепер вибирає активного гравця і розгортає скіли+інвентар.
+- `chat.css`: новий блок `.stats-bar` / `.stats-card` / `.stat-row` / `.inv-item`. HP — blood gradient, SAN — bruise (фіолетовий), LCK — amber. Контраст усіх текстових елементів на ink-2 ≥ 5:1 (paper-1, amber-1, smoke-0). Mobile media query звужує сітку до 28+22+1fr+50+22.
+
+### Key decisions
+- Залишив старий ручний `+/−` контроль для адміна/кіпера — авторитетним залишається сервер через `[DELTA:]`, але ручне коригування потрібне для edge case типу некоректного парсингу.
+- `usableInventory` бейдж у заголовку картки показує лише придатні предмети (без зламаних/порожніх) — щоб не вводити в оману.
+- Розгортання — per card, не глобально, щоб мульти-плеєр сесії не страждали від випадкового overflow.
+
 ## [2026-04-20 · Claude] — Landing promoted to main page; design-lab removed
 
 ### Problem

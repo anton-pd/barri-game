@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.8] — 2026-05-08
+
+### Fixed
+- **StatsBar regression (ANT-98)**: HP / SAN / Luck were not rendered anywhere in `GameChat` because the `StatsBar` component was no longer imported. Wired it back into the chat shell as a persistent strip below the header. Manual `+/−` writes now PATCH `/api/sessions/:id` and update local state.
+
+### Changed
+- StatsBar restyled from Tailwind `stone/amber` utility classes to semantic noir classes (`.stats-bar`, `.stats-card`, `.stat-row`, `.inv-item`) using landing tokens — HP blood gradient, SAN bruise, Luck amber. Active-player card highlighted with amber inset; clicking a card sets the active player and toggles skills + inventory.
+- StatsBar respects `readOnly` for completed sessions (no +/− buttons, no use-item).
+
+---
+
 ## [0.4.7] — 2026-04-24
 
 ### Added

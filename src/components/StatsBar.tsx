@@ -6,24 +6,33 @@ import { resolvePlayerStats } from '@/lib/statUtils';
 
 interface StatsBarProps {
   players: Player[];
+  activePlayer?: number;
+  onSelectPlayer?: (idx: number) => void;
   rulesetId?: string;
   onUpdatePlayers: (players: Player[]) => void;
   onUseItem?: (playerIdx: number, itemId: string, itemName: string) => void;
+  readOnly?: boolean;
 }
 
-// Per-stat color gradient (foreground → dimmer shades). Keeps the existing
-// visual feel for CoC while letting non-CoC rulesets fall back to a safe default.
-const STAT_COLORS: Record<string, [string, string, string]> = {
-  hp:     ['#ef4444','#f97316','#991b1b'],
-  sanity: ['#a855f7','#7c3aed','#4c1d95'],
-  luck:   ['#f59e0b','#d97706','#92400e'],
+const STAT_TONE: Record<string, 'blood' | 'bruise' | 'amber' | 'smoke'> = {
+  hp: 'blood',
+  sanity: 'bruise',
+  luck: 'amber',
 };
-const DEFAULT_COLORS: [string, string, string] = ['#60a5fa','#3b82f6','#1e3a8a'];
 
-export default function StatsBar({ players, rulesetId = 'coc_7e', onUpdatePlayers, onUseItem }: StatsBarProps) {
+export default function StatsBar({
+  players,
+  activePlayer = 0,
+  onSelectPlayer,
+  rulesetId = 'coc_7e',
+  onUpdatePlayers,
+  onUseItem,
+  readOnly = false,
+}: StatsBarProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
 
   function updateStat(idx: number, statId: string, delta: number) {
+    if (readOnly) return;
     const updated = players.map((p, i) => {
       if (i !== idx) return p;
       const resolved = resolvePlayerStats(p, rulesetId).find((s) => s.id === statId);
@@ -42,65 +51,77 @@ export default function StatsBar({ players, rulesetId = 'coc_7e', onUpdatePlayer
   }
 
   return (
-    <div className="bg-stone-900 border-b border-stone-800">
-      <div className="flex flex-wrap gap-2 p-2">
+    <div className="stats-bar">
+      <div className="stats-bar__row">
         {players.map((p, idx) => {
           const stats = resolvePlayerStats(p, rulesetId);
           const isOpen = expanded === idx;
+          const isActive = activePlayer === idx;
           const inventory = p.inventory ?? [];
+          const usableInventory = inventory.filter((it) => !it.broken && it.uses !== 0);
 
           return (
-            <div key={idx} className="flex-1 min-w-[160px] bg-stone-800/80 rounded-xl overflow-hidden border border-stone-700/50">
+            <div
+              key={idx}
+              className={`stats-card${isActive ? ' stats-card--active' : ''}${isOpen ? ' stats-card--open' : ''}`}
+            >
               <button
-                onClick={() => setExpanded(isOpen ? null : idx)}
-                className="w-full flex items-center justify-between px-3 py-2 hover:bg-stone-700/50 active:bg-stone-700 transition-colors"
+                type="button"
+                onClick={() => {
+                  onSelectPlayer?.(idx);
+                  setExpanded(isOpen ? null : idx);
+                }}
+                className="stats-card__header"
+                title={isOpen ? 'Згорнути' : 'Розгорнути'}
               >
-                <div className="text-left">
-                  <span className="text-xs font-semibold text-stone-200">{p.name}</span>
-                  <span className="text-xs text-stone-500 ml-1.5">· {p.role}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {inventory.length > 0 && (
-                    <span className="text-xs text-amber-700" title="Предмети">
-                      🎒{inventory.length}
+                <span className="stats-card__identity">
+                  <span className="stats-card__name">{p.name}</span>
+                  {p.role && <span className="stats-card__role">· {p.role}</span>}
+                </span>
+                <span className="stats-card__meta">
+                  {usableInventory.length > 0 && (
+                    <span className="stats-card__inv-count" title="Предмети">
+                      🎒 {usableInventory.length}
                     </span>
                   )}
-                  <span className="text-stone-600 text-xs">{isOpen ? '▲' : '▼'}</span>
-                </div>
+                  <span className="stats-card__chevron" aria-hidden>{isOpen ? '▴' : '▾'}</span>
+                </span>
               </button>
 
-              <div className="px-3 pb-2.5 space-y-2">
+              <div className="stats-card__bars">
                 {stats.map((s) => {
                   const max = s.hasMax ? (s.max ?? 0) : 0;
-                  const pct = s.hasMax && max > 0 ? s.value / max : 1;
-                  const colors = STAT_COLORS[s.id] ?? DEFAULT_COLORS;
+                  const pct = s.hasMax && max > 0 ? Math.max(0, Math.min(1, s.value / max)) : 1;
+                  const tone = STAT_TONE[s.id] ?? 'smoke';
                   return (
-                    <div key={s.id} className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-medium w-10 shrink-0" style={{ color: s.color }}>{s.label}</span>
-                      <button
-                        onClick={() => updateStat(idx, s.id, -1)}
-                        className="w-7 h-7 text-sm bg-stone-700 hover:bg-red-900/60 active:scale-95 rounded-lg flex items-center justify-center text-stone-300 shrink-0 transition-all"
-                      >−</button>
+                    <div key={s.id} className={`stat-row stat-row--${tone}`}>
+                      <span className="stat-row__label">{s.label}</span>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => updateStat(idx, s.id, -1)}
+                          className="stat-row__btn stat-row__btn--minus"
+                          aria-label={`${s.label} -1`}
+                        >−</button>
+                      )}
                       {s.hasMax ? (
-                        <div className="flex-1 bg-stone-700/60 rounded-full h-2.5 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-300"
-                            style={{
-                              width: `${pct * 100}%`,
-                              backgroundColor: pct > 0.5 ? colors[0] : pct > 0.25 ? colors[1] : colors[2],
-                            }}
-                          />
+                        <div className="stat-row__track">
+                          <div className="stat-row__fill" style={{ width: `${pct * 100}%` }} />
                         </div>
                       ) : (
-                        <div className="flex-1 h-2.5" />
+                        <div className="stat-row__track stat-row__track--ghost" />
                       )}
-                      <span className="text-[11px] font-mono w-10 text-right shrink-0" style={{ color: s.color }}>
+                      <span className="stat-row__value">
                         {s.hasMax && s.max !== null ? `${s.value}/${s.max}` : s.value}
                       </span>
-                      <button
-                        onClick={() => updateStat(idx, s.id, +1)}
-                        className="w-7 h-7 text-sm bg-stone-700 hover:bg-green-900/60 active:scale-95 rounded-lg flex items-center justify-center text-stone-300 shrink-0 transition-all"
-                      >+</button>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => updateStat(idx, s.id, +1)}
+                          className="stat-row__btn stat-row__btn--plus"
+                          aria-label={`${s.label} +1`}
+                        >+</button>
+                      )}
                     </div>
                   );
                 })}
@@ -109,12 +130,13 @@ export default function StatsBar({ players, rulesetId = 'coc_7e', onUpdatePlayer
               {isOpen && (
                 <>
                   {p.skills && Object.keys(p.skills).length > 0 && (
-                    <div className="border-t border-stone-700/50 px-3 py-2.5">
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                    <div className="stats-card__section">
+                      <p className="stats-card__section-label">Навички</p>
+                      <div className="stats-card__skills">
                         {Object.entries(p.skills).map(([skill, val]) => (
-                          <div key={skill} className="flex items-center justify-between">
-                            <span className="text-xs text-stone-500 truncate">{skill}</span>
-                            <span className="text-xs text-amber-600 font-mono ml-1 shrink-0">{val}</span>
+                          <div key={skill} className="stats-card__skill">
+                            <span className="stats-card__skill-name">{skill}</span>
+                            <span className="stats-card__skill-value">{val}</span>
                           </div>
                         ))}
                       </div>
@@ -122,47 +144,44 @@ export default function StatsBar({ players, rulesetId = 'coc_7e', onUpdatePlayer
                   )}
 
                   {inventory.length > 0 && (
-                    <div className="border-t border-stone-700/50 px-3 py-2.5">
-                      <p className="text-xs text-stone-500 mb-2 font-medium uppercase tracking-wide">Інвентар</p>
-                      <div className="space-y-1.5">
+                    <div className="stats-card__section">
+                      <p className="stats-card__section-label">Інвентар</p>
+                      <div className="stats-card__inv-list">
                         {inventory.map((item) => {
                           const exhausted = item.uses === 0;
                           const broken = item.broken;
                           const equipped = item.equipped;
                           const dimmed = exhausted || broken;
+                          const stateClass = broken
+                            ? ' inv-item--broken'
+                            : exhausted
+                              ? ' inv-item--spent'
+                              : equipped
+                                ? ' inv-item--equipped'
+                                : '';
                           return (
-                            <div
-                              key={item.id}
-                              className={`flex items-start justify-between gap-2 rounded-lg px-2.5 py-2 ${
-                                broken
-                                  ? 'bg-red-950/30 opacity-60'
-                                  : exhausted
-                                    ? 'bg-stone-800/50 opacity-50'
-                                    : equipped
-                                      ? 'bg-amber-950/40 border border-amber-800/40'
-                                      : 'bg-stone-700/40'
-                              }`}
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  {equipped && <span className="text-amber-500 text-xs shrink-0">⚔</span>}
-                                  {broken && <span className="text-red-600 text-xs shrink-0">✕</span>}
-                                  <span className={`text-xs font-medium ${dimmed ? 'text-stone-500' : 'text-stone-200'}`}>
-                                    {item.name}
-                                  </span>
-                                  <span className="text-xs text-stone-600 shrink-0">
+                            <div key={item.id} className={`inv-item${stateClass}`}>
+                              <div className="inv-item__main">
+                                <span className="inv-item__title">
+                                  {equipped && <span className="inv-item__icon" aria-hidden>⚔</span>}
+                                  {broken && <span className="inv-item__icon" aria-hidden>✕</span>}
+                                  <span className="inv-item__name">{item.name}</span>
+                                  <span className="inv-item__uses">
                                     {broken ? 'зламаний' : item.uses === -1 ? '∞' : `×${item.uses}`}
                                   </span>
-                                </div>
-                                <p className="text-xs text-stone-500 mt-0.5 leading-tight">{item.description}</p>
+                                </span>
+                                {item.description && (
+                                  <p className="inv-item__desc">{item.description}</p>
+                                )}
                               </div>
-                              {!dimmed && onUseItem && (
+                              {!dimmed && !readOnly && onUseItem && (
                                 <button
+                                  type="button"
                                   onClick={() => {
                                     onUseItem(idx, item.id, item.name);
                                     setExpanded(null);
                                   }}
-                                  className="text-xs px-2 py-1 bg-amber-900/60 hover:bg-amber-800 active:scale-95 text-amber-300 rounded-lg shrink-0 transition-all"
+                                  className="inv-item__use"
                                 >
                                   вжити
                                 </button>

@@ -10,6 +10,7 @@ import { resolvePlayerStats } from '@/lib/statUtils';
 import type { AiProvider } from '@/app/api/ai/route';
 import VoiceButton from './VoiceButton';
 import DiceRoller from './DiceRoller';
+import StatsBar from './StatsBar';
 
 const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
 
@@ -1033,6 +1034,23 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     textareaRef.current?.focus();
   }
 
+  // Manual stat override (Keeper / admin). LLM-driven changes flow through
+  // [DELTA:] tags and arrive via the SSE done event; this handler is only for
+  // direct +/- edits in the StatsBar UI.
+  async function handleUpdatePlayers(nextPlayers: Player[]) {
+    if (sessionIsReadOnly) return;
+    setSession((s) => ({ ...s, players: nextPlayers }));
+    try {
+      await fetch(`/api/sessions/${session.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ players: nextPlayers }),
+      });
+    } catch (err) {
+      console.warn('[StatsBar PATCH] failed:', err);
+    }
+  }
+
   // ── Queue action ─────────────────────────────────────────────────────────────
 
   function queueAction() {
@@ -1312,6 +1330,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           >⚙️</button>
         </div>
       </div>
+
+      {/* Persistent character stats (HP / SAN / Luck + inventory) */}
+      <StatsBar
+        players={session.players}
+        activePlayer={activePlayer}
+        onSelectPlayer={setActivePlayer}
+        rulesetId={rulesetId}
+        onUpdatePlayers={handleUpdatePlayers}
+        onUseItem={handleUseItem}
+        readOnly={sessionIsReadOnly}
+      />
 
       {/* Collapsible settings panel */}
       {showSettings && (
