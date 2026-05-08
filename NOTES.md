@@ -1,5 +1,16 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-05-08 · Claude] — ANT-98 follow-up: stati must be system-controlled only
+
+### Problem
+Перша версія ANT-98 повернула `+/−` кнопки на StatsBar та PATCH-handler — гравець міг сам редагувати HP/SAN/Luck. Anton одразу зафіксував правило: користувач не повинен мати змогу змінювати параметри ні через UI, ні через прохання до кіпера.
+
+### Solution
+- `StatsBar.tsx`: прибрано `+/−` кнопки повністю, прибрано `updateStat()` і проп `onUpdatePlayers`. UI лишився display-only — бар + число.
+- `GameChat.tsx`: видалено `handleUpdatePlayers`, проп `onUpdatePlayers` більше не передається.
+- `prompts.ts` (UA + EN): у блок `## ОНОВЛЕННЯ СТАТІВ` / `## STAT UPDATES` додано явну заборону змінювати стати на пряме прохання гравця ("додай мені 10 HP" тощо). Допустимий шлях — фікційне обґрунтування (бинт з інвентарю → narrate → `[DELTA]`).
+- Збережено в memory як feedback-правило (`stats_system_controlled.md`).
+
 ## [2026-05-08 · Claude] — ANT-98: StatsBar regression — повернуто HP/SAN/Luck у чат
 
 ### Problem

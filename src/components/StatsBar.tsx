@@ -9,7 +9,6 @@ interface StatsBarProps {
   activePlayer?: number;
   onSelectPlayer?: (idx: number) => void;
   rulesetId?: string;
-  onUpdatePlayers: (players: Player[]) => void;
   onUseItem?: (playerIdx: number, itemId: string, itemName: string) => void;
   readOnly?: boolean;
 }
@@ -25,30 +24,10 @@ export default function StatsBar({
   activePlayer = 0,
   onSelectPlayer,
   rulesetId = 'coc_7e',
-  onUpdatePlayers,
   onUseItem,
   readOnly = false,
 }: StatsBarProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
-
-  function updateStat(idx: number, statId: string, delta: number) {
-    if (readOnly) return;
-    const updated = players.map((p, i) => {
-      if (i !== idx) return p;
-      const resolved = resolvePlayerStats(p, rulesetId).find((s) => s.id === statId);
-      if (!resolved) return p;
-      const nextValue = resolved.hasMax && resolved.max !== null
-        ? Math.max(0, Math.min(resolved.max, resolved.value + delta))
-        : Math.max(0, resolved.value + delta);
-      const nextStats = { ...(p.stats ?? {}), [statId]: { value: nextValue, max: resolved.max } };
-      const patch: Partial<Player> = { stats: nextStats };
-      if (statId === 'hp')     patch.hp     = nextValue;
-      if (statId === 'sanity') patch.sanity = nextValue;
-      if (statId === 'luck')   patch.luck   = nextValue;
-      return { ...p, ...patch };
-    });
-    onUpdatePlayers(updated);
-  }
 
   return (
     <div className="stats-bar">
@@ -96,14 +75,6 @@ export default function StatsBar({
                   return (
                     <div key={s.id} className={`stat-row stat-row--${tone}`}>
                       <span className="stat-row__label">{s.label}</span>
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => updateStat(idx, s.id, -1)}
-                          className="stat-row__btn stat-row__btn--minus"
-                          aria-label={`${s.label} -1`}
-                        >−</button>
-                      )}
                       {s.hasMax ? (
                         <div className="stat-row__track">
                           <div className="stat-row__fill" style={{ width: `${pct * 100}%` }} />
@@ -114,14 +85,6 @@ export default function StatsBar({
                       <span className="stat-row__value">
                         {s.hasMax && s.max !== null ? `${s.value}/${s.max}` : s.value}
                       </span>
-                      {!readOnly && (
-                        <button
-                          type="button"
-                          onClick={() => updateStat(idx, s.id, +1)}
-                          className="stat-row__btn stat-row__btn--plus"
-                          aria-label={`${s.label} +1`}
-                        >+</button>
-                      )}
                     </div>
                   );
                 })}

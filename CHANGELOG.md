@@ -8,11 +8,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.8] — 2026-05-08
 
 ### Fixed
-- **StatsBar regression (ANT-98)**: HP / SAN / Luck were not rendered anywhere in `GameChat` because the `StatsBar` component was no longer imported. Wired it back into the chat shell as a persistent strip below the header. Manual `+/−` writes now PATCH `/api/sessions/:id` and update local state.
+- **StatsBar regression (ANT-98)**: HP / SAN / Luck were not rendered anywhere in `GameChat` because the `StatsBar` component was no longer imported. Wired it back into the chat shell as a persistent strip below the header.
 
 ### Changed
 - StatsBar restyled from Tailwind `stone/amber` utility classes to semantic noir classes (`.stats-bar`, `.stats-card`, `.stat-row`, `.inv-item`) using landing tokens — HP blood gradient, SAN bruise, Luck amber. Active-player card highlighted with amber inset; clicking a card sets the active player and toggles skills + inventory.
-- StatsBar respects `readOnly` for completed sessions (no +/− buttons, no use-item).
+- **Stats are system-controlled only.** Removed `+/−` controls and the manual `PATCH /api/sessions/:id` players writer. Added explicit rule in the Keeper system prompt (UA + EN) forbidding stat changes on direct player request — only fiction-grounded events flowing through `[DELTA:]` may mutate stats.
 
 ---
 

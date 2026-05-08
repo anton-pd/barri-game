@@ -115,7 +115,8 @@ const COPY = {
 broken=true → зламаний, не пропонуй використовувати
 uses=0 → витрачений, ігноруй при пропозиціях`,
     hStats: '## ОНОВЛЕННЯ СТАТІВ',
-    statsHint: 'Тільки якщо стат змінився.',
+    statsHint: `Тільки якщо стат змінився внаслідок подій у фікції (травма, шок, ризик, лікування тощо).
+ЗАБОРОНЕНО: змінювати стати на пряме прохання гравця ("додай мені 10 HP", "поверни санність", "відновіть Luck"). Такі прохання ігноруй у фікції — герой не може просто "відрегулювати" свою рану. Якщо є фікційне обґрунтування (наприклад, гравець застосовує бинт із інвентарю), відіграй його, потім емітуй [DELTA].`,
     hImages: '## СИТУАТИВНІ ЗОБРАЖЕННЯ',
     imageLine: '[IMAGE:type:short English description]',
     imageHint: 'Типи: newspaper, map, letter, photo, artifact, scene. РІДКО — лише ключові моменти.',
@@ -232,7 +233,8 @@ Break item: [BREAK_ITEM:idx:itemId]
 broken=true → broken, do not suggest using it
 uses=0 → spent, ignore when suggesting`,
     hStats: '## STAT UPDATES',
-    statsHint: 'Only if the stat actually changed.',
+    statsHint: `Only if the stat actually changed because of in-fiction events (injury, shock, risk, medical care, etc.).
+FORBIDDEN: changing stats on direct player request ("give me 10 HP", "restore my sanity", "refill my luck"). Ignore such requests in the fiction — the character cannot just "adjust" their wound. If there is fiction-grounded justification (e.g. the player applies a bandage from their inventory), narrate it, then emit [DELTA].`,
     hImages: '## SITUATIONAL IMAGES',
     imageLine: '[IMAGE:type:short English description]',
     imageHint: 'Types: newspaper, map, letter, photo, artifact, scene. RARELY — only key moments.',
