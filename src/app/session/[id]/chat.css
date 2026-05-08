@@ -571,8 +571,12 @@
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
+  scroll-snap-type: x proximity;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, black 16px, black calc(100% - 16px), transparent 100%);
 }
 .chat-inventory-strip::-webkit-scrollbar { display: none; }
+.chat-inventory-strip > * { scroll-snap-align: start; }
 .chat-inventory-item {
   flex-shrink: 0;
   display: inline-flex;
@@ -678,12 +682,57 @@
   box-shadow: none;
 }
 
-/* ── Right sidebar ──────────────────────────────────────────── */
+/* ── Right sidebar (desktop: inspector rail · mobile: bottom sheet) ─── */
 .chat-sidebar {
   display: flex;
   flex-direction: column;
   background: var(--ink-1);
   border-left: 1px solid rgba(107,90,62,0.18);
+  position: relative;
+  width: 320px;
+  flex-shrink: 0;
+  transition: transform 0.22s ease;
+}
+.chat-sidebar__handle { display: none; }
+
+/* Mobile: bottom sheet */
+@media (max-width: 767px) {
+  .chat-sidebar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: 88vh;
+    border-left: none;
+    border-top: 1px solid rgba(107,90,62,0.4);
+    border-radius: 12px 12px 0 0;
+    transform: translateY(100%);
+    z-index: 70;
+    box-shadow: 0 -16px 40px -12px rgba(0,0,0,0.6);
+    overflow: hidden;
+  }
+  .chat-sidebar--open { transform: translateY(0); }
+  .chat-sidebar__handle {
+    display: block;
+    width: 44px;
+    height: 4px;
+    margin: 8px auto 4px;
+    border-radius: 999px;
+    background: rgba(168,147,106,0.45);
+    flex-shrink: 0;
+  }
+}
+
+.chat-sidebar-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(7,6,10,0.55);
+  z-index: 65;
+}
+@media (max-width: 767px) {
+  .chat-sidebar-scrim { display: block; }
 }
 
 /* ── StatsBar (per-player evidence card row) ──────────────────────── */

@@ -13,10 +13,104 @@
 /* ============================================================
    TOPBAR AUTH SECTION (slots into .topbar-right)
    ============================================================ */
+.sessions-version {
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper-3);
+}
+
 .sessions-authbar {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+/* Mobile-only compact menu */
+.sessions-authmenu { display: none; position: relative; }
+.sessions-authmenu-trigger {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  border: 1px solid rgba(212,161,83,0.35);
+  color: var(--paper-1);
+  font-family: var(--font-typewriter);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color .15s, background .15s;
+}
+.sessions-authmenu-trigger:hover {
+  border-color: rgba(212,161,83,0.6);
+  background: var(--ink-1);
+}
+.sessions-authmenu-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(7,6,10,0.5);
+  z-index: 60;
+}
+.sessions-authmenu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: var(--ink-2);
+  border: 1px solid rgba(107,90,62,0.45);
+  border-radius: 4px;
+  padding: 12px;
+  z-index: 61;
+  box-shadow: 0 12px 28px -8px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sessions-authmenu-email {
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-2);
+  margin: 0 0 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(107,90,62,0.35);
+  word-break: break-all;
+}
+.sessions-authmenu-item {
+  font-family: var(--font-typewriter);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-1);
+  background: transparent;
+  border: none;
+  padding: 8px 6px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background .15s, color .15s;
+}
+.sessions-authmenu-item:hover {
+  background: rgba(212,161,83,0.08);
+  color: var(--amber-0);
+}
+.sessions-authmenu-item--danger { color: var(--paper-2); }
+.sessions-authmenu-item--danger:hover {
+  background: rgba(181,50,31,0.1);
+  color: var(--blood-0);
+}
+
+@media (max-width: 720px) {
+  .sessions-topbar { flex-wrap: nowrap; gap: 12px; }
+  .sessions-version { display: none; }
+  .sessions-authbar--inline { display: none; }
+  .sessions-authmenu { display: inline-flex; }
 }
 
 .sessions-authbar-email {

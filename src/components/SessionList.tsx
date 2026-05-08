@@ -254,6 +254,7 @@ export default function SessionList() {
   const [sessions,  setSessions]  = useState<SessionListEntry[]>([]);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [user,      setUser]      = useState<UserInfo | null>(null);
+  const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [loading,   setLoading]   = useState(true);
 
   // New-session modal
@@ -382,33 +383,68 @@ export default function SessionList() {
     <div className="sessions-page">
 
       {/* ── Topbar ── */}
-      <header className="topbar">
+      <header className="topbar sessions-topbar">
         <Link href="/" className="mark" style={{ textDecoration: 'none' }}>
           <span className="seal">B</span>
           <span className="wordmark">Barri</span>
         </Link>
 
         <div className="topbar-right">
-          <span style={{
-            fontFamily: 'var(--font-typewriter)',
-            fontSize: '10px',
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            color: 'var(--paper-3)',
-          }}>
-            v{appVersion}
-          </span>
+          <span className="sessions-version">v{appVersion}</span>
 
           {user && (
-            <div className="sessions-authbar">
-              {user.role === 'admin' && (
-                <Link href="/admin" className="sessions-authbar-admin">Admin</Link>
-              )}
-              <span className="sessions-authbar-email">{user.email}</span>
-              <button className="sessions-authbar-logout" onClick={handleLogout}>
-                Вийти
-              </button>
-            </div>
+            <>
+              {/* Inline auth — hidden on mobile via CSS */}
+              <div className="sessions-authbar sessions-authbar--inline">
+                {user.role === 'admin' && (
+                  <Link href="/admin" className="sessions-authbar-admin">Admin</Link>
+                )}
+                <span className="sessions-authbar-email">{user.email}</span>
+                <button className="sessions-authbar-logout" onClick={handleLogout}>
+                  Вийти
+                </button>
+              </div>
+
+              {/* Compact menu — visible on mobile only */}
+              <div className="sessions-authmenu">
+                <button
+                  type="button"
+                  className="sessions-authmenu-trigger"
+                  aria-haspopup="true"
+                  aria-expanded={authMenuOpen}
+                  aria-label="Меню"
+                  onClick={() => setAuthMenuOpen((v) => !v)}
+                >
+                  <span className="sessions-authmenu-initial">{(user.email[0] || '?').toUpperCase()}</span>
+                </button>
+                {authMenuOpen && (
+                  <>
+                    <div
+                      className="sessions-authmenu-scrim"
+                      onClick={() => setAuthMenuOpen(false)}
+                      aria-hidden
+                    />
+                    <div className="sessions-authmenu-panel" role="menu">
+                      <p className="sessions-authmenu-email">{user.email}</p>
+                      {user.role === 'admin' && (
+                        <Link
+                          href="/admin"
+                          className="sessions-authmenu-item"
+                          onClick={() => setAuthMenuOpen(false)}
+                          role="menuitem"
+                        >Admin</Link>
+                      )}
+                      <button
+                        type="button"
+                        className="sessions-authmenu-item sessions-authmenu-item--danger"
+                        onClick={() => { setAuthMenuOpen(false); handleLogout(); }}
+                        role="menuitem"
+                      >Вийти</button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
       </header>

@@ -1,5 +1,20 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-05-08 · Claude] — ANT-104: mobile UX polish
+
+### Problem
+Аудит на 390×844 виявив: переповнений top-nav на `/sessions` (BARRI · v · ADMIN · email · ВИЙТИ в один рядок), case-files drawer на mobile повзе full-screen без drag handle/scrim, інвентар-strip обрізається без affordance scroll, composer без safe-area вже мав `env()` правильно — додатково підтверджено.
+
+### Solution
+- **Sessions topbar**: на ≤720px ховаємо `v0.x.x` і inline-блок `Admin / email / Вийти`, замість них показуємо круглу `sessions-authmenu-trigger` (ініціал email) → попап-меню зі scrim і коректними `role="menu"` / `role="menuitem"`. Desktop поведінка незмінна.
+- **Chat sidebar (CaseFilesPanel)**: замінив Tailwind-класи `fixed inset-0 md:relative md:flex md:w-64` на семантичний `.chat-sidebar` з власною respnsive поведінкою. Desktop — fixed-width 320px inspector rail. Mobile (≤767px) — bottom-sheet 88vh з drag handle, transform `translateY(100%)` ↔ 0, scrim `rgba(7,6,10,0.55)` з tap-to-close.
+- **Inventory strip**: додав `scroll-snap-type: x proximity` + `mask-image: linear-gradient(...)` для м'яких fade-edges по 16px з обох боків — користувач бачить, що є ще предмети за межею.
+
+### Key decisions
+- Меню — JS-toggle, не `<details>`, бо потрібна закриваюча scrim і ARIA-семантика.
+- Bottom-sheet drag handle поки декоративний (без gesture-drag) — це достатньо як affordance, повноцінне drag-to-dismiss робитиметься як окрема ітерація разом з motion-tier (ANT-103).
+- Desktop sidebar лишається always-visible. ANT-102 (inspector rail collapse) розрулить toggle на широких екранах.
+
 ## [2026-05-08 · Claude] — ANT-98 follow-up: stati must be system-controlled only
 
 ### Problem

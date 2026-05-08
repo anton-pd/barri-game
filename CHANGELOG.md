@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.9] — 2026-05-08
+
+### Changed
+- **Mobile UX polish (ANT-104)**:
+  - Sessions topbar: on ≤720px collapses version + admin link + email + sign-out into a circular avatar menu (initial of the email) with scrim and ARIA roles.
+  - Chat case-files panel: replaced Tailwind right-side overlay with a semantic `.chat-sidebar`. Desktop keeps a 320px inspector rail; mobile (≤767px) becomes a bottom-sheet (88vh) with drag handle, scrim, and tap-to-close.
+  - Inventory strip: scroll-snap + mask-image fade edges so off-screen chips signal they are scrollable.
+
+---
+
 ## [0.4.8] — 2026-05-08
 
 ### Fixed

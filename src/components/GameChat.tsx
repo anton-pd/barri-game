@@ -1819,8 +1819,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       </div>{/* end game column */}
 
-      {/* Right: case files panel — always visible on desktop, full-screen overlay on mobile */}
-      <div className={`chat-sidebar md:relative md:flex md:w-64 md:shrink-0 fixed inset-0 z-50 transition-transform duration-200 ${showSidebar ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
+      {/* Right: case files panel — inspector rail on desktop, bottom sheet on mobile */}
+      {showSidebar && (
+        <div
+          className="chat-sidebar-scrim"
+          onClick={() => setShowSidebar(false)}
+          aria-hidden
+        />
+      )}
+      <aside className={`chat-sidebar${showSidebar ? ' chat-sidebar--open' : ''}`}>
+        <div className="chat-sidebar__handle" aria-hidden />
         <CaseFilesPanel
           scenarioId={session.scenario_id}
           rulesetId={rulesetId}
@@ -1836,7 +1844,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           sessionId={session.id}
           onClose={() => setShowSidebar(false)}
         />
-      </div>
+      </aside>
     </div>
   );
 }
