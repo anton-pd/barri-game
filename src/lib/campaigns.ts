@@ -69,8 +69,15 @@ export async function closeSession(
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : null;
-    if (!parsed) throw new Error('no json');
-    summaryData = parsed;
+    // `summary` is NOT NULL in the DB — never trust the LLM to provide it.
+    if (!parsed || typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+      throw new Error('missing summary');
+    }
+    summaryData = {
+      summary: parsed.summary.trim(),
+      keyEvents: Array.isArray(parsed.keyEvents) ? parsed.keyEvents : [],
+      npcChanges: parsed.npcChanges && typeof parsed.npcChanges === 'object' ? parsed.npcChanges : {},
+    };
   } catch (error) {
     console.error('closeSession: summarization failed, using fallback summary', error);
     summaryData = { summary: 'Сесія завершена.', keyEvents: [], npcChanges: {} };
