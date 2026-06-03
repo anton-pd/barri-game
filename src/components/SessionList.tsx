@@ -34,6 +34,7 @@ interface UserInfo {
   id: string;
   email: string;
   role: 'user' | 'admin';
+  access_status?: 'pending' | 'approved' | 'blocked';
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -399,6 +400,38 @@ export default function SessionList() {
   const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
 
   // ── Render ────────────────────────────────────────────────────────────────────
+
+  // Waiting-list gate (ANT-108): verified accounts that aren't yet approved (or
+  // were blocked) can't access the case files. Show a dedicated screen instead.
+  if (!loading && user && user.access_status && user.access_status !== 'approved') {
+    const blocked = user.access_status === 'blocked';
+    return (
+      <div className="sessions-page">
+        <header className="topbar sessions-topbar">
+          <Link href="/" className="mark" style={{ textDecoration: 'none' }}>
+            <span className="seal">B</span>
+            <span className="wordmark">Barri</span>
+          </Link>
+          <div className="topbar-right">
+            <div className="sessions-authbar sessions-authbar--inline">
+              <span className="sessions-authbar-email">{user.email}</span>
+              <button className="sessions-authbar-logout" onClick={handleLogout}>Вийти</button>
+            </div>
+          </div>
+        </header>
+
+        <div className="sessions-empty" style={{ maxWidth: 560, margin: '0 auto', paddingTop: 64 }}>
+          <span className="sessions-empty-glyph">{blocked ? '✕' : '⧖'}</span>
+          <h3>{blocked ? 'Доступ призупинено' : 'Ви у списку очікування'}</h3>
+          <p>
+            {blocked
+              ? 'Доступ до Бюро для цього акаунта наразі закрито. Якщо вважаєте це помилкою — напишіть нам.'
+              : 'Дякуємо за реєстрацію! Ми відкриваємо доступ поступово, невеликими групами. Щойно настане ваша черга — ви зможете розпочати розслідування з цього екрана.'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sessions-page">

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import RoleToggle from './RoleToggle';
+import AccessControl from './AccessControl';
+import type { AccessStatus } from '@/types';
 import KeeperSettings from './KeeperSettings';
 import ScenarioGenerator from './ScenarioGenerator';
 import ScenarioStats from './ScenarioStats';
@@ -17,6 +19,17 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'scenarios', label: 'Scenarios' },
   { id: 'settings',  label: 'Settings' },
 ];
+
+function accessMeta(status: string): { label: string; className: string } {
+  switch (status) {
+    case 'approved':
+      return { label: 'approved', className: 'bg-emerald-900/50 text-emerald-300' };
+    case 'blocked':
+      return { label: 'blocked', className: 'bg-red-900/50 text-red-300' };
+    default:
+      return { label: 'waiting list', className: 'bg-amber-900/50 text-amber-300' };
+  }
+}
 
 function getSessionStatusMeta(session: {
   status: string;
@@ -56,7 +69,8 @@ export default function AdminTabs({
 }: {
   users: {
     id: string; email: string; role: string;
-    email_verified: boolean; session_count: number; created_at: string;
+    email_verified: boolean; access_status: string;
+    session_count: number; daily_cost: number; created_at: string;
   }[];
   sessions: {
     id: string; name: string; scenario_id: string;
@@ -74,6 +88,7 @@ export default function AdminTabs({
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('users');
   const [scenarioRefreshToken, setScenarioRefreshToken] = useState(0);
+  const pendingCount = users.filter((u) => u.access_status === 'pending').length;
 
   return (
     <div>
@@ -101,6 +116,11 @@ export default function AdminTabs({
           <section>
             <h2 className="text-stone-300 text-sm tracking-widest uppercase mb-4">
               Investigators ({users.length})
+              {pendingCount > 0 && (
+                <span className="ml-3 text-xs px-2 py-0.5 rounded-full bg-amber-900/50 text-amber-300 normal-case tracking-normal">
+                  {pendingCount} awaiting access
+                </span>
+              )}
             </h2>
             <div className="bg-stone-900 border border-stone-800 rounded-xl overflow-hidden">
               <table className="w-full text-sm">
@@ -109,13 +129,17 @@ export default function AdminTabs({
                     <th className="text-left px-4 py-3">Email</th>
                     <th className="text-left px-4 py-3">Role</th>
                     <th className="text-left px-4 py-3">Verified</th>
+                    <th className="text-left px-4 py-3">Access</th>
+                    <th className="text-left px-4 py-3">Today $</th>
                     <th className="text-left px-4 py-3">Sessions</th>
                     <th className="text-left px-4 py-3">Joined</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map(user => (
+                  {users.map(user => {
+                    const access = accessMeta(user.access_status);
+                    return (
                     <tr key={user.id} className="border-b border-stone-800/50 hover:bg-stone-800/30">
                       <td className="px-4 py-3 text-stone-200">{user.email}</td>
                       <td className="px-4 py-3">
@@ -133,20 +157,36 @@ export default function AdminTabs({
                           : <span className="text-stone-600 text-xs">✗ pending</span>
                         }
                       </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${access.className}`}>
+                          {access.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-stone-400 text-xs">
+                        ${(user.daily_cost ?? 0).toFixed(4)}
+                      </td>
                       <td className="px-4 py-3 text-stone-400">{user.session_count}</td>
                       <td className="px-4 py-3 text-stone-500 text-xs">
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-3">
-                        {user.id !== currentUserId && (
-                          <RoleToggle userId={user.id} currentRole={user.role as 'user' | 'admin'} />
-                        )}
+                        <div className="flex flex-col gap-1.5 items-start">
+                          {user.id !== currentUserId && (
+                            <AccessControl
+                              userId={user.id}
+                              currentStatus={user.access_status as AccessStatus}
+                            />
+                          )}
+                          {user.id !== currentUserId && (
+                            <RoleToggle userId={user.id} currentRole={user.role as 'user' | 'admin'} />
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-stone-600">
+                      <td colSpan={8} className="px-4 py-8 text-center text-stone-600">
                         No investigators registered yet
                       </td>
                     </tr>

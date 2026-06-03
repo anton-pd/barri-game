@@ -414,6 +414,21 @@
   letter-spacing: 0.06em;
 }
 
+.auth-waitlist-note {
+  margin-top: 12px !important;
+  padding: 12px 14px;
+  border-left: 3px solid var(--blood-1);
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 14px !important;
+  font-style: normal !important;
+  font-family: var(--font-typewriter) !important;
+  color: var(--ink-1) !important;
+}
+
+.auth-waitlist-note strong {
+  color: var(--blood-0);
+}
+
 .auth-success-stamp {
   display: inline-block;
   margin: 18px auto 0;

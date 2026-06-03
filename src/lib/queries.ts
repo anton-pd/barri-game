@@ -48,6 +48,30 @@ export async function initializeSchema() {
     CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token)
   `;
 
+  // Waiting-list access control (ANT-108).
+  // Migration is intentionally three-step so existing accounts are NOT locked out:
+  // 1) add column nullable, 2) backfill pre-existing rows to 'approved', then
+  // 3) set DEFAULT 'pending' + NOT NULL so only NEW signups land on the waiting list.
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS access_status VARCHAR(20)
+  `;
+  await sql`
+    UPDATE users SET access_status = 'approved' WHERE access_status IS NULL
+  `;
+  await sql`
+    ALTER TABLE users ALTER COLUMN access_status SET DEFAULT 'pending'
+  `;
+  await sql`
+    ALTER TABLE users ALTER COLUMN access_status SET NOT NULL
+  `;
+  // Admins are always approved regardless of when they were created.
+  await sql`
+    UPDATE users SET access_status = 'approved' WHERE role = 'admin' AND access_status <> 'approved'
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_users_access_status ON users(access_status)
+  `;
+
   await sql`
     CREATE TABLE IF NOT EXISTS game_sessions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -286,9 +310,11 @@ export async function initializeSchema() {
 
   await sql`
     INSERT INTO app_settings (key, value) VALUES
-      ('ai_provider',         'gemini-flash'),
-      ('tts_provider',        'gemini'),
-      ('gemini_cache_enabled','false')
+      ('ai_provider',             'gemini-flash'),
+      ('tts_provider',            'gemini'),
+      ('gemini_cache_enabled',    'false'),
+      ('daily_limit_enabled',     'true'),
+      ('daily_user_cost_limit_usd','0.50')
     ON CONFLICT (key) DO NOTHING
   `;
 }
@@ -608,7 +634,7 @@ export async function createUser(
 
 export async function getUserByEmail(email: string): Promise<(User & { password_hash: string }) | null> {
   const rows = await sql`
-    SELECT id, email, role, email_verified, password_hash, verify_token, verify_expires, created_at, updated_at
+    SELECT id, email, role, email_verified, access_status, password_hash, verify_token, verify_expires, created_at, updated_at
     FROM users
     WHERE email = ${email}
   `;
@@ -617,7 +643,7 @@ export async function getUserByEmail(email: string): Promise<(User & { password_
 
 export async function getUserById(id: string): Promise<User | null> {
   const rows = await sql`
-    SELECT id, email, role, email_verified, created_at, updated_at
+    SELECT id, email, role, email_verified, access_status, created_at, updated_at
     FROM users
     WHERE id = ${id}
   `;
@@ -662,17 +688,19 @@ export async function regenerateVerifyToken(
 
 // ── Admin queries ──────────────────────────────────────────────────────────────
 
-export async function getAllUsers(): Promise<(User & { session_count: number })[]> {
+export async function getAllUsers(): Promise<(User & { session_count: number; daily_cost: number })[]> {
   const rows = await sql`
     SELECT
-      u.id, u.email, u.role, u.email_verified, u.created_at, u.updated_at,
-      COUNT(gs.id)::int as session_count
+      u.id, u.email, u.role, u.email_verified, u.access_status, u.created_at, u.updated_at,
+      COUNT(DISTINCT gs.id)::int as session_count,
+      COALESCE(SUM(au.cost_usd) FILTER (WHERE au.created_at >= CURRENT_DATE), 0)::float as daily_cost
     FROM users u
     LEFT JOIN game_sessions gs ON gs.user_id = u.id
+    LEFT JOIN api_usage au ON au.user_id = u.id
     GROUP BY u.id
     ORDER BY u.created_at DESC
   `;
-  return rows as unknown as (User & { session_count: number })[];
+  return rows as unknown as (User & { session_count: number; daily_cost: number })[];
 }
 
 export async function getAllSessionsWithOwner(): Promise<(GameSession & {
@@ -718,9 +746,33 @@ export async function updateUserRole(userId: string, role: 'user' | 'admin'): Pr
     UPDATE users
     SET role = ${role}, updated_at = NOW()
     WHERE id = ${userId}
-    RETURNING id, email, role, email_verified, created_at, updated_at
+    RETURNING id, email, role, email_verified, access_status, created_at, updated_at
   `;
   return rows[0] as unknown as User;
+}
+
+export async function updateUserAccessStatus(
+  userId: string,
+  accessStatus: 'pending' | 'approved' | 'blocked'
+): Promise<User> {
+  const rows = await sql`
+    UPDATE users
+    SET access_status = ${accessStatus}, updated_at = NOW()
+    WHERE id = ${userId}
+    RETURNING id, email, role, email_verified, access_status, created_at, updated_at
+  `;
+  return rows[0] as unknown as User;
+}
+
+// Sum of a user's API spend since local midnight (UTC date boundary, matching
+// the api_usage indexes). Used by the per-user daily cost cap (ANT-108).
+export async function getUserDailyCost(userId: string): Promise<number> {
+  const rows = await sql`
+    SELECT COALESCE(SUM(cost_usd), 0)::float AS total
+    FROM api_usage
+    WHERE user_id = ${userId} AND created_at >= CURRENT_DATE
+  `;
+  return (rows[0]?.total as number) ?? 0;
 }
 
 // ── Campaign queries ───────────────────────────────────────────────────────────

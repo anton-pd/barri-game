@@ -1823,3 +1823,33 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors. Rebuilt staging (wit
 - **finish-evening now redirects to /sessions** too (not into the new evening). `submitCompletion`: any campaign completion (finish-evening or complete-session) → `/sessions`; one-shot complete stays on read-only chat. Rationale: after finishing an evening the player should land in the menu and see the campaign's next active evening to continue, rather than being dropped straight into it.
 - **Played evenings reclassified** (`SessionList.tsx`): a completed evening that is NOT the latest in its campaign is a "played evening" of an ongoing campaign, not a closed case. Computed `latestEveningByCampaign` + `isPlayedEvening(s)`; such evenings now render under "Відкриті справи" with a "Вечір зіграно" stamp (mod active) and the "Переглянути" read-only CTA, instead of "Закрито" in the completed section. Fixes the confusion of one campaign appearing simultaneously as active (evening 2) and closed (evening 1). `statusStamp` gained an optional `playedEvening` arg; `SessionCard` a `playedEvening` prop.
 Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
+
+## 2026-06-03 — Release gate: waiting-list + per-user daily cost cap (ANT-108)
+**Problem:** Pre-public-launch, registration was fully open and every AI turn (Claude/Gemini/TTS/STT/image) spent real money with no ceiling — no access control, no spend cap. Two release blockers: (1) gradual access rollout, (2) per-user spend protection.
+
+**Solution (model confirmed with Anton — waiting list, $-based daily cap, admin-managed):**
+- **DB (`queries.ts` ensureSchema):** `users.access_status VARCHAR(20)` with a deliberate 3-step migration so existing accounts are NOT locked out: ADD COLUMN nullable → backfill existing rows to `approved` → SET DEFAULT `'pending'` + NOT NULL. Admins force-set to `approved`. Index `idx_users_access_status`. New `app_settings`: `daily_limit_enabled` ('true'), `daily_user_cost_limit_usd` ('0.50').
+- **Queries:** `getUserById`/`getUserByEmail`/`getAllUsers` now select `access_status`; `getAllUsers` also returns per-user `daily_cost` (FILTER sum of `api_usage.cost_usd` since CURRENT_DATE). New `updateUserAccessStatus(id, status)` and `getUserDailyCost(userId)`.
+- **Pure gate logic — `src/lib/accessGate.ts`:** `evaluateAccessGate(inputs)` (no DB/server deps, ANT-107-harness testable). Admin → always ok; non-approved → 403 `not_approved`; over cap (when `enforceDailyCap` + enabled + limit>0 + spent ≥ limit) → 429 `daily_limit_reached`. Approval checked before cap.
+- **Enforcement (by DB, NOT JWT — so approve/block takes effect immediately without re-login):**
+  - `/api/ai` POST: after auth, `Promise.all([getUserById, getAllAppSettings, getUserDailyCost])` → `evaluateAccessGate({enforceDailyCap:true})`; non-ok → returns `{error:code,message}` with gate.status before any LLM call.
+  - `/api/sessions` POST: approval gate only (`enforceDailyCap:false`) — session creation is cost-free.
+  - `/api/auth/me`: returns `access_status` for the client.
+- **Client:**
+  - `register/page.tsx` + `auth.css` (`.auth-waitlist-note`): success screen reframed as "You're on the waiting list" + note that access opens in small groups.
+  - `SessionList.tsx`: `UserInfo.access_status`; early-return waiting-list screen (pending ⧖ / blocked ✕) instead of case files for non-approved users (admins/approved unaffected).
+  - `GameChat.tsx`: 403/429 from `/api/ai` now surface the server `message` in the bubble (waiting-list / daily-limit) instead of the generic connection error.
+- **Admin:**
+  - New `PATCH /api/admin/users/[id]/access` `{access_status}` (admin-only, mirrors role route; validates pending/approved/blocked).
+  - `AccessControl.tsx` (Approve/Block, mirrors RoleToggle). `AdminTabs.tsx`: Access column + Today $ column + "N awaiting access" badge; `accessMeta()` helper. `page.tsx` user cast extended.
+  - `KeeperSettings.tsx`: per-user daily cost cap section (enable toggle + USD input, saved on blur via existing settings PATCH).
+
+**Key decisions:**
+- DB-checked gates (not JWT claims) so admin approve/block is instant — JWT lives 7 days, baking access_status in would need re-login.
+- Daily cap is $-based (Anton's choice): maps directly to `api_usage`, protects the bill. Resets at UTC midnight (`created_at >= CURRENT_DATE`).
+- Session creation is cost-free → only the approval gate applies there, not the cap (a capped user can still plan tomorrow's session).
+- `accessGate.ts` kept pure (zero imports) per the ANT-107 pattern; routes fetch inputs.
+
+**Tests (harness, +12 → 56 total):** `tests/accessGate.test.ts` — waiting-list (pending/blocked → 403), admin bypass (approval + cap), cap boundary (≥ blocks, just-under allows), enforceDailyCap:false / disabled / zero-limit skips, approval-before-cap precedence.
+
+**Verification:** `npm test` 56/56; `tsc` clean; eslint 0 errors on changed files (pre-existing `<img>` warnings only); `npm run build` clean, `/api/admin/users/[id]/access` route compiled. Branch `feature/ANT-108`. Remaining: staging browser walkthrough (register→pending screen, admin approve→access, daily cap block).

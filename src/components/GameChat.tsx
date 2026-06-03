@@ -1144,6 +1144,20 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           geminiCacheEnabled,
         }),
       });
+      // Access-gate responses (ANT-108) carry a user-facing message: waiting-list
+      // (403 not_approved) or daily cost cap (429 daily_limit_reached). Surface it
+      // in the bubble instead of the generic connection error.
+      if (res.status === 403 || res.status === 429) {
+        let msg = res.status === 429
+          ? 'Денний ліміт вичерпано. Повертайтесь завтра.'
+          : 'Доступ обмежено.';
+        try {
+          const errData = await res.json();
+          if (errData?.message) msg = errData.message as string;
+        } catch { /* keep fallback */ }
+        setMessages((prev) => prev.map((m) => (m.id === optimisticId ? { ...m, content: msg } : m)));
+        return;
+      }
       if (!res.ok || !res.body) throw new Error('AI request failed');
 
       const data = await readSseStream(res, (chunk) => {

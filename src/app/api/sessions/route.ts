@@ -2,10 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getSessionsByUserId, createSession, ensureSchema } from '@/lib/queries';
+import { getSessionsByUserId, createSession, ensureSchema, getUserById } from '@/lib/queries';
 import { verifyJwt } from '@/lib/auth';
 import type { Player } from '@/types';
 import { createCampaign } from '@/lib/campaigns';
+import { evaluateAccessGate } from '@/lib/accessGate';
 
 function getScenarioSessionMeta(scenarioId: string): {
   startingLocation?: string;
@@ -69,6 +70,21 @@ export async function POST(request: Request) {
     const payload = await getPayload();
     if (!payload) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Waiting-list gate (ANT-108): only approved users may start sessions.
+    // Session creation is cost-free, so the daily cap is not enforced here.
+    const gateUser = await getUserById(payload.sub);
+    const gate = evaluateAccessGate({
+      role: payload.role,
+      accessStatus: gateUser?.access_status ?? 'pending',
+      enforceDailyCap: false,
+      dailyLimitEnabled: false,
+      dailyLimitUsd: 0,
+      spentTodayUsd: 0,
+    });
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.code, message: gate.message }, { status: gate.status });
     }
 
     const body = await request.json();

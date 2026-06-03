@@ -3,7 +3,8 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
-import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDebug, updateSession } from '@/lib/queries';
+import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDebug, updateSession, getUserById, getUserDailyCost, getAllAppSettings } from '@/lib/queries';
+import { evaluateAccessGate } from '@/lib/accessGate';
 import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { parseInventoryTags } from '@/lib/inventoryTags';
@@ -270,6 +271,26 @@ export async function POST(request: Request) {
   const payload = token ? await verifyJwt(token) : null;
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // ── Access gate (ANT-108): waiting-list approval + per-user daily cost cap ──
+  {
+    const [user, settings, spentTodayUsd] = await Promise.all([
+      getUserById(payload.sub),
+      getAllAppSettings(),
+      getUserDailyCost(payload.sub),
+    ]);
+    const gate = evaluateAccessGate({
+      role: payload.role,
+      accessStatus: user?.access_status ?? 'pending',
+      enforceDailyCap: true,
+      dailyLimitEnabled: settings.daily_limit_enabled === 'true',
+      dailyLimitUsd: parseFloat(settings.daily_user_cost_limit_usd ?? '0'),
+      spentTodayUsd,
+    });
+    if (!gate.ok) {
+      return NextResponse.json({ error: gate.code, message: gate.message }, { status: gate.status });
+    }
   }
 
   const body = await request.json();

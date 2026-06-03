@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.13] — 2026-06-03
+
+### Added
+- **Release gate: waiting-list access control + per-user daily cost cap (ANT-108).**
+  - **Waiting list:** registration stays open, but new accounts land in a `pending` state and cannot start sessions or take AI turns until an admin approves them. Lets us open access gradually for the public launch. Existing accounts were backfilled to `approved` (no lockout); admins are always `approved` and bypass every gate.
+  - **Per-user daily cost cap:** once a user's API spend for the day (UTC) reaches the configured USD cap, their AI turns are blocked with a friendly message until midnight. Admins are exempt. Cap value + on/off toggle are editable in the admin Settings tab (`daily_user_cost_limit_usd`, `daily_limit_enabled`; default $0.50/day).
+  - **Admin Users tab:** new Access column (waiting list / approved / blocked) with Approve/Block controls, today's spend per user, and a count of accounts awaiting access.
+  - **Registration success screen** now tells new recruits they're on the waiting list and access opens in small groups.
+  - Pending/blocked users see a dedicated waiting-list screen on `/sessions` instead of the case files.
+
 ## [0.4.12] — 2026-06-03
 
 ### Fixed
