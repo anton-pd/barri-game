@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import { closeSession } from '@/lib/campaigns';
+import { buildNextSessionWorldState } from '@/lib/campaignState';
 import {
   createSession,
   ensureSchema,
@@ -21,20 +22,6 @@ function canAccess(sessionUserId: string | null, payloadSub: string, role: strin
   if (role === 'admin') return true;
   if (sessionUserId === null) return true;
   return sessionUserId === payloadSub;
-}
-
-function buildNextSessionWorldState(worldState: WorldState, summary: string): WorldState {
-  return {
-    ...worldState,
-    summary,
-    passiveMessageCount: 0,
-    totalMessageCount: 0,
-    pendingRollResult: undefined,
-    activeRandomEvent: undefined,
-    locationRisk: {},
-    sessionImages: {},
-    variantHint: undefined,
-  };
 }
 
 function buildCompletionStats(session: GameSession, completedAt: string, messageCount: number, keeperMessageCount: number) {

@@ -614,9 +614,39 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [debugData, setDebugData]             = useState<unknown>(null);
   const [debugError, setDebugError]           = useState<string | null>(null);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
+  // ANT-78: for a completed campaign evening, point the player to the next evening.
+  const [nextEvening, setNextEvening] = useState<{ id: string; sessionNumber: number } | null>(null);
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
   const canManuallyEndSession = !sessionIsReadOnly;
+
+  // ANT-78: when viewing a finished campaign evening, locate the next evening of
+  // the same campaign so the read-only screen offers a clear way forward instead
+  // of a dead-end disabled chat.
+  useEffect(() => {
+    if (session.status !== 'completed' || !session.campaign_id) {
+      setNextEvening(null);
+      return;
+    }
+    const currentNumber = session.session_number ?? 1;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/sessions');
+        if (!res.ok) return;
+        const all = (await res.json()) as GameSession[];
+        const next = all
+          .filter((s) => s.campaign_id === session.campaign_id && (s.session_number ?? 1) > currentNumber)
+          .sort((a, b) => (a.session_number ?? 1) - (b.session_number ?? 1))[0];
+        if (!cancelled && next) {
+          setNextEvening({ id: next.id, sessionNumber: next.session_number ?? currentNumber + 1 });
+        }
+      } catch {
+        // Non-critical affordance — silently skip if the lookup fails.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [session.status, session.campaign_id, session.session_number]);
   const lastMessagePreview = (() => {
     const lastMessage = [...messages].reverse().find((message) => message.content.trim().length > 0);
     return lastMessage?.content;
@@ -1148,12 +1178,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         ...prev, [realId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
       }));
 
+      // ANT-77: the Keeper emitting [FINISH_EVENING]/[COMPLETE_SESSION] must NOT
+      // silently close the session. Open the confirmation modal so the player
+      // explicitly confirms (and can leave feedback) before anything is finalized.
       if (data.completionAction === 'complete-session' || data.completionAction === 'finish-evening') {
-        await submitCompletion(data.completionAction as CompletionMode, {
-          endedEarly: false,
-          trigger: 'keeper',
-          requireConfirmation: false,
-        });
+        openCompletionModal(data.completionAction as CompletionMode, { trigger: 'keeper' });
       }
 
       if (autoVoiceEnabled) {
@@ -1537,6 +1566,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 endedEarly: completionRequest.endedEarly,
                 trigger: completionRequest.trigger,
                 includeFeedback: true,
+                // The modal itself is the explicit confirmation step — no extra window.confirm.
+                requireConfirmation: false,
               })}
               disabled={isUpdatingStatus}
               className="chat-completion-btn--primary"
@@ -1707,11 +1738,26 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         <div className="chat-readonly-zone">
           <div className="chat-readonly-card">
             <p className="chat-readonly-title">
-              {session.status === 'paused' ? 'Сесія тимчасово закрита для нових ходів' : 'Чат збережено для перегляду'}
+              {session.status === 'paused'
+                ? 'Сесія тимчасово закрита для нових ходів'
+                : statusMeta.badge}
             </p>
             <p className="chat-readonly-text">
-              Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи. Нові дії та репліки вимкнено.
+              {statusMeta.summary} Ви можете перечитувати переписку, слухати озвучення та переглядати матеріали справи.
             </p>
+            {session.status === 'completed' && session.campaign_id && (
+              <div className="chat-readonly-actions">
+                {nextEvening ? (
+                  <a href={`/session/${nextEvening.id}`} className="chat-settings-end-btn--primary">
+                    Продовжити — Вечір {nextEvening.sessionNumber}
+                  </a>
+                ) : (
+                  <a href="/sessions" className="chat-settings-end-btn--secondary">
+                    До списку справ
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (

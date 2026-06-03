@@ -5,6 +5,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.11] — 2026-06-03
+
+### Fixed
+- **Campaign continuity re-enabled (ANT-77–81).** The multi-evening campaign subsystem was fully built but disabled at the entry point, so none of it was reachable. Re-enabled and fixed:
+  - **ANT-79/80/81**: `POST /api/sessions` now creates a campaign record and links session 1 (`campaign_id`, `session_number: 1`) automatically when the scenario declares `sessionConfig.isCampaign` (e.g. *The Last Telegram*). This unblocks world-state inheritance between evenings (`buildNextSessionWorldState`), prior-evening summaries in the next intro (`getCampaignContext` → prompt), and the finish-evening → next-session flow.
+  - **ANT-77**: a Keeper emitting `[FINISH_EVENING]` / `[COMPLETE_SESSION]` no longer silently closes the session — it opens the confirmation modal so the player explicitly confirms (and can leave feedback) first. Removed the redundant `window.confirm` on top of the modal.
+  - **ANT-78**: a finished campaign evening now shows campaign-aware read-only copy plus a clear way forward — a "Продовжити — Вечір N" link to the next evening (located via `/api/sessions`), or a fallback link to the case list.
+
+### Changed
+- Extracted `buildNextSessionWorldState` → `src/lib/campaignState.ts` and completion-tag detection → `src/lib/completionTags.ts` (`detectCompletionAction`), re-imported in the routes. Pure, single-sourced, unit-tested. No behavior change.
+
+### Added
+- Campaign unit tests on the ANT-107 harness: `tests/campaignState.test.ts` (carry/reset invariants), `tests/completionTags.test.ts` (tag precedence), `tests/campaignContext.test.ts` (summary formatting, Anthropic SDK + queries mocked). Suite now at 44 tests.
+
 ## [0.4.10] — 2026-06-03
 
 ### Added

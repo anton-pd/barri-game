@@ -1784,3 +1784,23 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 **Verification:** `npm test` → 34 passed; `npx tsc --noEmit` clean; `eslint tests/ src/lib/inventoryTags.ts` clean.
 
 **Next:** Part 2 (separate branch) — re-enable campaign creation (auto from `isCampaign`) and fix ANT-77..81, locked down with campaign-specific unit tests on this harness.
+
+## 2026-06-03 — Campaign continuity re-enabled + fixed (ANT-77–81)
+**Problem:** The five "campaign bugs" were not five independent defects — they were one continuity subsystem that Codex had largely implemented but **disabled at the entry point and never validated end-to-end**. `POST /api/sessions` hard-passed `campaignId: undefined` ("Campaigns disabled until campaign mechanics are fixed"), so `createCampaign()` was never called and no session ever had a `campaign_id`. That single gate made ANT-79/80/81 unreachable: world-state inheritance (`buildNextSessionWorldState`), prior-evening summaries in the intro (`getCampaignContext` → `campaignSection` in `buildSystemPromptBlocks`), and the `finish-evening` flow (creates next session, redirects) all existed but could never fire. ANT-77 (keeper auto-closing without confirm) and ANT-78 (dead-end read-only chat) were live client issues on top.
+
+**Solution:**
+- **Re-enable (keystone) — `src/app/api/sessions/route.ts`:** `getScenarioSessionMeta` already surfaced `isCampaign`; when true, `createCampaign(userId, scenarioId, name)` then link session 1 with `{ campaignId, sessionNumber: 1 }`. Session 1 keeps the *normal* starting world state (correct `currentLocation`/`variantId`) — no `initialWorldState` override; inheritance only matters from evening 2, which `buildNextSessionWorldState` already handles. One-shot path unchanged.
+- **ANT-77 — `src/components/GameChat.tsx`:** the keeper-completion branch in the `done` handler now calls `openCompletionModal(action, { trigger: 'keeper' })` instead of `submitCompletion(..., { requireConfirmation: false })`. Player explicitly confirms via the modal (with optional rating/comment). Also made the modal's submit pass `requireConfirmation: false` so the modal itself is the single confirmation step (removed the redundant `window.confirm` that previously stacked on top — affected the manual end-early path too).
+- **ANT-78 — `src/components/GameChat.tsx` + `chat.css`:** read-only card now uses `statusMeta.summary` (already campaign-aware) and, for a completed campaign evening, renders a forward affordance: a `useEffect` fetches `/api/sessions`, finds the next evening of the same `campaign_id` (smallest `session_number` greater than current) and shows a "Продовжити — Вечір N" link; falls back to a "До списку справ" link if no next evening exists. New `.chat-readonly-actions` style.
+- **Testability extractions:** `buildNextSessionWorldState` → pure `src/lib/campaignState.ts` (kept out of `campaigns.ts`, which instantiates `new Anthropic()` at module load — a separate pure module means the state test needs no SDK mock). Completion-tag detection → `src/lib/completionTags.ts` `detectCompletionAction(text)`, replacing the two inline regex flags in `ai/route.ts` (single `completionAction` variable now). Removed the now-unused `Player` type import in `ai/route.ts`.
+
+**Tests (on the ANT-107 harness, +10 → 44 total):**
+- `tests/campaignState.test.ts` — carries `npcRelations`/`visitedLocations`/`discoveredClues`/`dynamicLocations`/`dynamicNpcs`/`openThreads`/`act`/`summary`; resets `passiveMessageCount`/`totalMessageCount`/`pendingRollResult`/`activeRandomEvent`/`locationRisk`/`sessionImages`/`variantHint`; purity.
+- `tests/completionTags.test.ts` — finish-evening vs complete-session precedence, null, lookalike text.
+- `tests/campaignContext.test.ts` — `getCampaignContext` formats summaries chronologically as `Вечір N: …` (queries + `@anthropic-ai/sdk` mocked).
+
+**Key decisions:**
+- Auto-enable from the scenario `isCampaign` flag (confirmed with Anton) — zero new UI; the scenario author already declares campaign intent.
+- The DB-touching orchestration (finish-evening creates the next row, summary persisted) is validated by staging playthrough, not integration tests — keeps the harness zero-infra (per the unit-only decision).
+
+**Verification:** `npm test` → 44 passed; `npx tsc --noEmit` clean; `npm run build` clean (all routes compile); lint 0 errors on changed files. Branch `feature/ANT-77-81-campaign-flow` is **stacked on `feature/ANT-107-test-harness`** — merge ANT-107 first. Remaining: interactive staging playthrough (campaign create → finish-evening confirm → inherit → evening-2 summary → read-only forward link).

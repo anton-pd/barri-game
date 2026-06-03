@@ -492,6 +492,15 @@
   line-height: 1.6;
   color: var(--smoke-0);
 }
+.chat-readonly-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.chat-readonly-actions a {
+  text-decoration: none;
+}
 
 /* ── Player selector ────────────────────────────────────────── */
 .chat-player-selector {

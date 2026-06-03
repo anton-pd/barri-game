@@ -7,6 +7,7 @@ import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDe
 import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { parseInventoryTags } from '@/lib/inventoryTags';
+import { detectCompletionAction } from '@/lib/completionTags';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
@@ -14,7 +15,7 @@ import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiv
 import { getCampaignContext } from '@/lib/campaigns';
 import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 import { applyDeltaToPlayer } from '@/lib/statUtils';
-import type { WorldState, Player } from '@/types';
+import type { WorldState } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
 
@@ -490,8 +491,7 @@ export async function POST(request: Request) {
         const imageMatch       = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
         const locationMatch    = assistantText.match(/\[LOCATION:([\w-]+)\]/);
         const newLocationMatch = assistantText.match(/\[NEW_LOCATION:(\w+):([^:]+):([^\]]+)\]/);
-        const shouldCompleteSession = /\[COMPLETE_SESSION\]/.test(assistantText);
-        const shouldFinishEvening = /\[FINISH_EVENING\]/.test(assistantText);
+        const completionAction = detectCompletionAction(assistantText);
 
         const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
           assistantText,
@@ -808,11 +808,7 @@ export async function POST(request: Request) {
           location,
           locationName,
           ambientFile,
-          completionAction: shouldFinishEvening
-            ? 'finish-evening'
-            : shouldCompleteSession
-              ? 'complete-session'
-              : null,
+          completionAction,
         });
 
         // ── Debug snapshot (admin-only, fire-and-forget) ────────────────────

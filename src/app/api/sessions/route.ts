@@ -83,8 +83,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 
-    const { startingLocation, variantId, variantHint } = getScenarioSessionMeta(scenarioId);
-    // Campaigns disabled until campaign mechanics are fixed (ANT-77..ANT-81)
+    const { startingLocation, variantId, variantHint, isCampaign } = getScenarioSessionMeta(scenarioId);
+
+    // Campaign scenarios (sessionConfig.isCampaign) get a campaign record so
+    // evenings can be chained: finish-evening carries world_state forward and
+    // creates the next session (ANT-77..ANT-81). Session 1 uses the normal
+    // starting world state — inheritance only matters from evening 2 onward.
+    let campaignOptions: { campaignId: string; sessionNumber: number } | undefined;
+    if (isCampaign) {
+      const campaign = await createCampaign(payload.sub, scenarioId, name);
+      campaignOptions = { campaignId: campaign.id, sessionNumber: 1 };
+    }
+
     const session = await createSession(
       scenarioId,
       name,
@@ -94,7 +104,7 @@ export async function POST(request: Request) {
       language ?? 'uk',
       variantId,
       variantHint,
-      undefined
+      campaignOptions
     );
     return NextResponse.json(session, { status: 201 });
   } catch (error) {
