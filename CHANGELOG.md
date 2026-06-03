@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.16] — 2026-06-03
+
+### Changed
+- **Inspector rail dossier rebuild + collapse (ANT-102).** The case-files panel (`CaseFilesPanel`) is no longer a generic dark panel with four mutually-exclusive tabs:
+  - **Persistent summary at the top** — case status stamp (active/paused/done), current location, objective, and key counts (matérials / NPCs / locations) are always visible without switching tabs.
+  - **Collapsible sections** (native `<details>`) replace the tab strip: Опис справи + Слідчі open by default; Персонажі and Матеріали collapse. Static scenario images now load lazily only when the Матеріали section is opened.
+  - **Dossier visuals**: differentiated rail surface, NPC **relationship stamps** (friendly/hostile/neutral/unknown) and **evidence cards** with captions for generated images.
+  - **Desktop collapse**: the rail can collapse to a 48px icon-only strip (expand chevron + live counts), state persisted in `localStorage`; the 📋 header button now collapses/expands on desktop and opens the drawer on mobile (previously the desktop ✕ did nothing). Mobile keeps the bottom-sheet drawer with the same hierarchy.
+
 ## [0.4.15] — 2026-06-03
 
 ### Added
