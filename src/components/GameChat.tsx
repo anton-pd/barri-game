@@ -273,6 +273,9 @@ function CaseFilesPanel({
   onUrlGenerated,
   sessionId,
   onClose,
+  statusLabel,
+  currentLocationName,
+  counts,
 }: {
   scenarioId: string;
   rulesetId: string;
@@ -287,30 +290,25 @@ function CaseFilesPanel({
   onUrlGenerated?: (msgId: string, url: string) => void;
   sessionId: string;
   onClose?: () => void;
+  statusLabel: string;
+  currentLocationName?: string | null;
+  counts: { evidence: number; npcs: number; locations: number };
 }) {
-  type Tab = 'briefing' | 'players' | 'images' | 'npcs';
-  const [tab, setTab]           = useState<Tab>('briefing');
   const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
   const [imagesScenarioId, setImagesScenarioId] = useState<string | null>(null);
+  const [imagesRequested, setImagesRequested] = useState(false);
   const [fullscreen, setFullscreen] = useState<string | null>(null);
-  const loadingImgs = tab === 'images' && imagesScenarioId !== scenarioId;
+  const loadingImgs = imagesRequested && imagesScenarioId !== scenarioId;
   const visibleImages = imagesScenarioId === scenarioId ? images : [];
 
+  // Lazily fetch static scenario images the first time the Матеріали section opens.
   useEffect(() => {
-    if (tab !== 'images' || imagesScenarioId === scenarioId) return;
-
+    if (!imagesRequested || imagesScenarioId === scenarioId) return;
     fetch(`/api/scenarios/${scenarioId}/images`)
       .then((r) => r.json())
       .then((d) => { setImages(d.images ?? []); setImagesScenarioId(scenarioId); })
       .catch(() => { setImages([]); setImagesScenarioId(scenarioId); });
-  }, [imagesScenarioId, scenarioId, tab]);
-
-  const TABS: { id: Tab; label: string }[] = [
-    { id: 'briefing', label: 'Опис' },
-    { id: 'players',  label: 'Гравці' },
-    { id: 'images',   label: 'Матеріали' },
-    { id: 'npcs',     label: 'Персонажі' },
-  ];
+  }, [imagesRequested, imagesScenarioId, scenarioId]);
 
   const metNpcs = npcs.filter((n) => n.id in npcRelations);
   const allNpcs: { id: string; name: string; description?: string; isDynamic?: boolean }[] = [
@@ -330,73 +328,77 @@ function CaseFilesPanel({
       )
     : null;
 
+  const relMeta = (relation: string | undefined) => {
+    switch (relation) {
+      case 'friendly': return { mod: 'friendly', label: 'Дружній' };
+      case 'hostile':  return { mod: 'hostile',  label: 'Ворожий' };
+      case 'neutral':  return { mod: 'neutral',  label: 'Нейтральний' };
+      default:         return { mod: 'unknown',  label: 'Невідомо' };
+    }
+  };
+
   return (
     <>
-      <div className="w-full md:w-64 md:shrink-0 flex flex-col border-l border-stone-700 bg-stone-900 overflow-hidden">
+      <div className="chat-dossier">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-stone-700 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-amber-500">Матеріали справи</h2>
+        <div className="chat-dossier__hdr">
+          <span className="chat-dossier__kicker">Досьє справи</span>
           {onClose && (
-            <button
-              onClick={onClose}
-              className="w-9 h-9 flex items-center justify-center rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 transition-colors text-base font-bold"
-              title="Закрити"
-            >✕</button>
+            <button onClick={onClose} className="chat-dossier__close" title="Згорнути" aria-label="Згорнути панель">✕</button>
           )}
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-stone-700">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 text-xs py-2 transition-colors ${
-                tab === t.id
-                  ? 'text-amber-400 border-b-2 border-amber-500 -mb-px bg-stone-800'
-                  : 'text-stone-500 hover:text-stone-300'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Persistent summary — visible at a glance, no tab switching */}
+        <div className="chat-dossier__summary">
+          <span className={`chat-dossier__status chat-dossier__status--${statusLabel === 'Завершено' ? 'done' : statusLabel === 'Пауза' ? 'paused' : 'active'}`}>
+            {statusLabel}
+          </span>
+          {currentLocationName && (
+            <p className="chat-dossier__loc"><span aria-hidden>📍</span> {currentLocationName}</p>
+          )}
+          {briefing?.objective && (
+            <p className="chat-dossier__objective">{briefing.objective}</p>
+          )}
+          <div className="chat-dossier__counts">
+            <span><b>{counts.evidence}</b> матеріалів</span>
+            <span><b>{counts.npcs}</b> персонажів</span>
+            <span><b>{counts.locations}</b> локацій</span>
+          </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Collapsible sections (native <details>) instead of mutually-exclusive tabs */}
+        <div className="chat-dossier__sections">
 
-          {/* ── Briefing ── */}
-          {tab === 'briefing' && (
-            <div className="p-4 space-y-4">
-              {!briefing ? (
-                <p className="text-xs text-stone-500 text-center py-6">Опис відсутній</p>
-              ) : (
-                <>
-                  <div>
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Обстановка</p>
-                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.setting}</p>
-                  </div>
-                  <div className="border-t border-stone-700 pt-3">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Що сталось</p>
-                    <p className="text-xs text-stone-300 leading-relaxed whitespace-pre-line">{briefing.premise}</p>
-                  </div>
-                  <div className="border-t border-stone-700 pt-3">
-                    <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Завдання</p>
-                    <p className="text-xs text-stone-300 leading-relaxed">{briefing.objective}</p>
-                  </div>
-                </>
-              )}
-            </div>
+          {/* ── Опис ── */}
+          {briefing && (
+            <details className="chat-dossier__sec" open>
+              <summary>Опис справи</summary>
+              <div className="chat-dossier__sec-body space-y-3">
+                <div>
+                  <p className="chat-dossier__field-label">Обстановка</p>
+                  <p className="chat-dossier__field-text">{briefing.setting}</p>
+                </div>
+                <div>
+                  <p className="chat-dossier__field-label">Що сталось</p>
+                  <p className="chat-dossier__field-text whitespace-pre-line">{briefing.premise}</p>
+                </div>
+                <div>
+                  <p className="chat-dossier__field-label">Завдання</p>
+                  <p className="chat-dossier__field-text">{briefing.objective}</p>
+                </div>
+              </div>
+            </details>
           )}
 
-          {/* ── Players ── */}
-          {tab === 'players' && (
-            <div className="p-3 space-y-4">
+          {/* ── Гравці ── */}
+          <details className="chat-dossier__sec" open>
+            <summary>Слідчі ({players.length})</summary>
+            <div className="chat-dossier__sec-body space-y-3">
               {players.map((p, i) => (
-                <div key={i} className="bg-stone-800 rounded-lg p-3 space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-sm font-semibold text-stone-100">{p.name}</span>
-                    <span className="text-xs text-amber-600">{p.role}</span>
+                <div key={i} className="chat-dossier-card space-y-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-sm font-semibold text-stone-100 truncate">{p.name}</span>
+                    <span className="text-xs text-amber-600 shrink-0">{p.role}</span>
                   </div>
                   {p.background && (
                     <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
@@ -409,7 +411,7 @@ function CaseFilesPanel({
                     ))}
                   </div>
                   {Object.keys(p.skills).length > 0 && (
-                    <div className="border-t border-stone-700 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    <div className="border-t border-stone-700/60 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
                       {Object.entries(p.skills).map(([skill, val]) => (
                         <div key={skill} className="flex justify-between">
                           <span className="text-xs text-stone-500 truncate">{skill}</span>
@@ -421,89 +423,77 @@ function CaseFilesPanel({
                 </div>
               ))}
             </div>
-          )}
+          </details>
 
-          {/* ── Images ── */}
-          {tab === 'images' && (
-            <div className="p-3 space-y-3">
-              {/* Session-generated images */}
-              {Object.keys(dynamicImages).length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сесійні матеріали</p>
-                  <div className="space-y-2">
-                    {Object.entries(dynamicImages).map(([msgId, meta]) => (
-                      <div key={msgId}>
-                        <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
-                        <p className="text-xs text-stone-500 mt-1 truncate" title={meta.prompt}>
-                          {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Static scenario images */}
-              {Object.keys(dynamicImages).length > 0 && (visibleImages.length > 0 || loadingImgs) && (
-                <div className="border-t border-stone-800 pt-3">
-                  <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Сценарні матеріали</p>
-                </div>
-              )}
-              {loadingImgs && (
-                <p className="text-xs text-stone-600 text-center py-4">Завантаження...</p>
-              )}
-              {!loadingImgs && visibleImages.length === 0 && Object.keys(dynamicImages).length === 0 && (
-                <p className="text-xs text-stone-600 text-center py-4">Матеріали ще генеруються...</p>
-              )}
-              {visibleImages.map((img) => (
-                <div key={img.id}>
-                  <img
-                    src={img.url}
-                    alt={img.label}
-                    onClick={() => setFullscreen(img.url)}
-                    className="w-full rounded-lg object-cover cursor-zoom-in border border-stone-700 hover:border-stone-500 transition-colors"
-                    style={{ maxHeight: 160 }}
-                  />
-                  <p className="text-xs text-stone-500 mt-1 text-center">{img.label}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── NPCs ── */}
-          {tab === 'npcs' && (
-            <div className="p-3 space-y-3">
+          {/* ── Персонажі (NPCs) — relationship stamps ── */}
+          <details className="chat-dossier__sec">
+            <summary>Персонажі ({allNpcs.length})</summary>
+            <div className="chat-dossier__sec-body space-y-3">
               {allNpcs.length === 0 ? (
-                <p className="text-xs text-stone-500 text-center py-6">Персонажі ще не зустрічались</p>
+                <p className="text-xs text-stone-500 text-center py-2">Персонажі ще не зустрічались</p>
               ) : (
                 allNpcs.map((npc) => {
-                  const relation = npcRelations[npc.id];
-                  const relColor =
-                    relation === 'friendly' ? 'text-green-400 bg-green-900/30' :
-                    relation === 'hostile'  ? 'text-red-400 bg-red-900/30'   :
-                    relation === 'neutral'  ? 'text-stone-400 bg-stone-700'  :
-                                             'text-amber-400 bg-amber-900/30';
-                  const relLabel =
-                    relation === 'friendly' ? 'Дружній'    :
-                    relation === 'hostile'  ? 'Ворожий'    :
-                    relation === 'neutral'  ? 'Нейтральний': 'Невідомо';
+                  const rel = relMeta(npcRelations[npc.id]);
                   return (
-                    <div key={npc.id} className="bg-stone-800 rounded-lg p-3 space-y-1.5">
+                    <div key={npc.id} className="chat-dossier-card space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold text-stone-100 truncate">{npc.name}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium shrink-0 ${relColor}`}>{relLabel}</span>
+                        <span className={`chat-npc-stamp chat-npc-stamp--${rel.mod}`}>{rel.label}</span>
                       </div>
                       {npc.description && (
                         <p className="text-xs text-stone-400 leading-relaxed">{npc.description}</p>
                       )}
                       {npcDetails?.[npc.id]?.notes && (
-                        <p className="text-xs text-amber-200/80 leading-relaxed border-t border-stone-700 pt-1.5 mt-1">{npcDetails[npc.id].notes}</p>
+                        <p className="text-xs text-amber-200/80 leading-relaxed border-t border-stone-700/60 pt-1.5 mt-1">{npcDetails[npc.id].notes}</p>
                       )}
                     </div>
                   );
                 })
               )}
             </div>
-          )}
+          </details>
+
+          {/* ── Матеріали (evidence cards) ── */}
+          <details className="chat-dossier__sec" onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) setImagesRequested(true); }}>
+            <summary>Матеріали ({counts.evidence})</summary>
+            <div className="chat-dossier__sec-body space-y-3">
+              {Object.keys(dynamicImages).length > 0 && (
+                <div className="space-y-2">
+                  <p className="chat-dossier__field-label">Сесійні матеріали</p>
+                  {Object.entries(dynamicImages).map(([msgId, meta]) => (
+                    <figure key={msgId} className="chat-evidence-card">
+                      <DynamicImage prompt={meta.prompt} type={meta.type} sessionId={sessionId} msgId={msgId} url={sessionImages?.[msgId]} onUrlGenerated={onUrlGenerated} />
+                      <figcaption className="chat-evidence-card__cap" title={meta.prompt}>
+                        {meta.prompt.length > 50 ? meta.prompt.slice(0, 50) + '…' : meta.prompt}
+                      </figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
+              {(visibleImages.length > 0 || loadingImgs) && (
+                <div className="space-y-2 border-t border-stone-700/50 pt-3">
+                  <p className="chat-dossier__field-label">Сценарні матеріали</p>
+                  {loadingImgs && <p className="text-xs text-stone-600 text-center py-2">Завантаження…</p>}
+                  {visibleImages.map((img) => (
+                    <figure key={img.id} className="chat-evidence-card">
+                      <img
+                        src={img.url}
+                        alt={img.label}
+                        onClick={() => setFullscreen(img.url)}
+                        className="w-full rounded-lg object-cover cursor-zoom-in"
+                        style={{ maxHeight: 160 }}
+                      />
+                      <figcaption className="chat-evidence-card__cap text-center">{img.label}</figcaption>
+                    </figure>
+                  ))}
+                </div>
+              )}
+              {Object.keys(dynamicImages).length === 0 && !loadingImgs && visibleImages.length === 0 && (
+                <p className="text-xs text-stone-600 text-center py-2">Матеріали ще не зібрано</p>
+              )}
+            </div>
+          </details>
+
         </div>
       </div>
 
@@ -610,6 +600,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [activePlayer, setActivePlayer]       = useState(0);
   const [showSettings, setShowSettings]       = useState(false);
   const [showSidebar, setShowSidebar]         = useState(false);
+  // ANT-102: desktop inspector rail can collapse to an icon-only strip (persisted).
+  const [railCollapsed, setRailCollapsed]     = useState(false);
   const [debugFor, setDebugFor]               = useState<string | null>(null);
   const [debugData, setDebugData]             = useState<unknown>(null);
   const [debugError, setDebugError]           = useState<string | null>(null);
@@ -619,6 +611,24 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
   const canManuallyEndSession = !sessionIsReadOnly;
+
+  // ANT-102: restore persisted desktop rail collapse state.
+  useEffect(() => {
+    try { setRailCollapsed(localStorage.getItem('barri.railCollapsed') === 'true'); } catch { /* ignore */ }
+  }, []);
+
+  // Case-files toggle: mobile opens the drawer, desktop collapses/expands the rail.
+  function toggleCaseFiles() {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      setShowSidebar((v) => !v);
+    } else {
+      setRailCollapsed((v) => {
+        const next = !v;
+        try { localStorage.setItem('barri.railCollapsed', String(next)); } catch { /* ignore */ }
+        return next;
+      });
+    }
+  }
 
   // ANT-78: when viewing a finished campaign evening, locate the next evening of
   // the same campaign so the read-only screen offers a clear way forward instead
@@ -1349,9 +1359,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити">⏹</button>
           )}
           <button
-            onClick={() => setShowSidebar((v) => !v)}
-            className="chat-icon-btn md:hidden"
+            onClick={toggleCaseFiles}
+            className="chat-icon-btn"
             title="Матеріали справи"
+            aria-label="Матеріали справи"
           >📋</button>
           <button
             onClick={() => setShowSettings((v) => !v)}
@@ -1922,8 +1933,22 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           aria-hidden
         />
       )}
-      <aside className={`chat-sidebar${showSidebar ? ' chat-sidebar--open' : ''}`}>
+      <aside className={`chat-sidebar${showSidebar ? ' chat-sidebar--open' : ''}${railCollapsed ? ' chat-sidebar--collapsed' : ''}`}>
         <div className="chat-sidebar__handle" aria-hidden />
+        {/* Collapsed desktop strip — click anywhere to expand (CSS hides it unless desktop+collapsed) */}
+        <button
+          type="button"
+          className="chat-rail-strip"
+          onClick={() => { setRailCollapsed(false); try { localStorage.setItem('barri.railCollapsed', 'false'); } catch { /* ignore */ } }}
+          title="Розгорнути досьє"
+          aria-label="Розгорнути досьє справи"
+        >
+          <span className="chat-rail-strip__chevron" aria-hidden>‹</span>
+          <span className="chat-rail-strip__icon" aria-hidden>📋</span>
+          <span className="chat-rail-strip__count" title="Матеріали">{Object.keys(dynamicImages).length}</span>
+          <span className="chat-rail-strip__count" title="Персонажі">{Object.keys(session.world_state?.npcRelations ?? {}).length}</span>
+          <span className="chat-rail-strip__count" title="Локації">{(session.world_state?.visitedLocations ?? []).length}</span>
+        </button>
         <CaseFilesPanel
           scenarioId={session.scenario_id}
           rulesetId={rulesetId}
@@ -1937,7 +1962,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           sessionImages={session.world_state.sessionImages}
           onUrlGenerated={handleUrlGenerated}
           sessionId={session.id}
-          onClose={() => setShowSidebar(false)}
+          onClose={toggleCaseFiles}
+          statusLabel={session.status === 'completed' ? 'Завершено' : session.status === 'paused' ? 'Пауза' : 'Активна'}
+          currentLocationName={currentLocationName}
+          counts={{
+            evidence: Object.keys(dynamicImages).length,
+            npcs: Object.keys(session.world_state?.npcRelations ?? {}).length,
+            locations: (session.world_state?.visitedLocations ?? []).length,
+          }}
         />
       </aside>
     </div>

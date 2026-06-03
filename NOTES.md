@@ -1882,3 +1882,18 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Out of this slice (deferred): TTS/STT speaking-indicator rework.
 
 **Verification:** `npm run build` clean; `tsc` clean; `npm test` 62/62 (no logic change); eslint adds no new errors (only the documented baseline + pre-existing `<img>` warnings). Branch `feature/ANT-103`. Visual/motion confirmation is the review step (transient animations can't be asserted headlessly).
+
+## 2026-06-03 — Inspector rail dossier rebuild + collapse (ANT-102)
+**Problem:** `CaseFilesPanel` was a generic dark panel with four mutually-exclusive tabs (Опис/Гравці/Матеріали/Персонажі) — key context was hidden behind tab switches, the rail competed visually with the transcript, and on desktop it couldn't collapse (the ✕ only worked on the mobile overlay because desktop visibility wasn't tied to `showSidebar`).
+
+**Solution (UI-only, GameChat.tsx + chat.css):**
+- **Rewrote `CaseFilesPanel`**: removed the tab state; added a persistent top **summary** (status stamp + current location + objective + counts: materials/NPCs/locations) and **collapsible `<details>` sections** (Опис справи + Слідчі `open`; Персонажі + Матеріали collapsed). Static scenario images load lazily on first open of Матеріали (`imagesRequested` flag) instead of being gated behind a tab. New props: `statusLabel`, `currentLocationName`, `counts`.
+- **Dossier visuals** (`chat-dossier__*`, `chat-dossier-card`, `chat-npc-stamp--{friendly,hostile,neutral,unknown}`, `chat-evidence-card`): rotated bordered status/relationship stamps, captioned evidence cards, typewriter section headers — all on existing noir tokens.
+- **Desktop collapse**: new `railCollapsed` state (persisted in `localStorage` `barri.railCollapsed`). `.chat-sidebar--collapsed` (≥768px) shrinks the rail to a 48px icon-only `.chat-rail-strip` (expand chevron + live counts); `<details>` content hidden. The header 📋 button now routes through `toggleCaseFiles()` — mobile toggles the drawer (`showSidebar`), desktop toggles collapse — fixing the dead desktop ✕. Mobile bottom-sheet drawer unchanged.
+
+**Key decisions:**
+- Native `<details>`/`<summary>` for sections — accessible, no extra JS state, keyboard-operable.
+- Counts computed once in the parent and passed to both the panel summary and the collapsed strip so they stay consistent.
+- Collapse is desktop-only (all collapse CSS gated under `min-width:768px`); mobile always renders the full dossier in the drawer.
+
+**Verification:** `tsc` clean; eslint 0 errors on GameChat (pre-existing `<img>` warnings only); `npm run build` clean; `npm test` 62/62 (no logic change). Branch `feature/ANT-102`. Visual/interaction confirmation (expand/collapse, stamps, evidence cards, mobile drawer) is the review step.
