@@ -236,7 +236,7 @@ function SessionCard({
                 Видалити
               </button>
               <span className="session-enter-btn">
-                Увійти <span aria-hidden="true">→</span>
+                {s.status === 'completed' ? 'Переглянути' : 'Продовжити'} <span aria-hidden="true">→</span>
               </span>
             </>
           )}

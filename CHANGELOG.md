@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.12] — 2026-06-03
+
+### Fixed
+- **Campaign completion UX (review feedback on ANT-77/78/81):**
+  - Swapped end-button colors: "Завершити вечір" is now the softer secondary (black), while "Завершити кампанію достроково" (ending the whole game) is the terminal primary (red). One-shot "Закрити сесію" stays red.
+  - Finishing the **whole campaign** (`complete-session`) now returns the player to the case list (`/sessions`) after the feedback modal, instead of leaving them on the read-only chat.
+  - Session-list action relabelled from "Увійти" to "Продовжити" (and "Переглянути" for completed sessions).
+
 ## [0.4.11] — 2026-06-03
 
 ### Fixed

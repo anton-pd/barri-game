@@ -1288,6 +1288,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       if (mode === 'finish-evening' && data.nextSession?.id) {
         window.location.href = `/session/${data.nextSession.id}`;
+      } else if (mode === 'complete-session' && session.campaign_id) {
+        // Whole campaign finished — return the player to the case list.
+        window.location.href = '/sessions';
       }
     } catch {
       setStatusError('Не вдалося завершити сесію. Спробуйте ще раз.');
@@ -1424,7 +1427,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 <button
                   onClick={() => openCompletionModal(session.campaign_id ? 'finish-evening' : 'complete-session', { endedEarly: true })}
                   disabled={isUpdatingStatus || isLoading}
-                  className="chat-settings-end-btn--primary"
+                  // Ending just the evening is the softer action (black); ending a
+                  // one-shot session is terminal (red). Ending the whole campaign
+                  // is the most final action — that button below is red.
+                  className={session.campaign_id ? 'chat-settings-end-btn--secondary' : 'chat-settings-end-btn--primary'}
                 >
                   {isUpdatingStatus
                     ? 'Завершення...'
@@ -1434,7 +1440,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   <button
                     onClick={() => openCompletionModal('complete-session', { endedEarly: true })}
                     disabled={isUpdatingStatus || isLoading}
-                    className="chat-settings-end-btn--secondary"
+                    className="chat-settings-end-btn--primary"
                   >
                     {statusMeta.completeLabel}
                   </button>
