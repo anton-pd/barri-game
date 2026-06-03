@@ -30,6 +30,18 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
     const units = Math.floor(Math.random() * 10);
     setFinalTens(tens);
     setFinalUnits(units);
+
+    // Reduced motion (ANT-103): skip the slot-machine flicker, show the result instantly.
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) {
+      setTensDisplay(tens);
+      setUnitsDisplay(units);
+      setPhase('done');
+      return;
+    }
+
     setPhase('rolling');
 
     const duration = 1600;

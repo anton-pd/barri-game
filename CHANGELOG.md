@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.15] — 2026-06-03
+
+### Added
+- **Atmosphere & motion pass with reduced-motion fallbacks (ANT-103).** Purposeful, subtle motion in the game chat:
+  - New-message reveal — the newest bubble fades + rises 6px (≤180ms), keyed by message id so streaming chunks don't re-trigger it.
+  - Settings panel reveal when toggled open.
+  - Evidence-image loading: replaced the generic Tailwind pulse with an on-brand aged-paper shimmer ("Проявляється світлина…") while `/api/image` resolves.
+  - `prefers-reduced-motion: reduce` is honoured everywhere: message reveal, settings reveal, loading dots, replay pulse, and image shimmer all stop (final state stays visible); the sidebar drawer slide becomes instant; the dice roller skips its slot-machine flicker and shows the result immediately. Grain stays static (already disabled in chat).
+
 ## [0.4.14] — 2026-06-03
 
 ### Fixed
