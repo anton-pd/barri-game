@@ -1,8 +1,11 @@
+export type AccessStatus = 'pending' | 'approved' | 'blocked';
+
 export interface User {
   id: string;
   email: string;
   role: 'user' | 'admin';
   email_verified: boolean;
+  access_status: AccessStatus;
   created_at: string;
   updated_at: string;
 }

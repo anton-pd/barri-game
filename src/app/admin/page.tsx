@@ -32,7 +32,8 @@ export default async function AdminPage() {
         <AdminTabs
           users={users as {
             id: string; email: string; role: string;
-            email_verified: boolean; session_count: number; created_at: string;
+            email_verified: boolean; access_status: string;
+            session_count: number; daily_cost: number; created_at: string;
           }[]}
         sessions={sessions as {
           id: string; name: string; scenario_id: string;

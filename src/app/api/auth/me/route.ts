@@ -21,7 +21,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    return NextResponse.json({ id: user.id, email: user.email, role: user.role });
+    return NextResponse.json({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      access_status: user.access_status,
+    });
   } catch (error) {
     console.error('Me error:', error);
     return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });

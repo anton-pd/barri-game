@@ -72,13 +72,18 @@ export default function RegisterPage() {
 
             <div className="auth-success">
               <span className="auth-success-glyph">✉</span>
-              <h2>Check your post box, Investigator</h2>
+              <h2>You&apos;re on the waiting list</h2>
               <p>
                 A letter from the abyss has been dispatched to{' '}
                 <span className="auth-success-email">{email}</span>.
               </p>
               <p>Click the enclosed link to verify your identity before the seal expires.</p>
-              <div className="auth-success-stamp">Application Filed</div>
+              <p className="auth-waitlist-note">
+                The Bureau admits investigators <strong>in small numbers</strong>. Once your
+                post is verified, your file joins the queue — we&apos;ll summon you the moment a
+                seat at the table opens.
+              </p>
+              <div className="auth-success-stamp">Waiting List</div>
             </div>
 
             <div className="auth-foot">

@@ -16,6 +16,8 @@ export default function KeeperSettings() {
   const [aiProvider,         setAiProvider]         = useState<string>('gemini-flash');
   const [ttsProvider,        setTtsProvider]        = useState<string>('gemini');
   const [geminiCacheEnabled, setGeminiCacheEnabled] = useState<boolean>(false);
+  const [dailyLimitEnabled,  setDailyLimitEnabled]  = useState<boolean>(true);
+  const [dailyLimitUsd,      setDailyLimitUsd]      = useState<string>('0.50');
   const [saving, setSaving] = useState<string | null>(null);
   const [saved,  setSaved]  = useState<string | null>(null);
 
@@ -26,6 +28,8 @@ export default function KeeperSettings() {
         if (data.ai_provider)  setAiProvider(data.ai_provider);
         if (data.tts_provider) setTtsProvider(data.tts_provider);
         setGeminiCacheEnabled(data.gemini_cache_enabled === 'true');
+        setDailyLimitEnabled(data.daily_limit_enabled !== 'false');
+        if (data.daily_user_cost_limit_usd) setDailyLimitUsd(data.daily_user_cost_limit_usd);
       });
   }, []);
 
@@ -122,6 +126,53 @@ export default function KeeperSettings() {
               {geminiCacheEnabled ? 'ON — split mode (dynamic in history)' : 'OFF — combined mode'}
             </span>
             {saved === 'gemini_cache_enabled' && <span className="text-xs text-emerald-500">Saved ✓</span>}
+          </div>
+        </div>
+
+        {/* Per-user daily cost cap (ANT-108) */}
+        <div className="border-t border-stone-800 pt-5">
+          <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Per-user daily cost cap</p>
+          <p className="text-xs text-stone-600 mb-3">
+            Blocks a user&apos;s AI turns once their API spend for the day (UTC) reaches the cap.
+            Admins are exempt. Resets at midnight UTC.
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => {
+                const next = !dailyLimitEnabled;
+                setDailyLimitEnabled(next);
+                save('daily_limit_enabled', String(next));
+              }}
+              disabled={saving === 'daily_limit_enabled'}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                dailyLimitEnabled ? 'bg-amber-700' : 'bg-stone-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  dailyLimitEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className="text-sm text-stone-400">{dailyLimitEnabled ? 'ON' : 'OFF'}</span>
+
+            <div className="flex items-center gap-2 ml-2">
+              <span className="text-stone-500 text-sm">$</span>
+              <input
+                type="number"
+                step="0.05"
+                min="0"
+                value={dailyLimitUsd}
+                onChange={(e) => setDailyLimitUsd(e.target.value)}
+                onBlur={() => save('daily_user_cost_limit_usd', dailyLimitUsd)}
+                disabled={!dailyLimitEnabled}
+                className="w-24 rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 disabled:opacity-50 focus:border-amber-700 focus:outline-none"
+              />
+              <span className="text-stone-600 text-xs">/ user / day</span>
+            </div>
+            {(saved === 'daily_limit_enabled' || saved === 'daily_user_cost_limit_usd') && (
+              <span className="text-xs text-emerald-500 self-center">Saved ✓</span>
+            )}
           </div>
         </div>
 
