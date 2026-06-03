@@ -10,8 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - **Campaign completion UX (review feedback on ANT-77/78/81):**
   - Swapped end-button colors: "Завершити вечір" is now the softer secondary (black), while "Завершити кампанію достроково" (ending the whole game) is the terminal primary (red). One-shot "Закрити сесію" stays red.
-  - Finishing the **whole campaign** (`complete-session`) now returns the player to the case list (`/sessions`) after the feedback modal, instead of leaving them on the read-only chat.
+  - **Both** finishing an evening and finishing the whole campaign now return the player to the case list (`/sessions`) after the feedback modal, instead of dropping straight into the next evening / staying on the read-only chat. One-shot completion still stays on the read-only chat.
   - Session-list action relabelled from "Увійти" to "Продовжити" (and "Переглянути" for completed sessions).
+  - **Played evenings no longer look like closed cases**: a finished evening of an ongoing campaign now sits under "Відкриті справи" alongside its active evening with a "Вечір зіграно" stamp (read-only via "Переглянути"), instead of showing as "Закрито" in the completed section. Only fully finished games remain under "Завершено".
 
 ## [0.4.11] — 2026-06-03
 

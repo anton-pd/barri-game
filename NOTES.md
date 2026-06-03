@@ -1818,3 +1818,8 @@ After Anton's staging review of the campaign flow, three UX fixes (same `feature
 - **Return to menu on full campaign completion** (`GameChat.tsx`, `submitCompletion`): added `else if (mode === 'complete-session' && session.campaign_id) → window.location.href = '/sessions'`. Finishing just an evening still redirects to the next evening; finishing the whole campaign now lands on the case list.
 - **Session-list CTA relabelled** (`SessionList.tsx`): "Увійти" → "Продовжити" for active/paused, "Переглянути" for completed sessions.
 Verification: `npm test` 44/44, `tsc` clean, lint 0 errors. Rebuilt staging (with `env -u ANTHROPIC_API_KEY`).
+
+### 2026-06-03 — Campaign list/redirect UX (2nd review round)
+- **finish-evening now redirects to /sessions** too (not into the new evening). `submitCompletion`: any campaign completion (finish-evening or complete-session) → `/sessions`; one-shot complete stays on read-only chat. Rationale: after finishing an evening the player should land in the menu and see the campaign's next active evening to continue, rather than being dropped straight into it.
+- **Played evenings reclassified** (`SessionList.tsx`): a completed evening that is NOT the latest in its campaign is a "played evening" of an ongoing campaign, not a closed case. Computed `latestEveningByCampaign` + `isPlayedEvening(s)`; such evenings now render under "Відкриті справи" with a "Вечір зіграно" stamp (mod active) and the "Переглянути" read-only CTA, instead of "Закрито" in the completed section. Fixes the confusion of one campaign appearing simultaneously as active (evening 2) and closed (evening 1). `statusStamp` gained an optional `playedEvening` arg; `SessionCard` a `playedEvening` prop.
+Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.

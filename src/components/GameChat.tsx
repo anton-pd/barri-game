@@ -1286,10 +1286,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       }
       upsertReadOnlySessionCache({ ...updatedSession, last_message: lastMessagePreview });
 
-      if (mode === 'finish-evening' && data.nextSession?.id) {
-        window.location.href = `/session/${data.nextSession.id}`;
-      } else if (mode === 'complete-session' && session.campaign_id) {
-        // Whole campaign finished — return the player to the case list.
+      // Any campaign completion (an evening or the whole campaign) returns the
+      // player to the case list, where the campaign now shows its next active
+      // evening to continue. One-shot completion stays on the read-only chat.
+      if (session.campaign_id && (mode === 'finish-evening' || mode === 'complete-session')) {
         window.location.href = '/sessions';
       }
     } catch {

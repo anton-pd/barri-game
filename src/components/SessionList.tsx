@@ -109,7 +109,10 @@ function getSessionThumbnail(worldState: WorldState | undefined): string | null 
 }
 
 /** Get stamp label + CSS modifier for session status. */
-function statusStamp(s: SessionListEntry) {
+function statusStamp(s: SessionListEntry, playedEvening = false) {
+  // A finished evening of an still-active campaign is not a closed case —
+  // it's a played evening belonging to the ongoing campaign.
+  if (playedEvening)            return { label: 'Вечір зіграно', mod: 'active'    };
   if (s.status === 'completed') return { label: 'Закрито',    mod: 'completed' };
   if (s.status === 'paused')    return { label: 'На паузі',   mod: 'paused'    };
   return s.campaign_id
@@ -134,13 +137,15 @@ function formatDate(iso: string) {
 function SessionCard({
   s,
   onDelete,
+  playedEvening = false,
 }: {
   s: SessionListEntry;
   onDelete: (id: string, e: React.MouseEvent) => void;
+  playedEvening?: boolean;
 }) {
   const [confirming, setConfirming] = useState(false);
 
-  const stamp           = statusStamp(s);
+  const stamp           = statusStamp(s, playedEvening);
   const thumbnail       = getSessionThumbnail(s.world_state);
   const players         = s.players as Player[];
   const location        = s.world_state?.currentLocation;
@@ -371,8 +376,24 @@ export default function SessionList() {
 
   // ── Derived state ─────────────────────────────────────────────────────────────
 
-  const openSessions      = sessions.filter((s) => s.status === 'active' || s.status === 'paused');
-  const completedSessions = sessions.filter((s) => s.status === 'completed');
+  // Latest evening number per campaign — a completed evening that is NOT the
+  // latest is a "played evening" of an ongoing campaign, not a closed case.
+  const latestEveningByCampaign = new Map<string, number>();
+  for (const s of sessions) {
+    if (s.campaign_id) {
+      const n = s.session_number ?? 1;
+      latestEveningByCampaign.set(s.campaign_id, Math.max(latestEveningByCampaign.get(s.campaign_id) ?? 0, n));
+    }
+  }
+  const isPlayedEvening = (s: SessionListEntry) =>
+    s.status === 'completed' &&
+    !!s.campaign_id &&
+    (s.session_number ?? 1) < (latestEveningByCampaign.get(s.campaign_id) ?? 0);
+
+  // Played evenings sit with their ongoing campaign under "Відкриті справи";
+  // only truly finished games land in "Завершено".
+  const openSessions      = sessions.filter((s) => s.status === 'active' || s.status === 'paused' || isPlayedEvening(s));
+  const completedSessions = sessions.filter((s) => s.status === 'completed' && !isPlayedEvening(s));
   const activeSessions    = sessions.filter((s) => s.status === 'active');
   const pausedSessions    = sessions.filter((s) => s.status === 'paused');
   const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
@@ -493,7 +514,7 @@ export default function SessionList() {
           </div>
         ) : (
           <div className="session-cards-grid">
-            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} />)}
+            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} />)}
           </div>
         )}
       </div>
