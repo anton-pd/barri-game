@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.10] — 2026-06-03
+
+### Added
+- **Test harness (ANT-107)**: Vitest unit-test infrastructure — `vitest.config.ts` (node env, `globals`, native tsconfig path alias), `npm test` / `npm test:watch` scripts. First suites (34 tests) cover deterministic core logic: `parseSegments`/`stripNpcTags`/`hasNpcSpeech` (`tests/segments.test.ts`), inventory tag mutations (`tests/inventoryTags.test.ts`), random-event probability engine (`tests/randomEvents.test.ts`), and `buildSystemPromptBlocks` shape + campaign-summary gating (`tests/prompts.test.ts`). LLM is never called — pure logic only. Shared fixtures in `tests/fixtures.ts`.
+
+### Changed
+- **Extracted `parseInventoryTags`** from `src/app/api/ai/route.ts` into `src/lib/inventoryTags.ts` (pure, unit-testable) and re-imported it in the route. No behavior change.
+
 ## [0.4.9] — 2026-05-08
 
 ### Changed

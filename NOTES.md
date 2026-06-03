@@ -1762,3 +1762,25 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Empty state uses UnifrakturMaguntia glyph `ꝏ` instead of emoji — consistent with blackletter dossier aesthetic.
 - Grain animation disabled in chat for UX (hours of use, would cause eye strain). Reduced to 13% static opacity instead.
 - Subcomponents `Toggle`, `DynamicImage`, `CaseFilesPanel`, and admin debug panel retain Tailwind colors — these are lower-priority and will be addressed in a follow-up (Tier 3 or later).
+
+## 2026-06-03 — Test harness: Vitest unit tests (ANT-107)
+**Problem:** Project had zero automated tests (`package.json` only had dev/build/start/lint). Complex server-side state transitions — especially the campaign continuity subsystem (ANT-77..81) — were impossible to verify repeatably by hand, which is exactly why that subsystem rotted unverified. We need a reusable harness before touching campaign logic.
+
+**Solution:**
+- Added `vitest` devDep + `vitest.config.ts` (node environment, `globals: true`, native `resolve.tsconfigPaths: true` so the `@/*` alias resolves — dropped the `vite-tsconfig-paths` plugin after Vite warned it is now built in).
+- Scripts: `npm test` (`vitest run`) and `npm test:watch` (`vitest`).
+- First 34 tests against existing deterministic logic, proving the harness and giving immediate regression coverage:
+  - `tests/segments.test.ts` — `parseSegments` (narration/NPC split, partial-name voice resolution, keeper fallback, data-tag stripping, empty-speech drop), `stripNpcTags`, `hasNpcSpeech`.
+  - `tests/inventoryTags.test.ts` — full inventory lifecycle: ITEM add/dedupe, USE_ITEM floor + infinite (-1) guard, REMOVE_ITEM + equip clear, EQUIP exclusivity, BREAK_ITEM, purity (no mutation of input), bad-index no-op.
+  - `tests/randomEvents.test.ts` — guard branches (pending roll / active event), accumulation fire→reset+halve and no-fire grow (Math.random mocked), `applyEventDecision`, `resolveActiveEvent`/`clearActiveEvent`, `buildEventInstruction`.
+  - `tests/prompts.test.ts` — `buildSystemPromptBlocks` returns `{ruleset,static,dynamic}`; campaign-summary section appears in `dynamic` only when `campaignContext.recentSummaries` is provided (directly relevant to ANT-80); world-state rendering; en language path.
+  - `tests/fixtures.ts` — shared minimal type-valid `makeScenario` / `makePlayer` / `makeWorldState` builders.
+
+**Key decisions:**
+- **Vitest, unit-only, LLM never called** (decision confirmed with Anton). DB-touching orchestration is validated via staging playthrough, not integration tests — keeps the harness zero-infra.
+- **Extracted `parseInventoryTags`** out of `src/app/api/ai/route.ts` (which pulls server-only deps like `next/headers`, so it can't be imported into a test) into pure `src/lib/inventoryTags.ts`, re-imported in the route. No behavior change. Same extraction pattern will be used in Part 2 for completion-tag detection and `buildNextSessionWorldState`.
+- Pre-existing lint error in `DiceRoller.tsx:22` (`react-hooks/set-state-in-effect`) is a staging baseline issue, untouched here — flagged separately.
+
+**Verification:** `npm test` → 34 passed; `npx tsc --noEmit` clean; `eslint tests/ src/lib/inventoryTags.ts` clean.
+
+**Next:** Part 2 (separate branch) — re-enable campaign creation (auto from `isCampaign`) and fix ANT-77..81, locked down with campaign-specific unit tests on this harness.
