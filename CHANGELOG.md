@@ -15,6 +15,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Changed
 - Extracted `buildNextSessionWorldState` → `src/lib/campaignState.ts` and completion-tag detection → `src/lib/completionTags.ts` (`detectCompletionAction`), re-imported in the routes. Pure, single-sourced, unit-tested. No behavior change.
+- **`closeSession` hardened**: the Haiku summarization call is now wrapped so a finish-evening never hard-fails (HTTP 500) on an LLM auth/network/JSON error — the evening still closes and the next one is created with a fallback summary. Also instantiates the Anthropic client with an explicit `apiKey` to match the rest of the codebase.
+- **Scenario data**: `the-last-telegram` `sessionConfig.isCampaign` set to `true` in shared scenario data so the campaign flow is actually reachable.
 
 ### Added
 - Campaign unit tests on the ANT-107 harness: `tests/campaignState.test.ts` (carry/reset invariants), `tests/completionTags.test.ts` (tag precedence), `tests/campaignContext.test.ts` (summary formatting, Anthropic SDK + queries mocked). Suite now at 44 tests.

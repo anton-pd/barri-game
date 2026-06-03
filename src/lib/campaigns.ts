@@ -8,7 +8,7 @@ import {
   saveSessionSummary,
 } from './queries';
 
-const anthropic = new Anthropic();
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Get campaign context for injection into prompts
 export async function getCampaignContext(campaignId: string): Promise<{
@@ -55,19 +55,24 @@ export async function closeSession(
   messages: Array<{ role: string; content: string }>
 ): Promise<{ summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> }> {
   const summarizePrompt = buildCloseSessionPrompt(messages);
-  const response = await anthropic.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 500,
-    messages: [{ role: 'user', content: summarizePrompt }],
-  });
 
+  // Finishing an evening must never hard-fail on a summarization hiccup
+  // (LLM auth/network error, malformed JSON). Wrap the whole call so the
+  // evening still closes and the next one is created with a fallback summary.
   let summaryData: { summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> };
   try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 500,
+      messages: [{ role: 'user', content: summarizePrompt }],
+    });
     const text = response.content[0].type === 'text' ? response.content[0].text : '';
     const match = text.match(/\{[\s\S]*\}/);
-    summaryData = match ? JSON.parse(match[0]) : null;
-    if (!summaryData) throw new Error('no json');
-  } catch {
+    const parsed = match ? JSON.parse(match[0]) : null;
+    if (!parsed) throw new Error('no json');
+    summaryData = parsed;
+  } catch (error) {
+    console.error('closeSession: summarization failed, using fallback summary', error);
     summaryData = { summary: 'Сесія завершена.', keyEvents: [], npcChanges: {} };
   }
 
