@@ -1066,3 +1066,85 @@
   .stats-card { flex: 1 1 100%; min-width: 0; }
   .stat-row { grid-template-columns: 32px 1fr 50px; gap: 6px; }
 }
+
+/* ============================================================
+   ATMOSPHERE & MOTION (ANT-103)
+   Purposeful, subtle motion. All non-essential animation is
+   disabled under prefers-reduced-motion (block at the bottom).
+   ============================================================ */
+
+/* Newest message reveal — fade + small rise, runs once on mount
+   (the row is keyed by msg.id, so streaming chunks don't re-trigger it). */
+.chat-msg--reveal {
+  animation: chat-reveal 180ms ease-out both;
+}
+@keyframes chat-reveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Settings panel reveal when toggled open. */
+.chat-settings-panel {
+  animation: chat-panel-in 160ms ease-out both;
+}
+@keyframes chat-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Evidence (dynamic image) loading — aged-paper shimmer while /api/image resolves. */
+.chat-evidence-loading {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(107,90,62,0.28);
+  background: var(--ink-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-evidence-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(193,166,120,0.10) 45%,
+    rgba(193,166,120,0.18) 50%,
+    rgba(193,166,120,0.10) 55%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: chat-shimmer 1.5s ease-in-out infinite;
+}
+.chat-evidence-loading__label {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-oldprint, serif);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--smoke-1);
+}
+@keyframes chat-shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* ── Reduced-motion: honour the OS/browser preference ────────── */
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg--reveal,
+  .chat-settings-panel,
+  .chat-loading-dot,
+  .chat-replay-btn--playing,
+  .chat-evidence-loading::after {
+    animation: none !important;
+  }
+  /* Reveal must still end in the visible state (animation provided `both`). */
+  .chat-msg--reveal { opacity: 1; transform: none; }
+  .chat-settings-panel { opacity: 1; transform: none; }
+  /* Loading dots: keep them visible (steady) instead of bouncing. */
+  .chat-loading-dot { opacity: 0.7; }
+  /* Drawer/sidebar slide → instant. */
+  .chat-sidebar { transition: none !important; }
+}

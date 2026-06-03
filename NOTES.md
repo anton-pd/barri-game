@@ -1866,3 +1866,19 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 **Verification:** `npm test` 50/50; `tsc` clean (after `rm -rf .next` to drop a stale ANT-108 route artifact from a prior build); eslint 0 errors; `npm run build` clean.
 
 **ANT-65 (verify-only, per Anton):** "session ends by itself → no rating/thanks banner" was the same defect as **ANT-77** (keeper auto-closing without confirm), already fixed and in `staging`. Verified the full chain is intact: `detectCompletionAction` parses `[COMPLETE_SESSION]`/`[FINISH_EVENING]` (unit-tested in `completionTags.test.ts`) → `/api/ai` done event returns `completionAction` → `GameChat` done handler calls `openCompletionModal(action, { trigger:'keeper' })` (GameChat.tsx:1184-1185) → modal renders the 1-5 rating + comment + "Подякувати й завершити". There is no server-side auto-completion (status only flips via `/api/sessions/[id]/complete`, gated by the modal). Recommended closing ANT-65 as resolved by ANT-77; final play-to-ending confirmation is Anton's review step.
+
+## 2026-06-03 — Atmosphere & motion pass + reduced-motion (ANT-103)
+**Scope (UI-only, focused subset of the issue):** subtle chat motion + a real `prefers-reduced-motion` audit. Confirmed ANT-105 (auth noir) is already implemented — all auth pages use the `.auth-*` noir system, 0 Tailwind — left a note recommending closure.
+
+**Changes:**
+- `chat.css` (+~80 lines): `.chat-msg--reveal` (fade + 6px rise, 180ms, `both`) + `@keyframes chat-reveal`; `.chat-settings-panel` reveal + `chat-panel-in`; `.chat-evidence-loading` aged-paper shimmer (`::after` sweep, `chat-shimmer`) replacing the generic Tailwind pulse placeholder; and a `@media (prefers-reduced-motion: reduce)` block that disables reveal/panel/loading-dots/replay-pulse/shimmer (keeping final visible state) and makes the sidebar slide instant.
+- `GameChat.tsx`: newest message row gets `chat-msg--reveal` (`idx === messages.length-1`) — keyed by `msg.id`, so it animates once on mount, not per stream chunk; the `DynamicImage` loading branch now renders `.chat-evidence-loading` instead of `bg-stone-800 animate-pulse`.
+- `DiceRoller.tsx`: `roll()` checks `matchMedia('(prefers-reduced-motion: reduce)')` and, when set, skips the 1600ms slot-machine flicker — sets the final d100 digits and `phase='done'` immediately. The pre-existing `react-hooks/set-state-in-effect` error at `DiceRoller.tsx:22` (in the `useEffect`, untouched) remains a staging baseline issue, not introduced here.
+
+**Key decisions:**
+- Reveal gated to the newest message only — avoids animating the whole transcript on load and avoids re-animating on streaming/state updates (React reuses the keyed DOM node).
+- Animations use `both` fill so reduced-motion (animation:none) still lands on the visible end state.
+- Keeper "typing" pulse already existed (`.chat-loading-bubble`/bounce dots) — kept, now covered by reduced-motion.
+- Out of this slice (deferred): TTS/STT speaking-indicator rework.
+
+**Verification:** `npm run build` clean; `tsc` clean; `npm test` 62/62 (no logic change); eslint adds no new errors (only the documented baseline + pre-existing `<img>` warnings). Branch `feature/ANT-103`. Visual/motion confirmation is the review step (transient animations can't be asserted headlessly).

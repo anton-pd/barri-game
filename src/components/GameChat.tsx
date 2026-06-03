@@ -220,8 +220,8 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
 
   if (!resolvedSrc) {
     return (
-      <div className="mt-2 rounded-xl overflow-hidden bg-stone-800 animate-pulse flex items-center justify-center border border-stone-700" style={{ height: 160 }}>
-        <span className="text-stone-500 text-xs font-medium uppercase tracking-wide">Генерується зображення...</span>
+      <div className="chat-evidence-loading mt-2" style={{ height: 160 }}>
+        <span className="chat-evidence-loading__label">Проявляється світлина…</span>
       </div>
     );
   }
@@ -1626,7 +1626,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           const sameAsPrev = !!prev && prev.role === msg.role && (
             !isUser || prev.player_idx === msg.player_idx
           );
-          const rowClass = sameAsPrev ? ' chat-msg--grouped' : '';
+          // Subtle reveal only on the newest message (ANT-103) — keyed by msg.id
+          // so the animation runs once on mount, not on every re-render/stream chunk.
+          const isNewest = idx === messages.length - 1;
+          const rowClass = `${sameAsPrev ? ' chat-msg--grouped' : ''}${isNewest ? ' chat-msg--reveal' : ''}`;
 
           // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
           const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
