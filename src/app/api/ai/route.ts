@@ -15,6 +15,7 @@ import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiv
 import { getCampaignContext } from '@/lib/campaigns';
 import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 import { applyDeltaToPlayer } from '@/lib/statUtils';
+import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import type { WorldState } from '@/types';
 
 export type AiProvider = 'claude-sonnet' | 'gemini-flash';
@@ -86,18 +87,9 @@ async function summarizeAndUpdateWorldState(
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]) as Partial<WorldState>;
-      // Merge — preserve activity tracking fields not in the summary
-      const merged: WorldState = {
-        ...currentWorldState,
-        ...parsed,
-        passiveMessageCount: currentWorldState.passiveMessageCount ?? 0,
-        totalMessageCount: currentWorldState.totalMessageCount ?? 0,
-        locationRisk: currentWorldState.locationRisk ?? {},
-        pendingRollResult: currentWorldState.pendingRollResult,
-        activeRandomEvent: currentWorldState.activeRandomEvent,
-        currentLocationGroup: currentWorldState.currentLocationGroup,
-        npcDetails: currentWorldState.npcDetails,
-      };
+      // Take narrative fields from the summary but keep authoritative
+      // navigation/engine state (ANT-68 — see worldStateMerge.ts).
+      const merged = mergeSummarizedWorldState(currentWorldState, parsed);
       await updateSession(sessionId, { world_state: merged });
     }
   } catch (error) {

@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.13] — 2026-06-03
+
+### Fixed
+- **Location stopped updating after a situational (dynamic) location (ANT-68).** The periodic world-state summary (Haiku/Gemini, every 20 messages) merged the summary LLM's JSON over the live state with `{ ...current, ...parsed }`, letting `parsed.currentLocation` / `parsed.visitedLocations` overwrite the authoritative navigation state that is maintained deterministically by `[LOCATION:]` / `[NEW_LOCATION:]` tag parsing. Because the summary LLM doesn't reliably know the ids of dynamic locations (e.g. `my_apartments`) and the summary runs fire-and-forget (its `updateSession` can land after the main one), the displayed location got "stuck" until a clear `[LOCATION:<standard>]` reset it. Now the summary contributes only narrative fields (act, summary, clues, NPC relations, threads, notes); navigation, engine, and cache fields are always kept from the authoritative current state. Extracted the merge into pure `src/lib/worldStateMerge.ts` with unit coverage.
+
 ## [0.4.12] — 2026-06-03
 
 ### Fixed
