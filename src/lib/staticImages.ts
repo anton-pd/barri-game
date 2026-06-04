@@ -9,6 +9,8 @@ const STYLE_MAP: Record<string, string> = {
   photo: 'vintage photograph 1920s sepia tones grainy aged darkroom',
   artifact: 'mysterious occult artifact dark background 1920s museum exhibit detailed',
   scene: '1920s horror illustration dark atmosphere noir cinematic detailed',
+  // ANT-99: scenario card cover art — painterly 1920s occult-detective pulp poster.
+  cover: 'painted as a 1920s occult-detective pulp mystery movie poster, dramatic painterly key art, moody chiaroscuro, atmospheric fog, muted sepia and teal palette with a single warm amber light source, deep shadows, weathered vintage texture, cinematic wide landscape composition, highly detailed, ominous Lovecraftian mood, absolutely no text no lettering no words no typography',
 };
 
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);

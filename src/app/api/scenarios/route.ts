@@ -15,13 +15,18 @@ export async function GET() {
       const content = fs.readFileSync(path.join(scenariosDir, file), 'utf-8');
       const scenario = JSON.parse(content) as Scenario;
 
-      // Cover = first staticImage whose generated file already exists on disk.
-      // Uses cached assets only — never triggers image generation (ANT-99).
+      // Cover priority (ANT-99, cached assets only — never generates here):
+      //   1. dedicated painterly pulp-poster cover.jpg (scripts/generate-covers.mjs)
+      //   2. first staticImage whose file exists on disk
       let cover: string | undefined;
-      for (const img of scenario.staticImages ?? []) {
-        if (fs.existsSync(path.join(publicScenariosDir, scenario.id, `${img.id}.jpg`))) {
-          cover = `/scenarios/${scenario.id}/${img.id}.jpg`;
-          break;
+      if (fs.existsSync(path.join(publicScenariosDir, scenario.id, 'cover.jpg'))) {
+        cover = `/scenarios/${scenario.id}/cover.jpg`;
+      } else {
+        for (const img of scenario.staticImages ?? []) {
+          if (fs.existsSync(path.join(publicScenariosDir, scenario.id, `${img.id}.jpg`))) {
+            cover = `/scenarios/${scenario.id}/${img.id}.jpg`;
+            break;
+          }
         }
       }
       return { ...scenario, cover };
