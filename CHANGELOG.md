@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.18] — 2026-06-04
+
+### Added
+- **Bespoke painterly cover art per scenario (ANT-99 follow-up).** Generated a dedicated pulp-poster cover for every scenario instead of reusing a location/clue image: 1920s occult-detective movie-poster key art (moody chiaroscuro, fog, amber light, sepia/teal), one hand-authored subject per scenario. `scripts/generate-covers.mjs` (committed, documents the prompts) generates `cover.jpg` via Gemini `gemini-2.5-flash-image`; covers are post-processed to 900×600 JPEG (~45–80 KB) and kept separate from in-game `staticImages`. `GET /api/scenarios` now prefers `cover.jpg` when present, falling back to the first static image. Added a `cover` entry to `STYLE_MAP`.
+
 ## [0.4.17] — 2026-06-03
 
 ### Changed

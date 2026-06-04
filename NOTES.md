@@ -1911,3 +1911,15 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Counts/cover computed server-side once in the list endpoint to keep the client simple and avoid N per-card requests.
 
 **Verification:** `tsc` clean; eslint 0 errors (only the new cover `<img>` warnings, same pattern as existing thumbnails); `npm run build` clean; `npm test` green (no logic change). Branch `feature/ANT-99`. Post-deploy: confirm `/api/scenarios` returns `cover` URLs and they 200. Visual confirmation (hero thumbs, closed muting, mobile heights) is the review step.
+
+## 2026-06-04 — Bespoke painterly scenario covers (ANT-99 follow-up)
+**Ask (Anton):** the earlier ANT-99 cover reused a location/clue image; he wanted a real, *cool* cover generated per scenario.
+
+**Solution:** painterly **1920s occult-detective pulp-poster** art direction (chosen by Anton over photo/woodcut). One hand-authored subject per scenario (derelict Boston house for the-haunting/-v2; lonely telegraph office for the-last-telegram; storm-lit unfinished Sagrada Família for the two Barcelona scenarios) + shared poster style suffix, "no text/lettering" guard.
+- `scripts/generate-covers.mjs` (committed — documents prompts; reusable with `--force [id]`): calls Gemini `gemini-2.5-flash-image`, writes `<targetDir>/<id>/cover.jpg`. Some shared_data dirs are root-owned (container-created), so those covers were generated *inside* the container (`docker cp` script → `docker exec node`); the rest ran on the host.
+- Post-processed all five with `sharp` (in-container) to **900×600 JPEG q82** → 44–81 KB each (Gemini returns ~1.7 MB PNG-in-jpg; way too heavy for a card grid). 3:2 crop gives a consistent card aspect.
+- `GET /api/scenarios` cover priority: `cover.jpg` → first existing `staticImage`. Added `cover` to `STYLE_MAP` in `staticImages.ts` for future in-pipeline regeneration.
+
+**Cost:** 5 images on `gemini-2.5-flash-image` (~$0.04 each ≈ $0.20). Regenerable any time via the script.
+
+**Verification:** `tsc` clean; eslint clean on changed TS; `npm run build` clean. Covers live on the shared_data volume and serve 200. Branch `feature/ANT-99-covers`. Visual quality is Anton's call — if a cover misses, re-run `node scripts/generate-covers.mjs --force <id>` (host) or via container for root-owned dirs.
