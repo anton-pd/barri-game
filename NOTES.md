@@ -1823,3 +1823,38 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors. Rebuilt staging (wit
 - **finish-evening now redirects to /sessions** too (not into the new evening). `submitCompletion`: any campaign completion (finish-evening or complete-session) → `/sessions`; one-shot complete stays on read-only chat. Rationale: after finishing an evening the player should land in the menu and see the campaign's next active evening to continue, rather than being dropped straight into it.
 - **Played evenings reclassified** (`SessionList.tsx`): a completed evening that is NOT the latest in its campaign is a "played evening" of an ongoing campaign, not a closed case. Computed `latestEveningByCampaign` + `isPlayedEvening(s)`; such evenings now render under "Відкриті справи" with a "Вечір зіграно" stamp (mod active) and the "Переглянути" read-only CTA, instead of "Закрито" in the completed section. Fixes the confusion of one campaign appearing simultaneously as active (evening 2) and closed (evening 1). `statusStamp` gained an optional `playedEvening` arg; `SessionCard` a `playedEvening` prop.
 Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
+
+## 2026-06-04 — QA Audit Critical Fixes (claude/qa-audit-critical-fixes-AtchM)
+
+### Problem
+Six bugs found in staging QA audit (barrigame.es):
+- **#5 Critical** — AI Keeper stops responding; send button stays disabled indefinitely. Root cause: `new Anthropic({ apiKey: '' })` threw at module load time when Claude Code shell shadows `ANTHROPIC_API_KEY` as empty string. Next.js never got a chance to return a 500, so the SSE fetch hung forever, leaving `isLoading=true`. Secondary: Gemini `fetch()` in `callGeminiChat` had no timeout, could hang indefinitely if API unreachable.
+- **#4 Medium** — `GET /api/admin/costs?breakdown=accounts` → 500. Root cause: `getAccountsBreakdown` joined `api_usage au` with `users u`, but `periodFilter()` emitted unqualified `created_at` → PostgreSQL "column reference 'created_at' is ambiguous".
+- **#1 Critical** — Login error message (INVALID_CREDENTIALS) visible in DOM but hidden visually on desktop. Root cause: `.auth-error` has `position: static`, while `.landing-root::before` (grain overlay) sits at `z-index: 100` inside an `isolation: isolate` stacking context, obscuring `.auth-error`.
+- **#6 Medium** — `<nav>` present in DOM but hidden on mobile (`display: none`), no hamburger trigger.
+- **#3 Low** — "knows ,a Keeper" / "знає ,Хранитель" — comma at start of `heading[2]` instead of end of `heading[1]`.
+- **#2 Low** — "yourunspeakablefailures" / "вашіжахливіпровали" — spaces around `.redact` span missing in `innerText` (caused by `user-select: none` on span, which Playwright's `innerText` ignores).
+
+### Solution
+- **#5 — `src/app/api/ai/route.ts`:**
+  - Changed module-level `const anthropic = new Anthropic(...)` to lazy init via `getAnthropicClient()` (already done in previous session).
+  - Updated all `anthropic.messages.create(...)` and `anthropic.messages.stream(...)` call sites to use `getAnthropicClient()`.
+  - Added 45-second `AbortController` timeout to `callGeminiChat` fetch call.
+- **#4 — `src/lib/costTracker.ts`:**
+  - Added `periodFilterAu(period, date)` — identical to `periodFilter` but with explicit `au.created_at` prefix.
+  - Used `pfAu` in the JOIN query inside `getAccountsBreakdown`; second single-table query continues using `pf` (unambiguous).
+- **#1 — `src/app/auth/auth.css`:**
+  - Added `position: relative; z-index: 101;` to `.auth-error` so it stacks above the grain overlay.
+- **#6 — `src/app/LandingClient.tsx` + `src/app/landing.css`:**
+  - Added `navOpen` state; hamburger button (3-line → X animated) hidden on desktop via CSS, visible on mobile.
+  - Mobile nav overlay (`position: fixed`, top: 56px) appears when `navOpen=true`, collapses on link click.
+- **#3 — `src/app/content.ts`:**
+  - Moved comma from start of `heading[2]` to end of `heading[1]` for all 3 languages (en/uk/es).
+- **#2 — `src/app/LandingClient.tsx` + `src/app/content.ts`:**
+  - Removed `{" "}` JSX text nodes around `.redact` span.
+  - Added trailing space to each `lede` string and leading space to each `ledeEnd` string — spaces now part of the surrounding text nodes, not adjacent to the `user-select: none` span, so `innerText` picks them up correctly.
+
+### Key decisions
+- `periodFilterAu` is a simple duplication rather than a parameterized helper — keeps the fix local to the one JOIN query where the problem exists; the rest of the codebase's single-table queries continue using `periodFilter` unchanged.
+- Hamburger menu is minimal: no animation library, pure CSS transform for X icon. Mobile nav is `position: fixed` to avoid issues with `overflow: hidden` on `.landing-root`.
+- `z-index: 101` for `.auth-error` — one above the grain overlay at 100; safe since `.auth-root`/form elements sit in the same `landing-root` stacking context.

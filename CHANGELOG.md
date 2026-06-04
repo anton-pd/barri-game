@@ -5,6 +5,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.13] — 2026-06-04
+
+### Fixed
+- **AI Keeper stops responding (critical):** Lazy-initialize Anthropic SDK client instead of throwing at module load when `ANTHROPIC_API_KEY` is empty (Claude Code shell shadow). Added 45-second `AbortController` timeout to Gemini `callGeminiChat` fetch to prevent indefinite hangs.
+- **Admin costs "By Account" section 500 error:** Fixed SQL ambiguity — `created_at` in the `api_usage JOIN users` query now qualified as `au.created_at` via new `periodFilterAu()` helper.
+- **Login error message hidden on desktop:** Added `position: relative; z-index: 101` to `.auth-error` so it renders above the grain overlay (`z-index: 100`).
+- **No mobile navigation:** Added hamburger button to topbar; tapping it reveals a fixed-position mobile nav overlay with all four section links. Animated 3-line → X icon on open. Hidden on desktop.
+- **"knows ,a Keeper" comma placement:** Moved comma from start of the third heading segment to end of the second, for EN / UK / ES.
+- **"yourunspeakablefailures" merged text:** Spaces around the redacted word are now baked into the surrounding `lede`/`ledeEnd` content strings rather than relying on JSX `{" "}` text nodes adjacent to a `user-select: none` span.
+
 ## [0.4.12] — 2026-06-03
 
 ### Fixed

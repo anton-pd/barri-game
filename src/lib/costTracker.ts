@@ -13,6 +13,17 @@ function periodFilter(period: Period, date?: string) {
   }
 }
 
+// Variant with explicit table alias for JOIN queries where 'created_at' would be ambiguous
+function periodFilterAu(period: Period, date?: string) {
+  switch (period) {
+    case 'today': return sql`au.created_at >= CURRENT_DATE`;
+    case 'week': return sql`au.created_at >= date_trunc('week', NOW())`;
+    case 'month': return sql`au.created_at >= date_trunc('month', NOW())`;
+    case 'custom': return date ? sql`DATE(au.created_at) = ${date}::date` : sql`au.created_at > NOW() - INTERVAL '30 days'`;
+    default: return sql`TRUE`; // 'all'
+  }
+}
+
 // ── Pricing cache ─────────────────────────────────────────────────────────────
 
 type PricingMap = Record<string, Record<string, Record<string, number>>>;
@@ -381,6 +392,7 @@ export async function getScenarioBreakdown(): Promise<ScenarioRow[]> {
 export async function getAccountsBreakdown(period: Period = 'month', date?: string): Promise<AccountRow[]> {
   const pf = periodFilter(period, date);
 
+  const pfAu = periodFilterAu(period, date);
   const accountRows = await sql`
     SELECT
       u.id                                       AS user_id,
@@ -390,7 +402,7 @@ export async function getAccountsBreakdown(period: Period = 'month', date?: stri
       MAX(au.created_at)                         AS last_active
     FROM api_usage au
     JOIN users u ON u.id = au.user_id
-    WHERE ${pf}
+    WHERE ${pfAu}
     GROUP BY u.id, u.email
     ORDER BY total_cost DESC NULLS LAST
   `;

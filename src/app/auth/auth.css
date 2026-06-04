@@ -299,6 +299,8 @@
    ERROR & WARNING
    ============================================================ */
 .auth-error {
+  position: relative;
+  z-index: 101;
   font-family: var(--font-typewriter);
   font-size: 11px;
   letter-spacing: 0.14em;

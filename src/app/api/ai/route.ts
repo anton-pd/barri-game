@@ -56,7 +56,16 @@ function isExplicitImageRequest(message: string): boolean {
   ].some((pattern) => pattern.test(message));
 }
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+// Lazy init: avoid module-level throw when ANTHROPIC_API_KEY is empty (e.g. shell env
+// shadow from Claude Code). A module-level crash hangs the SSE connection because
+// Next.js never gets a chance to send an error response.
+let _anthropic: Anthropic | null = null;
+function getAnthropicClient(): Anthropic {
+  if (!_anthropic) {
+    _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  }
+  return _anthropic;
+}
 
 // ── Summarize (always uses fast/cheap model) ──────────────────────────────────
 
@@ -73,7 +82,7 @@ async function summarizeAndUpdateWorldState(
     let text = '';
 
     if (aiProvider === 'claude-sonnet') {
-      const response = await anthropic.messages.create({
+      const response = await getAnthropicClient().messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 500,
         messages: [{ role: 'user', content: summarizePrompt }],
@@ -135,10 +144,17 @@ async function callGeminiChat(
     },
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 45_000);
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: controller.signal }
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     const err = await res.text();
@@ -425,7 +441,7 @@ export async function POST(request: Request) {
 
         if (aiProvider === 'claude-sonnet') {
           // CHANGED: Stream response so client sees text as it arrives
-          const claudeStream = anthropic.messages.stream(
+          const claudeStream = getAnthropicClient().messages.stream(
             {
               model: 'claude-sonnet-4-6',
               max_tokens: isIntro ? 1400 : 900,

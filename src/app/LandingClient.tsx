@@ -12,6 +12,7 @@ const LANGS: { code: Lang; label: string }[] = [
 
 export default function LandingClient() {
   const [lang, setLang] = useState<Lang>("en");
+  const [navOpen, setNavOpen] = useState(false);
   const c = CONTENT[lang];
 
   return (
@@ -41,8 +42,25 @@ export default function LandingClient() {
             ))}
           </div>
           <Link href="/auth/register" className="enter-btn">{c.nav.enter}</Link>
+          <button
+            className={`topbar-hamburger${navOpen ? " open" : ""}`}
+            aria-label="Menu"
+            aria-expanded={navOpen}
+            onClick={() => setNavOpen((v) => !v)}
+          >
+            <span /><span /><span />
+          </button>
         </div>
       </header>
+
+      {navOpen && (
+        <div className="topbar-mobile-nav" role="navigation">
+          <a href="#exhibits" onClick={() => setNavOpen(false)}>{c.nav.exhibits}</a>
+          <a href="#procedure" onClick={() => setNavOpen(false)}>{c.nav.procedure}</a>
+          <a href="#cases" onClick={() => setNavOpen(false)}>{c.nav.cases}</a>
+          <a href="#testimony" onClick={() => setNavOpen(false)}>{c.nav.testimony}</a>
+        </div>
+      )}
 
       {/* HERO */}
       <section className="hero">
@@ -66,9 +84,7 @@ export default function LandingClient() {
             </h1>
 
             <p className="hero-lede reveal d4">
-              {c.hero.lede}{" "}
-              <span className="redact">{c.hero.redact}</span>{" "}
-              {c.hero.ledeEnd}
+              {c.hero.lede}<span className="redact">{c.hero.redact}</span>{c.hero.ledeEnd}
             </p>
 
             <div className="hero-cta-row reveal d5">

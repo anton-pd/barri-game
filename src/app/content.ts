@@ -15,9 +15,9 @@ export const CONTENT = {
       t1: "The Keeper",
       t2: "is already",
       t3: "listening",
-      lede: "An AI-run Call of Cthulhu investigation, played in your browser. Your party, your choices, your",
+      lede: "An AI-run Call of Cthulhu investigation, played in your browser. Your party, your choices, your ",
       redact: "unspeakable",
-      ledeEnd: "failures — all recorded in a dossier that never forgets.",
+      ledeEnd: " failures — all recorded in a dossier that never forgets.",
       cta: "Open the Case File",
       ghost: "Read the Evidence",
     },
@@ -44,7 +44,7 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "§ I · The Evidence",
-      heading: ["What a Keeper ", "knows", ",\xa0a Keeper remembers."],
+      heading: ["What a Keeper ", "knows,", "\xa0a Keeper remembers."],
       desc: "Six exhibits, logged by the Bureau. Read each in full, and you begin to grasp why the Keeper never needs to sleep.",
       items: [
         {
@@ -203,9 +203,9 @@ export const CONTENT = {
       t1: "Хранитель",
       t2: "вже",
       t3: "слухає",
-      lede: "Комп'ютерна гра у Call of Cthulhu з AI-Хранителем — у вашому браузері. Ваша команда, ваші вибори, ваші",
+      lede: "Комп'ютерна гра у Call of Cthulhu з AI-Хранителем — у вашому браузері. Ваша команда, ваші вибори, ваші ",
       redact: "жахливі",
-      ledeEnd: "провали — всі вони записані в досьє, яке нічого не забуває.",
+      ledeEnd: " провали — всі вони записані в досьє, яке нічого не забуває.",
       cta: "Відкрити справу",
       ghost: "Читати докази",
     },
@@ -232,7 +232,7 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "§ I · Докази",
-      heading: ["Що Хранитель ", "знає", ",\xa0Хранитель пам'ятає."],
+      heading: ["Що Хранитель ", "знає,", "\xa0Хранитель пам'ятає."],
       desc: "Шість доказів, внесених до реєстру. Прочитайте кожен — і ви почнете розуміти, чому Хранитель не потребує сну.",
       items: [
         {
@@ -391,9 +391,9 @@ export const CONTENT = {
       t1: "El Guardián",
       t2: "ya está",
       t3: "escuchando",
-      lede: "Una investigación de Call of Cthulhu dirigida por IA, jugada en tu navegador. Tu grupo, tus decisiones, tus",
+      lede: "Una investigación de Call of Cthulhu dirigida por IA, jugada en tu navegador. Tu grupo, tus decisiones, tus ",
       redact: "indecibles",
-      ledeEnd: "fracasos — todo registrado en un expediente que nunca olvida.",
+      ledeEnd: " fracasos — todo registrado en un expediente que nunca olvida.",
       cta: "Abrir el expediente",
       ghost: "Leer las pruebas",
     },
@@ -420,7 +420,7 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "§ I · Las pruebas",
-      heading: ["Lo que el Guardián ", "sabe", ",\xa0el Guardián lo recuerda."],
+      heading: ["Lo que el Guardián ", "sabe,", "\xa0el Guardián lo recuerda."],
       desc: "Seis pruebas registradas por el Buró. Léelas todas y comenzarás a entender por qué el Guardián no necesita dormir.",
       items: [
         {
