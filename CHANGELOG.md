@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.17] — 2026-06-03
+
+### Changed
+- **Sessions list: scenario cover art + noir restyle for available/closed cases (ANT-99).**
+  - **Cover art with zero generation cost** — `GET /api/scenarios` now returns a `cover` URL per scenario, computed server-side from the first `staticImage` whose file already exists on disk (cached assets only; never triggers image generation).
+  - **No more ∞ placeholder** — session cards fall back to the scenario cover when there's no session-generated scene yet, so freshly-created sessions show real imagery.
+  - **Available case files** get a cover hero thumbnail (with a sealed-paper fallback + "Справа" classified tab) so they match the landing case-file grammar instead of being flat panels.
+  - **Closed cases** render muted (desaturated thumbnail + lower opacity, brightening on hover) with the existing "Закрито" stamp, so they read clearly differently from active ones.
+
 ## [0.4.16] — 2026-06-03
 
 ### Changed
