@@ -139,15 +139,20 @@ function SessionCard({
   s,
   onDelete,
   playedEvening = false,
+  coverFallback,
 }: {
   s: SessionListEntry;
   onDelete: (id: string, e: React.MouseEvent) => void;
   playedEvening?: boolean;
+  coverFallback?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
 
   const stamp           = statusStamp(s, playedEvening);
-  const thumbnail       = getSessionThumbnail(s.world_state);
+  // Prefer a session-generated scene; fall back to the scenario cover so
+  // freshly-created sessions never show the ∞ placeholder (ANT-99).
+  const thumbnail       = getSessionThumbnail(s.world_state) || coverFallback || null;
+  const isClosed        = s.status === 'completed' && !playedEvening;
   const players         = s.players as Player[];
   const location        = s.world_state?.currentLocation;
   const snippet         = s.latest_summary || s.last_message || null;
@@ -174,7 +179,7 @@ function SessionCard({
   }
 
   return (
-    <Link href={`/session/${s.id}`} className="session-card">
+    <Link href={`/session/${s.id}`} className={`session-card${isClosed ? ' session-card--closed' : ''}`}>
       {/* Thumbnail */}
       <div className="session-card-thumb">
         {thumbnail ? (
@@ -395,6 +400,12 @@ export default function SessionList() {
   // only truly finished games land in "Завершено".
   const openSessions      = sessions.filter((s) => s.status === 'active' || s.status === 'paused' || isPlayedEvening(s));
   const completedSessions = sessions.filter((s) => s.status === 'completed' && !isPlayedEvening(s));
+
+  // scenario_id → cover URL, so session cards can fall back to the scenario
+  // cover when there's no session-generated scene yet (ANT-99).
+  const coverById: Record<string, string> = Object.fromEntries(
+    scenarios.filter((sc) => sc.cover).map((sc) => [sc.id, sc.cover as string])
+  );
   const activeSessions    = sessions.filter((s) => s.status === 'active');
   const pausedSessions    = sessions.filter((s) => s.status === 'paused');
   const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
@@ -547,7 +558,7 @@ export default function SessionList() {
           </div>
         ) : (
           <div className="session-cards-grid">
-            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} />)}
+            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} />)}
           </div>
         )}
       </div>
@@ -559,7 +570,7 @@ export default function SessionList() {
             <span className="section-divider-title">Закриті справи</span>
           </div>
           <div className="session-cards-grid">
-            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} />)}
+            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} coverFallback={coverById[s.scenario_id]} />)}
           </div>
         </div>
       )}
@@ -576,6 +587,16 @@ export default function SessionList() {
             const isCampaign = sc.sessionConfig?.isCampaign;
             return (
               <div key={sc.id} className="case-file-card">
+                <div className="case-file-thumb">
+                  {sc.cover ? (
+                    <img src={sc.cover} alt="" loading="lazy" />
+                  ) : (
+                    <div className="case-file-thumb-fallback" aria-hidden>
+                      <span className="case-file-thumb-seal">B</span>
+                    </div>
+                  )}
+                  <span className="case-file-classified">Справа</span>
+                </div>
                 <div>
                   <span className={`case-file-difficulty case-file-difficulty--${diff.mod}`}>
                     {diff.label}

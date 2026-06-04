@@ -1116,3 +1116,65 @@
   50%       { opacity: 0.75; }
 }
 .sessions-loading-card { animation: ses-pulse 1.8s ease-in-out infinite; }
+
+/* ============================================================
+   AVAILABLE CASE-FILE COVER HERO + CLOSED MUTED STATE (ANT-99)
+   ============================================================ */
+.case-file-thumb {
+  position: relative;
+  margin: -20px -20px 14px;
+  height: 120px;
+  overflow: hidden;
+  background: var(--ink-2);
+}
+.case-file-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: sepia(0.45) contrast(1.1) brightness(0.82);
+  transition: filter 0.35s, transform 0.35s;
+}
+.case-file-card:hover .case-file-thumb img {
+  filter: sepia(0.2) contrast(1.2) brightness(0.95);
+  transform: scale(1.04);
+}
+.case-file-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, var(--ink-2) 0%, var(--ink-3) 100%);
+}
+.case-file-thumb-seal {
+  font-family: var(--font-blackletter);
+  font-size: 56px;
+  color: var(--paper-3);
+  opacity: 0.18;
+  transform: rotate(-6deg);
+  user-select: none;
+  line-height: 1;
+}
+.case-file-classified {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-family: var(--font-typewriter);
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--paper-0);
+  background: rgba(126,30,28,0.85);
+  padding: 2px 7px 1px;
+  transform: rotate(2deg);
+}
+
+/* Closed cases: muted paper so they read differently from active ones. */
+.session-card--closed { opacity: 0.85; }
+.session-card--closed .session-card-thumb img { filter: grayscale(0.55) sepia(0.3) brightness(0.7); }
+.session-card--closed:hover { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .case-file-thumb img { transition: none; }
+}

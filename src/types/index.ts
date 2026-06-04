@@ -332,6 +332,9 @@ export interface Scenario {
   npcs: NPC[];
   locations: Location[];
   staticImages?: StaticImage[];
+  // Cover thumbnail URL, computed server-side in GET /api/scenarios from the
+  // first staticImage whose file exists on disk (ANT-99). No generation.
+  cover?: string;
   // CHANGED: New fields for multi-ruleset and campaign support (phases 1, 3, 13)
   rulesetId?: string;
   supportedRoles?: string[];

@@ -1897,3 +1897,17 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Collapse is desktop-only (all collapse CSS gated under `min-width:768px`); mobile always renders the full dossier in the drawer.
 
 **Verification:** `tsc` clean; eslint 0 errors on GameChat (pre-existing `<img>` warnings only); `npm run build` clean; `npm test` 62/62 (no logic change). Branch `feature/ANT-102`. Visual/interaction confirmation (expand/collapse, stamps, evidence cards, mobile drawer) is the review step.
+
+## 2026-06-03 — Sessions list cover art + available/closed restyle (ANT-99)
+**Problem:** Most `/sessions` cards fell back to a giant ∞ glyph because scenario scenes are only generated during play; "Доступні справи" were flat imageless panels and "Закриті справи" looked identical to active.
+
+**Solution (UI + small server augment, NO image generation → zero cost):**
+- **`GET /api/scenarios`** now attaches `cover?: string` per scenario: the first `staticImages[]` entry whose `<id>.jpg` exists under `public/scenarios/<id>/` (cached assets on the shared_data volume). Pure filesystem check, no generation. Added `cover?` to the `Scenario` type.
+- **`SessionList.tsx`**: built `coverById` (scenario_id → cover) from loaded scenarios; `SessionCard` gained a `coverFallback` prop and now resolves thumbnail as `sessionImages → scenario cover → fallback`, so new sessions show real imagery instead of ∞. Closed sessions (`status==='completed' && !playedEvening`) get a `session-card--closed` modifier. Available `case-file-card`s gained a `.case-file-thumb` cover hero (with a sealed-paper fallback + "Справа" classified tab).
+- **`sessions.css`**: `.case-file-thumb`/img/fallback/seal/classified, `.session-card--closed` muted (desaturated thumb + lower opacity, brightens on hover), reduced-motion guard for the cover zoom.
+
+**Key decisions:**
+- Cover uses **existing cached assets only** — confirmed with the disk listing (`shared_data/public/scenarios/<id>/*.jpg`); no Gemini image calls, no API cost. Scenarios without any generated static image still degrade gracefully (sealed-paper fallback, not the giant ∞).
+- Counts/cover computed server-side once in the list endpoint to keep the client simple and avoid N per-card requests.
+
+**Verification:** `tsc` clean; eslint 0 errors (only the new cover `<img>` warnings, same pattern as existing thumbnails); `npm run build` clean; `npm test` green (no logic change). Branch `feature/ANT-99`. Post-deploy: confirm `/api/scenarios` returns `cover` URLs and they 200. Visual confirmation (hero thumbs, closed muting, mobile heights) is the review step.
