@@ -715,3 +715,4 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Demo localized intents**: основні EN/UK/ES демо-дії тепер надійніше приводять Keeper до відповідних scenario tags без повернення keyword-прогресу для будь-якого тексту.
 - **Demo microcopy**: напис на дверях демо оновлено на “Відділ паранормальних справ” замість “справ, що відмовилися померти”.
 - **Demo free-text flow**: тимчасово прибрано кнопки запропонованих дій над чатом, щоб користувачі писали власні ходи.
+- **Admin usage**: usage dashboard тепер трекає anonymous instant-demo calls і показує окремий блок `Anonymous Demo` з сесіями, токенами та cost.

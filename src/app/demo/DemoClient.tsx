@@ -125,6 +125,13 @@ function countClues(flags: DemoFlags) {
   return [flags.doorInspected, flags.hasPin, flags.hasPassphrase].filter(Boolean).length;
 }
 
+function createAnonymousSessionId() {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `demo:${crypto.randomUUID()}`;
+  }
+  return `demo:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 export default function DemoClient() {
   const [lang, setLang] = useState<DemoLang>('en');
   const copy = DEMO_COPY[lang];
@@ -141,12 +148,17 @@ export default function DemoClient() {
   const [waitlistError, setWaitlistError] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(DEMO_SECONDS);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const anonymousSessionRef = useRef('');
 
   const flags = useMemo(() => getFlags(worldState, players), [worldState, players]);
   const clueCount = countClues(flags);
   const pendingRoll = worldState.pendingRollResult;
 
   useEffect(() => {
+    if (!anonymousSessionRef.current) {
+      anonymousSessionRef.current = createAnonymousSessionId();
+    }
+
     const queryLang = new URLSearchParams(window.location.search).get('lang');
     if (queryLang === 'uk' || queryLang === 'es' || queryLang === 'en') {
       resetDemo(queryLang);
@@ -221,6 +233,9 @@ export default function DemoClient() {
     setInput('');
     addMessage({ role: 'player', meta: 'You', text: trimmed });
     setThinking(true);
+    if (!anonymousSessionRef.current) {
+      anonymousSessionRef.current = createAnonymousSessionId();
+    }
 
     try {
       const res = await fetch('/api/demo/keeper', {
@@ -232,6 +247,7 @@ export default function DemoClient() {
           worldState,
           players,
           language: lang,
+          anonymousSessionId: anonymousSessionRef.current,
         }),
       });
       const reply = await res.json() as KeeperReply | { error?: string };

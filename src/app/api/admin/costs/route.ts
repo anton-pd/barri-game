@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
+import { ensureSchema } from '@/lib/queries';
 import {
   getAdminOverview, getUserCosts, getSessionCosts,
   getModelBreakdown, getSessionBreakdownEnhanced, getAccountsBreakdown, getScenarioBreakdown,
+  getAnonymousDemoBreakdown,
   type Period,
 } from '@/lib/costTracker';
 
 export async function GET(request: Request) {
   try {
+    await ensureSchema();
+
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value;
     const payload = token ? await verifyJwt(token) : null;
@@ -28,6 +32,7 @@ export async function GET(request: Request) {
     if (breakdown === 'sessions-enhanced') return NextResponse.json(await getSessionBreakdownEnhanced());
     if (breakdown === 'accounts')          return NextResponse.json(await getAccountsBreakdown(period, date));
     if (breakdown === 'scenarios')         return NextResponse.json(await getScenarioBreakdown());
+    if (breakdown === 'anonymous-demo')    return NextResponse.json(await getAnonymousDemoBreakdown(period, date));
 
     if (sessionId) return NextResponse.json(await getSessionCosts(sessionId));
 

@@ -2059,3 +2059,18 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Temporarily removed demo suggested action buttons above the chat to encourage visitors to write their own actions.
 - Kept the dedicated d100 dice panel because it is roll-resolution UI, not a hint/action shortcut.
 - Updated EN/UK/ES demo briefing copy so it asks users to tell the Keeper what they do in their own words.
+
+## 2026-06-08 — Admin usage: anonymous demo tracking
+
+**Ask:** Anton requested that admin usage now also track anonymous public demo sessions.
+
+**Solution:**
+- Extended `api_usage` with lightweight attribution fields:
+  - `source` (`session` default, `demo` for public demo);
+  - `anonymous_session_id`;
+  - `scenario_id`.
+- `/demo` now creates a per-page-load anonymous demo id and sends it to `/api/demo/keeper`.
+- `/api/demo/keeper` now tracks Gemini usage via `trackAPICall()` with `source='demo'`, `scenarioId='instant-demo-archive-door'`, and the anonymous id.
+- `trackAPICall()` now supports nullable `userId` so public anonymous calls can be tracked without a user record.
+- Admin Usage now has an `Anonymous Demo` section with sessions, calls, tokens, avg cost/session, total cost, and expandable model breakdown.
+- Admin model totals will include demo usage automatically because the records are in `api_usage`.

@@ -51,6 +51,26 @@ interface ScenarioUsageRow {
   rating_count: number;
 }
 
+interface AnonymousDemoModelRow {
+  scenario_id: string; provider: string; model: string; type: string;
+  calls: number; input_tokens: number | null; output_tokens: number | null;
+  characters: number | null; image_count: number | null; cost: number;
+}
+
+interface AnonymousDemoRow {
+  scenario_id: string;
+  anonymous_sessions: number;
+  calls: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  characters: number | null;
+  image_count: number | null;
+  total_cost: number;
+  avg_cost_per_session: number;
+  last_active: string;
+  models: AnonymousDemoModelRow[];
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtN(n: number | null | undefined): string {
@@ -130,15 +150,18 @@ export default function UsageTab() {
   const [sessionRows,  setSessionRows]  = useState<SessionRow[]>([]);
   const [accountRows,  setAccountRows]  = useState<AccountRow[]>([]);
   const [scenarioRows, setScenarioRows] = useState<ScenarioUsageRow[]>([]);
+  const [anonymousDemoRows, setAnonymousDemoRows] = useState<AnonymousDemoRow[]>([]);
 
   const [loadingModels,   setLoadingModels]   = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingScenarios, setLoadingScenarios] = useState(true);
+  const [loadingAnonymousDemo, setLoadingAnonymousDemo] = useState(true);
 
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
   const [expandedAccounts, setExpandedAccounts] = useState<Set<string>>(new Set());
+  const [expandedAnonymousDemo, setExpandedAnonymousDemo] = useState<Set<string>>(new Set());
 
   function buildPeriodParams(p: Period, d: string) {
     const params = new URLSearchParams({ period: p });
@@ -175,6 +198,15 @@ export default function UsageTab() {
     }
   }, []);
 
+  const fetchAnonymousDemo = useCallback(async (p: Period, d: string) => {
+    if (p === 'custom' && !d) return;
+    setLoadingAnonymousDemo(true);
+    try {
+      const res = await fetch(`/api/admin/costs?breakdown=anonymous-demo&${buildPeriodParams(p, d)}`);
+      if (res.ok) setAnonymousDemoRows(await res.json());
+    } finally { setLoadingAnonymousDemo(false); }
+  }, []);
+
   const fetchScenarios = useCallback(async () => {
     setLoadingScenarios(true);
     try {
@@ -189,13 +221,15 @@ export default function UsageTab() {
     fetchScenarios();
     fetchModels('month', '');
     fetchAccounts('month', '');
-  }, [fetchSessions, fetchScenarios, fetchModels, fetchAccounts]);
+    fetchAnonymousDemo('month', '');
+  }, [fetchSessions, fetchScenarios, fetchModels, fetchAccounts, fetchAnonymousDemo]);
 
   // Re-fetch on period change
   function applyPeriod(p: Period, d: string) {
     setPeriod(p);
     fetchModels(p, d);
     fetchAccounts(p, d);
+    fetchAnonymousDemo(p, d);
   }
 
   function toggleSession(id: string) {
@@ -209,6 +243,15 @@ export default function UsageTab() {
 
   function toggleAccount(id: string) {
     setExpandedAccounts(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAnonymousDemo(id: string) {
+    setExpandedAnonymousDemo(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -250,7 +293,7 @@ export default function UsageTab() {
         )}
         <div className="flex-1" />
         <button
-          onClick={() => { fetchModels(period, customDate); fetchAccounts(period, customDate); fetchSessions(); fetchScenarios(); }}
+          onClick={() => { fetchModels(period, customDate); fetchAccounts(period, customDate); fetchAnonymousDemo(period, customDate); fetchSessions(); fetchScenarios(); }}
           className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-lg transition-colors border border-stone-700"
         >
           ↻ Refresh
@@ -305,6 +348,76 @@ export default function UsageTab() {
                     <td colSpan={5} className="px-4 py-2.5 text-stone-400 text-xs font-medium uppercase">Total</td>
                     <td className="px-4 py-2.5 text-right text-amber-500 font-semibold">{fmtCost(totalModelCost)}</td>
                   </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </section>
+
+      {/* ── Anonymous Demo ────────────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-stone-300 text-sm tracking-widest uppercase">Anonymous Demo</h3>
+          <span className="text-stone-600 text-xs">period-aware · public instant demo · click row to expand</span>
+        </div>
+        <div className="bg-stone-900 border border-stone-800 rounded-xl overflow-hidden">
+          {loadingAnonymousDemo ? (
+            <p className="px-4 py-8 text-center text-stone-600 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
+                  <th className="text-left px-4 py-3">Demo</th>
+                  <th className="text-right px-4 py-3">Sessions</th>
+                  <th className="text-right px-4 py-3">Calls</th>
+                  <th className="text-right px-4 py-3">Input</th>
+                  <th className="text-right px-4 py-3">Output</th>
+                  <th className="text-right px-4 py-3">Avg / session</th>
+                  <th className="text-right px-4 py-3">Cost $</th>
+                </tr>
+              </thead>
+              <tbody>
+                {anonymousDemoRows.map(row => {
+                  const expanded = expandedAnonymousDemo.has(row.scenario_id);
+                  return [
+                    <tr
+                      key={row.scenario_id}
+                      className="border-b border-stone-800/50 hover:bg-stone-800/30 cursor-pointer select-none"
+                      onClick={() => toggleAnonymousDemo(row.scenario_id)}
+                    >
+                      <td className="px-4 py-2.5 text-stone-200 font-mono text-xs">
+                        <span className="text-stone-600 text-xs mr-1.5">{expanded ? '▼' : '▶'}</span>
+                        {row.scenario_id}
+                        <span className="ml-2 rounded bg-stone-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-stone-500">
+                          no account
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-stone-400">{row.anonymous_sessions}</td>
+                      <td className="px-4 py-2.5 text-right text-stone-400">{row.calls}</td>
+                      <td className="px-4 py-2.5 text-right text-stone-500 text-xs">{renderInput(row)}</td>
+                      <td className="px-4 py-2.5 text-right text-stone-500 text-xs">{renderOutput(row)}</td>
+                      <td className="px-4 py-2.5 text-right text-amber-700 text-xs">
+                        {fmtCost(row.avg_cost_per_session)}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-amber-600 font-medium">
+                        {fmtCost(row.total_cost)}
+                      </td>
+                    </tr>,
+                    expanded && row.models.length > 0 && (
+                      <tr key={`${row.scenario_id}-detail`} className="border-b border-stone-800/50 bg-stone-950/60">
+                        <td colSpan={7} className="px-10 py-3">
+                          <ModelBreakdownTable rows={row.models} />
+                          <div className="mt-2 text-[11px] text-stone-600">
+                            Last active: {new Date(row.last_active).toLocaleString()}
+                          </div>
+                        </td>
+                      </tr>
+                    ),
+                  ];
+                })}
+                {anonymousDemoRows.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-stone-600">No anonymous demo usage for this period</td></tr>
                 )}
               </tbody>
             </table>

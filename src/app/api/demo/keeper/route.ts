@@ -3,7 +3,9 @@ import { buildSystemPromptBlocks } from '@/lib/prompts';
 import { detectCompletionAction } from '@/lib/completionTags';
 import { parseInventoryTags } from '@/lib/inventoryTags';
 import { stripNpcTags } from '@/lib/segments';
-import { DEMO_PLAYERS, DEMO_SCENARIO, initialDemoWorldState } from '@/lib/demoScenario';
+import { trackAPICall } from '@/lib/costTracker';
+import { ensureSchema } from '@/lib/queries';
+import { DEMO_PLAYERS, DEMO_SCENARIO, DEMO_SCENARIO_ID, initialDemoWorldState } from '@/lib/demoScenario';
 import type { Player, WorldState } from '@/types';
 
 export const runtime = 'nodejs';
@@ -22,6 +24,7 @@ interface DemoKeeperRequest {
   worldState?: Partial<WorldState>;
   players?: Player[];
   language?: 'en' | 'uk' | 'es';
+  anonymousSessionId?: string;
 }
 
 interface GeminiMessage {
@@ -94,6 +97,13 @@ function sanitizePlayers(input: Player[] | undefined): Player[] {
       ...(player.skills ?? {}),
     },
   }));
+}
+
+function sanitizeAnonymousSessionId(input: unknown): string | undefined {
+  if (typeof input !== 'string') return undefined;
+  const trimmed = input.trim().slice(0, 100);
+  if (!/^[a-zA-Z0-9:_-]{8,100}$/.test(trimmed)) return undefined;
+  return trimmed;
 }
 
 function addClue(worldState: WorldState, clue: string): WorldState {
@@ -232,6 +242,8 @@ async function callGeminiDemo(
 
 export async function POST(request: Request) {
   try {
+    await ensureSchema();
+
     const body = await request.json() as DemoKeeperRequest;
     const message = body.message?.trim().slice(0, MAX_MESSAGE_CHARS) ?? '';
     if (!message) {
@@ -241,6 +253,7 @@ export async function POST(request: Request) {
     const history = normalizeHistory(body.history);
     let worldState = sanitizeWorldState(body.worldState);
     let players = sanitizePlayers(body.players);
+    const anonymousSessionId = sanitizeAnonymousSessionId(body.anonymousSessionId);
     if (worldState.discoveredClues.includes('silver_pin')) {
       players = ensureSilverPin(players);
     }
@@ -274,6 +287,18 @@ export async function POST(request: Request) {
       `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`,
       geminiHistory
     );
+
+    trackAPICall({
+      source: 'demo',
+      anonymousSessionId,
+      scenarioId: DEMO_SCENARIO_ID,
+      provider: 'gemini',
+      type: 'llm',
+      model: 'gemini-2.5-flash',
+      inputTokens: result.inputTokens,
+      outputTokens: result.outputTokens,
+    }).catch(console.error);
+
     const completionAction = detectCompletionAction(result.text);
     const locationMatch = result.text.match(/\[LOCATION:([\w-]+)\]/);
     const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(result.text, players);

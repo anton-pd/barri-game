@@ -75,7 +75,10 @@ export function invalidatePricingCache() {
 export interface TrackParams {
   sessionId?: string;
   campaignId?: string;
-  userId: string;
+  userId?: string | null;
+  source?: 'session' | 'demo' | 'admin' | 'system';
+  anonymousSessionId?: string;
+  scenarioId?: string;
   provider: string;
   type: 'llm' | 'tts' | 'stt' | 'image' | 'ambient' | 'summarize';
   model: string;
@@ -91,12 +94,15 @@ export async function trackAPICall(params: TrackParams): Promise<void> {
     const costUSD = await calculateCost(params);
     await sql`
       INSERT INTO api_usage
-        (session_id, campaign_id, user_id, provider, type, model,
+        (session_id, campaign_id, user_id, source, anonymous_session_id, scenario_id, provider, type, model,
          input_tokens, output_tokens, characters, image_count, cost_usd)
       VALUES (
         ${params.sessionId ?? null},
         ${params.campaignId ?? null},
-        ${params.userId},
+        ${params.userId ?? null},
+        ${params.source ?? 'session'},
+        ${params.anonymousSessionId ?? null},
+        ${params.scenarioId ?? null},
         ${params.provider},
         ${params.type},
         ${params.model},
@@ -234,6 +240,91 @@ export async function getModelBreakdown(period: Period = 'month', date?: string)
     calls: number; input_tokens: number | null; output_tokens: number | null;
     characters: number | null; image_count: number | null; total_cost: number;
   }[];
+}
+
+export interface AnonymousDemoModelRow {
+  scenario_id: string;
+  provider: string;
+  model: string;
+  type: string;
+  calls: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  characters: number | null;
+  image_count: number | null;
+  cost: number;
+}
+
+export interface AnonymousDemoRow {
+  scenario_id: string;
+  anonymous_sessions: number;
+  calls: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  characters: number | null;
+  image_count: number | null;
+  total_cost: number;
+  avg_cost_per_session: number;
+  last_active: string;
+  models: AnonymousDemoModelRow[];
+}
+
+export async function getAnonymousDemoBreakdown(period: Period = 'month', date?: string): Promise<AnonymousDemoRow[]> {
+  const pf = periodFilter(period, date);
+  const rows = await sql`
+    SELECT
+      COALESCE(scenario_id, 'instant-demo') AS scenario_id,
+      COUNT(DISTINCT COALESCE(anonymous_session_id, id::text))::int AS anonymous_sessions,
+      COUNT(*)::int AS calls,
+      SUM(input_tokens)::bigint AS input_tokens,
+      SUM(output_tokens)::bigint AS output_tokens,
+      SUM(characters)::bigint AS characters,
+      SUM(image_count)::int AS image_count,
+      SUM(cost_usd)::float AS total_cost,
+      COALESCE(
+        SUM(cost_usd)::float / NULLIF(COUNT(DISTINCT COALESCE(anonymous_session_id, id::text)), 0),
+        0
+      )::float AS avg_cost_per_session,
+      MAX(created_at) AS last_active
+    FROM api_usage
+    WHERE ${pf} AND source = 'demo'
+    GROUP BY COALESCE(scenario_id, 'instant-demo')
+    ORDER BY total_cost DESC NULLS LAST
+  `;
+
+  if (rows.length === 0) return [];
+
+  const scenarioIds = (rows as unknown as { scenario_id: string }[]).map(row => row.scenario_id);
+  const modelRows = await sql`
+    SELECT
+      COALESCE(scenario_id, 'instant-demo') AS scenario_id,
+      provider,
+      model,
+      type,
+      COUNT(*)::int AS calls,
+      SUM(input_tokens)::bigint AS input_tokens,
+      SUM(output_tokens)::bigint AS output_tokens,
+      SUM(characters)::bigint AS characters,
+      SUM(image_count)::int AS image_count,
+      SUM(cost_usd)::float AS cost
+    FROM api_usage
+    WHERE ${pf}
+      AND source = 'demo'
+      AND COALESCE(scenario_id, 'instant-demo') = ANY(${scenarioIds})
+    GROUP BY COALESCE(scenario_id, 'instant-demo'), provider, model, type
+    ORDER BY cost DESC NULLS LAST
+  `;
+
+  const modelsByScenario = new Map<string, AnonymousDemoModelRow[]>();
+  for (const model of modelRows as unknown as AnonymousDemoModelRow[]) {
+    if (!modelsByScenario.has(model.scenario_id)) modelsByScenario.set(model.scenario_id, []);
+    modelsByScenario.get(model.scenario_id)!.push(model);
+  }
+
+  return (rows as unknown as AnonymousDemoRow[]).map(row => ({
+    ...row,
+    models: modelsByScenario.get(row.scenario_id) ?? [],
+  }));
 }
 
 export interface SessionModelRow {
@@ -408,7 +499,7 @@ export async function getAccountsBreakdown(period: Period = 'month', date?: stri
       SUM(image_count)::int      AS image_count,
       SUM(cost_usd)::float       AS cost
     FROM api_usage
-    WHERE ${pf}
+    WHERE ${pf} AND user_id IS NOT NULL
     GROUP BY user_id, provider, model, type
     ORDER BY cost DESC NULLS LAST
   `;

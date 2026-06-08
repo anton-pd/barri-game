@@ -235,6 +235,12 @@ export async function initializeSchema() {
   await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_session_id ON api_usage(session_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_user_id ON api_usage(user_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_created_at ON api_usage(created_at)`;
+  await sql`ALTER TABLE api_usage ADD COLUMN IF NOT EXISTS source VARCHAR(40) NOT NULL DEFAULT 'session'`;
+  await sql`ALTER TABLE api_usage ADD COLUMN IF NOT EXISTS anonymous_session_id VARCHAR(100)`;
+  await sql`ALTER TABLE api_usage ADD COLUMN IF NOT EXISTS scenario_id VARCHAR(100)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_source ON api_usage(source)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_anonymous_session ON api_usage(anonymous_session_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_api_usage_scenario_id ON api_usage(scenario_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_scenario_assets_scenario_id ON scenario_assets(scenario_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_campaign_assets_campaign_id ON campaign_assets(campaign_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_session_feedback_submitted_by_user_id ON session_feedback(submitted_by_user_id)`;
