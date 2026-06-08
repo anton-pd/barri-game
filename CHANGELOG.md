@@ -587,3 +587,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - Ручне завершення сесії/кампанії більше не вискакує як primary action у центрі активної гри; доступ до нього перенесено в settings panel.
+
+---
+
+## [0.3.19] — 2026-06-08
+
+### Added
+- **Instant demo**: публічний `/demo` preview-case “The Archive Door” дозволяє спробувати Keeper loop без реєстрації: короткі дії, реакції Keeper, clues, d100-check і фінальна waitlist modal.
+- **Waitlist capture**: після завершення демо або ліміту повідомлень користувач може залишити email для черги доступу.
+
+### Changed
+- **Landing CTA**: основні кнопки з публічного лендингу тепер ведуть у instant demo замість форми реєстрації.

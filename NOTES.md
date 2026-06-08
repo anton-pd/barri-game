@@ -1688,3 +1688,29 @@ Anton виправив тайпо на стороні Linear: стан `AI Imprt
 - Empty state uses UnifrakturMaguntia glyph `ꝏ` instead of emoji — consistent with blackletter dossier aesthetic.
 - Grain animation disabled in chat for UX (hours of use, would cause eye strain). Reduced to 13% static opacity instead.
 - Subcomponents `Toggle`, `DynamicImage`, `CaseFilesPanel`, and admin debug panel retain Tailwind colors — these are lower-priority and will be addressed in a follow-up (Tier 3 or later).
+
+## 2026-06-08 — ANT-109 instant demo + waitlist capture
+
+**Problem:** Product Hunt / itch.io launch visitors landed on a beautiful public page, but the primary CTA sent them straight to registration before they could experience Barri.
+
+**Solution:**
+- Added public `/demo` route with a short scripted playable case, `The Archive Door`.
+- Demo shows the core loop without auth: player action -> Keeper response -> tracked clues/items -> d100 check -> completion state.
+- The scene ends when the archive is opened, after 10 player messages, or when the 5-minute preview timer expires.
+- Added waitlist modal after completion/limit with `POST /api/waitlist`.
+- Added `waitlist_entries` table via `ensureSchema()` with unique email upsert and demo metadata (`source`, `outcome`, `message_count`, `notes`, `user_agent`).
+- Landing CTAs now point to `/demo` instead of `/auth/register`, preserving register/login links from the demo modal/auth pages.
+
+**Verification:**
+- `npm run lint -- src/app/demo/page.tsx src/app/demo/DemoClient.tsx src/app/api/waitlist/route.ts src/app/LandingClient.tsx src/lib/queries.ts` — passed.
+- `npm run build` — passed.
+- Browser QA on `http://localhost:3000/demo`:
+  - happy path `Inspect the brass door` -> `Search the intake desk` -> `Use the silver pin on the lock` opens the archive and shows waitlist modal;
+  - waitlist submit reaches success in local dev fallback (local Postgres was not running);
+  - mobile viewport DOM verified at 390x844;
+  - landing DOM verified with 5 `/demo` links and 0 `/auth/register` primary CTA links.
+- In-app Browser screenshot capture timed out repeatedly on `Page.captureScreenshot`, so verification used DOM snapshots and interactions rather than screenshot artifacts.
+
+**Key decisions:**
+- Demo Keeper is scripted/deterministic instead of calling the live LLM. This keeps launch traffic fast, free, and stable while still showing Barri's interaction loop.
+- The waitlist API returns a success-only fallback in non-production if DB is unavailable, but production still fails loudly if persistence is broken.
