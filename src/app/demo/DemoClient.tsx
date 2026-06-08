@@ -121,14 +121,6 @@ function createInitialMessages(copy: DemoCopy): DemoMessage[] {
   ];
 }
 
-function getSuggestions(flags: DemoFlags, copy: DemoCopy) {
-  if (flags.archiveOpen) return [copy.suggestions.waitlist];
-  if (flags.hasPin) return copy.suggestions.hasPin;
-  if (flags.hasPassphrase) return copy.suggestions.hasPassphrase;
-  if (flags.doorInspected) return copy.suggestions.doorInspected;
-  return copy.suggestions.initial;
-}
-
 function countClues(flags: DemoFlags) {
   return [flags.doorInspected, flags.hasPin, flags.hasPassphrase].filter(Boolean).length;
 }
@@ -151,7 +143,6 @@ export default function DemoClient() {
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const flags = useMemo(() => getFlags(worldState, players), [worldState, players]);
-  const suggestions = useMemo(() => getSuggestions(flags, copy), [flags, copy]);
   const clueCount = countClues(flags);
   const pendingRoll = worldState.pendingRollResult;
 
@@ -424,21 +415,6 @@ export default function DemoClient() {
               />
             )}
 
-            {!pendingRoll && (
-              <div className="demo-suggestions" aria-label={copy.suggestionsLabel}>
-                {suggestions.map((suggestion) => (
-                  <button
-                    type="button"
-                    key={suggestion}
-                    onClick={() => suggestion === copy.suggestions.waitlist ? setEnding('manual') : submitTurn(suggestion)}
-                    disabled={thinking || Boolean(chatClosedReason)}
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <form onSubmit={handleSubmit} className="demo-input-row">
               <input
                 value={input}
@@ -641,7 +617,7 @@ const DEMO_COPY = {
     intro:
       'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked PARANORMAL CASES DIVISION. Brass hinges. No handle. A thin keyhole listens back.',
     briefing:
-      'Find a way into the secret archive. Speak naturally, or use the suggested actions below.',
+      'Find a way into the secret archive. Tell the Keeper what you do in your own words.',
     backLabel: 'Back to Barri landing',
     fileLabel: 'Demo file / Archive 7',
     languageLabel: 'Demo language',
@@ -758,7 +734,7 @@ const DEMO_COPY = {
     intro:
       'Дощ січе високі вікна Бюро. Перед вами запечатані архівні двері з написом: ВІДДІЛ ПАРАНОРМАЛЬНИХ СПРАВ. Латунні петлі. Жодної ручки. Тонка замкова щілина ніби слухає у відповідь.',
     briefing:
-      'Знайдіть шлях у секретний архів. Пишіть природно або скористайтесь запропонованими діями нижче.',
+      'Знайдіть шлях у секретний архів. Напишіть Хранителю своїми словами, що робите.',
     backLabel: 'Повернутися на лендинг Barri',
     fileLabel: 'Демо-файл / Архів 7',
     languageLabel: 'Мова демо',
@@ -875,7 +851,7 @@ const DEMO_COPY = {
     intro:
       'La lluvia golpea los altos ventanales del Buró. Estás ante una puerta de archivo sellada: DIVISIÓN DE CASOS PARANORMALES. Bisagras de latón. Sin pomo. Una cerradura fina parece escuchar.',
     briefing:
-      'Encuentra la forma de entrar al archivo secreto. Escribe con naturalidad o usa las acciones sugeridas abajo.',
+      'Encuentra la forma de entrar al archivo secreto. Dile al Guardián qué haces con tus propias palabras.',
     backLabel: 'Volver al inicio de Barri',
     fileLabel: 'Archivo demo / Archivo 7',
     languageLabel: 'Idioma de la demo',

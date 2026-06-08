@@ -2054,3 +2054,8 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Replaced the demo door label “cases that refused to die” / “справи, що відмовилися померти” with “Paranormal Cases Division” / “Відділ паранормальних справ” / Spanish equivalent.
 - Updated the intake desk clue so the Keeper references the Paranormal Cases Division instead of records that “refused to die”.
 - No retest requested; copy-only change.
+
+**Final launch follow-up:**
+- Temporarily removed demo suggested action buttons above the chat to encourage visitors to write their own actions.
+- Kept the dedicated d100 dice panel because it is roll-resolution UI, not a hint/action shortcut.
+- Updated EN/UK/ES demo briefing copy so it asks users to tell the Keeper what they do in their own words.
