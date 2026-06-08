@@ -11,6 +11,8 @@ Players join a session, interact with the Keeper via chat/voice, roll dice, trac
 Live at **https://barrigame.es** (Prod) and **https://staging.barrigame.es** (Staging).
 Repo: `/opt/apps/barri-dev` (Staging, branch `staging`, container `apps-barri-dev-1`), `/opt/apps/barri` (Prod, branch `main`, container `apps-barri-1`). Persistent scenario JSONs and generated images live in `/opt/apps/shared_data/{scenarios,public/scenarios}` and are mounted into both containers.
 
+VPS service map and cleanup notes live in **SERVER_STRUCTURE.md**.
+
 ---
 
 ## Tech Stack
@@ -42,6 +44,12 @@ Shared persistent data (mounted into BOTH containers as /app/scenarios and /app/
     ├── scenarios/         — Scenario JSONs (shared prod+staging)
     └── public/scenarios/  — Generated images (shared prod+staging)
 ```
+
+Other known VPS services:
+- `apps-postgres-1` — shared PostgreSQL container with separate DBs (`barri_prod`, `barri_dev`).
+- `hermes gateway run` — Hermes agent/gateway; not part of Barri deploys.
+- Directus — separate service; not part of the Barri app deploy path.
+- Removed/deprecated: `tg-bot.service` and `/opt/tg-bot` (old Telegram polling bot that spammed syslog after token revocation).
 
 **AI turn flow:**
 1. Client POST `/api/ai` with `{sessionId, message, playerIdx, keeperStyle}`

@@ -2074,3 +2074,23 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - `trackAPICall()` now supports nullable `userId` so public anonymous calls can be tracked without a user record.
 - Admin Usage now has an `Anonymous Demo` section with sessions, calls, tokens, avg cost/session, total cost, and expandable model breakdown.
 - Admin model totals will include demo usage automatically because the records are in `api_usage`.
+
+## 2026-06-08 — VPS cleanup: deprecated Telegram bot
+
+**Finding:** VPS disk was 95% full. `/var/log/syslog.1` was ~24.65GB and `/var/log/syslog` was ~11.09GB. The spam source was `tg-bot.service` (`/opt/tg-bot`, PID 905), not Hermes. The old bot was polling Telegram with a revoked token and logging huge `401 Unauthorized` request/response objects into syslog.
+
+**Immediate mitigation without sudo:** removed the old bot code/token and `node_modules` from `/opt/tg-bot`, replaced `bot.js` with a no-op process, and killed the old PID so systemd restarted the no-op. This stops Telegram polling/log spam, but the root-owned systemd unit still needs sudo removal.
+
+**Docs:** added `SERVER_STRUCTURE.md` and linked it from `PROJECT_CONTEXT.md` and `AGENTS.md` so the VPS layout and service ownership are easier to identify.
+
+**Final sudo cleanup still needed on VPS:**
+```bash
+sudo systemctl stop tg-bot.service
+sudo systemctl disable tg-bot.service
+sudo rm -f /etc/systemd/system/tg-bot.service
+sudo systemctl daemon-reload
+sudo rm -rf /opt/tg-bot
+sudo truncate -s 0 /var/log/syslog /var/log/syslog.1
+sudo journalctl --vacuum-size=300M
+df -h /
+```
