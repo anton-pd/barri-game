@@ -130,8 +130,8 @@ export default function LoginPage() {
         </form>
 
         <div className="auth-foot">
-          Not yet on file?{' '}
-          <Link href="/auth/register">Begin initiation</Link>
+          Need clearance?{' '}
+          <Link href="/auth/register">Join the waiting list</Link>
         </div>
       </div>
     </div>

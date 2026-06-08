@@ -399,7 +399,6 @@ export default function DemoClient() {
               <div className="demo-success">
                 <strong>Filed under waiting list.</strong>
                 <span>We have your address. The next letter will not be blank.</span>
-                <Link href="/auth/register">Create an account now</Link>
               </div>
             ) : (
               <form onSubmit={submitWaitlist} className="demo-waitlist-form">
@@ -424,7 +423,7 @@ export default function DemoClient() {
 
             <div className="demo-modal-links">
               <button type="button" onClick={() => setEnding(null)}>Return to file</button>
-              <Link href="/auth/register">Register instead</Link>
+              <Link href="/auth/login">Already cleared?</Link>
             </div>
           </section>
         </div>

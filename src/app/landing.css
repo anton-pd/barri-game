@@ -919,6 +919,30 @@
   overflow: hidden;
   border: 1px solid var(--paper-3);
 }
+.case-image--cover {
+  background: var(--ink-1);
+}
+.case-image--cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.82;
+  filter: sepia(0.18) contrast(1.05) brightness(0.86);
+}
+.case-image--cover::after {
+  content: "RESTRICTED";
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  padding: 4px 8px 3px;
+  border: 1px solid rgba(216, 200, 166, 0.7);
+  color: var(--paper-0);
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  background: rgba(7, 6, 10, 0.62);
+}
 .case-1 .case-image {
   background:
     radial-gradient(ellipse at 50% 80%, rgba(240, 199, 122, 0.3), transparent 60%),
@@ -972,6 +996,19 @@
   font-size: 96px;
   color: rgba(181, 50, 31, 0.6);
   font-family: var(--font-blackletter);
+}
+.case-locked .case-image:not(.case-image--cover)::after,
+.case-loading .case-image::after {
+  content: "ACCESS DENIED";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-typewriter);
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--blood-0);
+  background: rgba(7, 6, 10, 0.3);
 }
 
 .case-meta {
@@ -1042,6 +1079,34 @@
 .case-open:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 var(--blood-1);
+}
+.case-open--disabled,
+.case-open--disabled:hover,
+.case-open--disabled:active {
+  cursor: not-allowed;
+  color: var(--paper-3);
+  background: rgba(7, 6, 10, 0.86);
+  box-shadow: none;
+  transform: none;
+  border: 1px dashed var(--paper-3);
+}
+
+.case-secondary {
+  display: inline-flex;
+  margin-top: 12px;
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--blood-1);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 3px;
+  transition: color .2s, transform .2s;
+}
+.case-secondary:hover {
+  color: var(--blood-0);
+  transform: translateX(2px);
 }
 
 .case-stamp {
