@@ -2149,3 +2149,28 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
   - pending virtual dice roll and physical dice hint;
   - read-only completed session/completion modal;
   - mobile bottom-sheet dossier.
+
+## 2026-06-09 — ANT-114 staging deploy and QA login method
+
+**Deploy:**
+- Pushed `e339b35` (`ANT-114: restyle game chat like demo`) to remote `staging`.
+- Deployed staging from `/opt/apps/barri-dev` with the documented VPS flow:
+  `git pull --ff-only origin staging` and `docker compose --env-file /opt/apps/.env -f docker-compose.yml up -d --build barri-dev`.
+- Verified `https://staging.barrigame.es` returns `200`, `/api/scenarios` returns scenario JSON, and `apps-barri-dev-1` is running the new build.
+
+**Internal QA access:**
+- Created a staging-only approved user `codex.qa@barrigame.es` in the `barri_dev` database.
+- Stored the QA credentials locally in ignored `.env.codex.qa.local`:
+  - `STAGING_QA_URL`
+  - `STAGING_QA_EMAIL`
+  - `STAGING_QA_PASSWORD`
+- This gives Codex a repeatable way to log into staging through Browser and test inside the product without using Anton's personal account, production data, or admin access.
+
+**Browser verification:**
+- Logged into staging through Browser with the QA user and reached `/sessions`.
+- Started a real session named `Codex QA ANT-114` and reached `/session/dcda2b14-8504-4142-855e-7ea8447ea8d7`.
+- Verified the active full GameChat renders the new demo-style visual direction:
+  - desktop dossier rail on the left and dark transcript console on the right;
+  - stats, inventory strip, composer, and Keeper response visible in the active session;
+  - settings panel still exposes Keeper style, autovoice, ambient, virtual dice, and volume controls.
+- Mobile/narrow viewport still keeps the main chat focused and uses the existing sheet-style dossier behavior.
