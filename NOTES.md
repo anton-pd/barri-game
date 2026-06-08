@@ -2094,3 +2094,58 @@ sudo truncate -s 0 /var/log/syslog /var/log/syslog.1
 sudo journalctl --vacuum-size=300M
 df -h /
 ```
+
+## 2026-06-08 — Linear planning: demo-style full GameChat refresh
+
+**Ask:** Anton wants the main staging game chat to use the stronger visual direction from `/demo`, while preserving full session functionality. He also wants the side hints rebuilt as a living plan where items appear, complete, or get crossed out depending on play.
+
+**Linear plan created:**
+- `ANT-114` — `GameChat: apply demo dossier/console visual language to full session chat`
+  - Restyle `/session/[id]` around the demo dossier + live transcript console visual language.
+  - Preserve full GameChat functionality: TTS/autovoice, ambient, Keeper style, dice modes, voice input, multi-player queue, inventory, completion feedback, read-only sessions, admin debug/export.
+  - Coordinate with `ANT-102` and `ANT-103`, which already touch the inspector rail and atmosphere/motion.
+- `ANT-115` — `GameChat: dynamic case plan sidebar with revealed/completed/crossed-out steps`
+  - Add a backward-compatible `world_state.casePlan` concept.
+  - Add a generalized plan tag protocol for Keeper-driven plan updates.
+  - Render hidden/available/completed/crossed-out plan items in the side dossier with demo-like visual treatment.
+  - Persist plan updates in `world_state` and document the tag protocol when implemented.
+
+Both issues were created in `AI Improvements`, assigned to Codex, and cross-linked with coordination comments.
+
+## 2026-06-08 — ANT-114 implementation: demo-style full GameChat refresh
+
+**Ask:** Anton said to start `ANT-114` now: make the main game chat visually closer to the `/demo` design while keeping full game-session functionality.
+
+**Implementation:**
+- Created branch `feature/ANT-114` from current `staging`/`origin/staging` head.
+- Moved Linear `ANT-114` to `In Progress`, assigned to Codex, and added an implementation-start comment.
+- Updated `GameChat` shell classes so the full chat owns its layout through `chat-root` + `chat-game-column` instead of relying on Tailwind utility composition for the primary frame.
+- Added an `ANT-114` override section at the end of `src/app/session/[id]/chat.css`:
+  - desktop now reads as a demo-like two-panel workspace: paper case dossier rail on the left, dark live transcript console on the right;
+  - mobile keeps the existing bottom-sheet dossier behavior;
+  - transcript bubbles now follow the demo console style: Keeper/NPC/player messages are dark, bordered transcript entries instead of heavy rounded parchment bubbles;
+  - settings, stats, inventory strip, composer, send button, completion modal, and dossier cards were restyled into the same archive-file visual language;
+  - full controls remain present: TTS replay/autovoice, ambient, Keeper style, dice modes, VoiceButton, multi-player queue, inventory item use, completion/feedback, read-only state, admin debug/export.
+
+**Verification:**
+- Read relevant Next.js 16.2 docs from `node_modules/next/dist/docs` in the main checkout:
+  - App Router CSS guide;
+  - layout file convention;
+  - CSS chunking/import-order note.
+- `npm ci` installed local worktree dependencies for reliable checks.
+- `npm run lint -- src/components/GameChat.tsx src/components/StatsBar.tsx` — passed with existing `@next/next/no-img-element` warnings in `GameChat` only.
+- `npm run build` — passed.
+- `npm test` — 62/62 passed.
+- Local Browser:
+  - `http://localhost:3000` loads.
+  - `/session/local-smoke` redirects to auth as expected because this local worktree has no `JWT_SECRET`/`DATABASE_URL`.
+  - A browser-only `file://` visual harness was blocked by Browser policy, so no local visual screenshot of the actual chat was possible without auth+DB.
+
+**Staging QA still needed:**
+- Verify an active real session on `staging.barrigame.es` with:
+  - desktop dossier left + transcript console right;
+  - settings panel open;
+  - inventory strip and multi-player queue;
+  - pending virtual dice roll and physical dice hint;
+  - read-only completed session/completion modal;
+  - mobile bottom-sheet dossier.

@@ -1330,9 +1330,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     session.status === 'paused'    ? 'paused'    : 'active';
 
   return (
-    <div className="chat-root flex h-dvh overflow-hidden">
+    <div className="chat-root">
       {/* Left: game column */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="chat-game-column">
       {/* Header */}
       <div className="chat-header flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">

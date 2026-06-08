@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.19] — 2026-06-08
+
+### Changed
+- **GameChat demo-style visual refresh (ANT-114).** The full session chat now adopts the stronger `/demo` dossier + live transcript visual language while keeping the expanded game controls: TTS replay/autovoice, ambient, Keeper style, dice modes, voice input, multi-player queue, inventory, completion feedback, read-only sessions, and admin debug/export.
+- **Case dossier placement.** On desktop the case dossier rail now reads like the demo file panel, sitting as the left-hand case file beside the dark transcript console; mobile keeps the existing bottom-sheet behavior for playability.
+
 ## [0.4.18] — 2026-06-04
 
 ### Added
