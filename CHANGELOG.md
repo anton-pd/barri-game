@@ -698,6 +698,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Added
 - **Instant demo**: публічний `/demo` preview-case “The Archive Door” дозволяє спробувати Keeper loop без реєстрації: короткі дії, реакції Keeper, clues, d100-check і фінальна waitlist modal.
 - **Waitlist capture**: після завершення демо або ліміту повідомлень користувач може залишити email для черги доступу.
+- **Demo Keeper scenario**: instant demo тепер має окремий короткий сценарій “The Archive Door” і публічний Keeper endpoint, що використовує реальний Barri system prompt pipeline.
 
 ### Changed
 - **Landing CTA**: основні кнопки з публічного лендингу тепер ведуть у instant demo замість форми реєстрації.
+- **Instant demo AI**: scripted keyword-відповіді замінені на відповіді Keeper через `buildSystemPromptBlocks`, Gemini Flash і demo world state.
