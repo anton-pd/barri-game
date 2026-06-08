@@ -149,7 +149,7 @@ Demo constraints:
         'A clerk desk abandoned in haste: unpaid telegrams, dry ink, a blotter, and drawers that smell of dust and old metal.',
       clues: [
         'Under the blotter lies a silver filing pin sharpened to a deliberate point.',
-        'The unpaid telegrams mention records that "refused to die".',
+        'The unpaid telegrams mention the Paranormal Cases Division.',
       ],
     },
     {

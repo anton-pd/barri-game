@@ -2049,3 +2049,8 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
   - use silver filing pin → pending Locksmith d100 roll;
   - passphrase or successful lock roll → archive completion.
 - This keeps checklist updates tied to Keeper tags/state mutations while making the core localized demo actions reliable.
+
+**Microcopy follow-up:**
+- Replaced the demo door label “cases that refused to die” / “справи, що відмовилися померти” with “Paranormal Cases Division” / “Відділ паранормальних справ” / Spanish equivalent.
+- Updated the intake desk clue so the Keeper references the Paranormal Cases Division instead of records that “refused to die”.
+- No retest requested; copy-only change.

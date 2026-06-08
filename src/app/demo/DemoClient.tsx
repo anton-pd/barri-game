@@ -639,7 +639,7 @@ const DEMO_COPY = {
     stateSummary:
       'The investigator stands before Archive 7 after midnight. The door is sealed, but the corridor offers clues for a careful mind.',
     intro:
-      'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked CASES THAT REFUSED TO DIE. Brass hinges. No handle. A thin keyhole listens back.',
+      'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked PARANORMAL CASES DIVISION. Brass hinges. No handle. A thin keyhole listens back.',
     briefing:
       'Find a way into the secret archive. Speak naturally, or use the suggested actions below.',
     backLabel: 'Back to Barri landing',
@@ -756,7 +756,7 @@ const DEMO_COPY = {
     stateSummary:
       'Слідчий стоїть перед Архівом 7 після опівночі. Двері запечатані, але коридор залишив підказки для уважного ока.',
     intro:
-      'Дощ січе високі вікна Бюро. Перед вами запечатані архівні двері з написом: СПРАВИ, ЩО ВІДМОВИЛИСЯ ПОМЕРТИ. Латунні петлі. Жодної ручки. Тонка замкова щілина ніби слухає у відповідь.',
+      'Дощ січе високі вікна Бюро. Перед вами запечатані архівні двері з написом: ВІДДІЛ ПАРАНОРМАЛЬНИХ СПРАВ. Латунні петлі. Жодної ручки. Тонка замкова щілина ніби слухає у відповідь.',
     briefing:
       'Знайдіть шлях у секретний архів. Пишіть природно або скористайтесь запропонованими діями нижче.',
     backLabel: 'Повернутися на лендинг Barri',
@@ -873,7 +873,7 @@ const DEMO_COPY = {
     stateSummary:
       'El investigador está frente al Archivo 7 después de medianoche. La puerta está sellada, pero el corredor guarda pistas para quien mire con cuidado.',
     intro:
-      'La lluvia golpea los altos ventanales del Buró. Estás ante una puerta de archivo sellada: CASOS QUE SE NEGARON A MORIR. Bisagras de latón. Sin pomo. Una cerradura fina parece escuchar.',
+      'La lluvia golpea los altos ventanales del Buró. Estás ante una puerta de archivo sellada: DIVISIÓN DE CASOS PARANORMALES. Bisagras de latón. Sin pomo. Una cerradura fina parece escuchar.',
     briefing:
       'Encuentra la forma de entrar al archivo secreto. Escribe con naturalidad o usa las acciones sugeridas abajo.',
     backLabel: 'Volver al inicio de Barri',
