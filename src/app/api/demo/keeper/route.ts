@@ -158,7 +158,7 @@ function applyDemoStateHints(
   }
   if (
     /(listen|hear|sound|keyhole)/.test(userText) ||
-    /(passphrase|silence has a spine|typewriter clacks|whisper)/.test(assistantText)
+    /(passphrase|silence has a spine|typewriter clacks)/.test(assistantText)
   ) {
     nextWorld = addClue(nextWorld, 'passphrase');
   }
