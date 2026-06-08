@@ -21,6 +21,7 @@ interface DemoKeeperRequest {
   history?: DemoHistoryMessage[];
   worldState?: Partial<WorldState>;
   players?: Player[];
+  language?: 'en' | 'uk' | 'es';
 }
 
 interface GeminiMessage {
@@ -134,35 +135,24 @@ function ensureSilverPin(players: Player[]): Player[] {
   });
 }
 
-function applyDemoStateHints(
-  userMessage: string,
+function applyDemoTags(
   rawAssistantText: string,
   worldState: WorldState,
   players: Player[],
   completed: boolean
 ): { worldState: WorldState; players: Player[] } {
-  const userText = userMessage.toLowerCase();
-  const assistantText = rawAssistantText.toLowerCase();
-  const text = `${userText}\n${assistantText}`;
   let nextWorld = worldState;
   let nextPlayers = players;
 
-  if (/(inspect|examine|look|plaque|brass|door)/.test(text)) {
-    nextWorld = addClue(nextWorld, 'door_inspected');
-  }
-  if (/(search|desk|drawer|blotter|filing pin|silver pin)/.test(text)) {
-    nextWorld = addClue(nextWorld, 'silver_pin');
-    if (/(search|desk|drawer|blotter|filing pin|silver pin)/.test(text)) {
+  for (const match of rawAssistantText.matchAll(/\[DEMO_CLUE:(door_inspected|silver_pin|passphrase|archive_open)\]/g)) {
+    const clue = match[1];
+    nextWorld = addClue(nextWorld, clue);
+    if (clue === 'silver_pin') {
       nextPlayers = ensureSilverPin(nextPlayers);
     }
   }
-  if (
-    /(listen|hear|sound|keyhole)/.test(userText) ||
-    /(passphrase|silence has a spine|typewriter clacks)/.test(assistantText)
-  ) {
-    nextWorld = addClue(nextWorld, 'passphrase');
-  }
-  if (completed || /(archive admits|archive opens|door opens|inside the archive|enter the archive)/.test(text)) {
+
+  if (completed) {
     nextWorld = addClue(ensureVisited(nextWorld, 'inner_archive'), 'archive_open');
   }
 
@@ -180,6 +170,7 @@ function stripDataTags(text: string): string {
     .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
     .replace(/\s*\[SET_PENDING_ROLL:[^\]]+\]/g, '')
     .replace(/\s*\[CLEAR_PENDING_ROLL\]/g, '')
+    .replace(/\s*\[DEMO_CLUE:[^\]]+\]/g, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -250,12 +241,12 @@ export async function POST(request: Request) {
     const history = normalizeHistory(body.history);
     let worldState = sanitizeWorldState(body.worldState);
     let players = sanitizePlayers(body.players);
-    if (
-      worldState.discoveredClues.includes('silver_pin') ||
-      /(silver filing pin|silver pin|filing pin)/i.test(message)
-    ) {
+    if (worldState.discoveredClues.includes('silver_pin')) {
       players = ensureSilverPin(players);
     }
+    const demoLang = body.language === 'uk' || body.language === 'es' ? body.language : 'en';
+    const promptLang = demoLang === 'uk' ? 'uk' : 'en';
+    const isDiceResult = Boolean(worldState.pendingRollResult && /^\d{1,3}$/.test(message));
     const priorUserTurns = history.filter((entry) => entry.role === 'player').length;
     if (priorUserTurns >= 10) {
       return NextResponse.json({
@@ -269,10 +260,8 @@ export async function POST(request: Request) {
     }
 
     const blocks = buildSystemPromptBlocks(DEMO_SCENARIO, worldState, players, {
-      language: 'en',
-      keeperActivitySection: `\n\n## DEMO KEEPER MODE
-This is a public instant demo. Keep momentum high, keep replies short, and guide the fiction toward opening Archive 7 without railroading the player's exact method.
-If the player has solved the doorway, entered the archive, spoken the passphrase, or used a fitting tool, append [LOCATION:inner_archive] and [COMPLETE_SESSION].`,
+      language: promptLang,
+      keeperActivitySection: buildDemoKeeperSection(demoLang, worldState),
     });
 
     const geminiHistory: GeminiMessage[] = history.map((entry) => ({
@@ -312,12 +301,43 @@ If the player has solved the doorway, entered the archive, spoken the passphrase
       return '';
     });
 
+    if (isDiceResult && worldState.pendingRollResult) {
+      worldState = { ...worldState, pendingRollResult: undefined };
+    }
+
+    if (!worldState.pendingRollResult && !isDiceResult) {
+      const rollTextMatch =
+        textAfterRollTags.match(/Roll\s+([\w\s/]+?)\s*\(1d100,\s*need\s*(\d+)\s*or\s*less\)/i) ??
+        textAfterRollTags.match(/Кинь\s+([\wА-ЯҐЄІЇа-яґєії\s/]+?)\s*\(1к100,\s*треба\s*(\d+)\s*або\s*менше\)/i) ??
+        textAfterRollTags.match(/Tira\s+([\wÁÉÍÓÚÜÑáéíóúüñ\s/]+?)\s*\(1d100,\s*(?:necesitas|objetivo)\s*(\d+)\s*o\s*menos\)/i);
+      if (rollTextMatch) {
+        const skillNameRaw = rollTextMatch[1].trim();
+        const threshold = Number(rollTextMatch[2]);
+        const skillValue =
+          players[0]?.skills
+            ? (Object.entries(players[0].skills).find(
+                ([name]) => name.toLowerCase() === skillNameRaw.toLowerCase()
+              )?.[1] ?? threshold)
+            : threshold;
+        worldState = {
+          ...worldState,
+          pendingRollResult: {
+            characterIdx: 0,
+            skillName: skillNameRaw,
+            skillValue,
+            goodThreshold: threshold,
+            context: '',
+          },
+        };
+      }
+    }
+
     if (locationMatch) {
       worldState = ensureVisited(worldState, locationMatch[1]);
     }
 
     const completed = completionAction === 'complete-session' || worldState.currentLocation === 'inner_archive';
-    const hinted = applyDemoStateHints(message, result.text, worldState, players, completed);
+    const hinted = applyDemoTags(result.text, worldState, players, completed);
     worldState = hinted.worldState;
     players = hinted.players;
 
@@ -347,4 +367,33 @@ If the player has solved the doorway, entered the archive, spoken the passphrase
     console.error('Demo Keeper route failed:', error);
     return NextResponse.json({ error: 'Failed to get Keeper response' }, { status: 500 });
   }
+}
+
+function buildDemoKeeperSection(lang: 'en' | 'uk' | 'es', worldState: WorldState): string {
+  const pending = worldState.pendingRollResult;
+  const languageLine =
+    lang === 'uk'
+      ? 'Відповідай ТІЛЬКИ українською мовою.'
+      : lang === 'es'
+        ? 'Respond ONLY in Spanish. This overrides any earlier English-language instruction.'
+        : 'Respond ONLY in English.';
+  const rollLine = pending
+    ? lang === 'uk'
+      ? `\n\n## ОЧІКУВАНИЙ КИДОК ДЕМО\nГравець зараз надсилає результат d100 для "${pending.skillName}". Поріг: ${pending.goodThreshold}. Якщо число ≤ поріг — успіх, інакше провал. Опиши наслідок, обов'язково додай [CLEAR_PENDING_ROLL]. Якщо успіх відкриває архів — додай [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].`
+      : lang === 'es'
+        ? `\n\n## PENDING DEMO ROLL\nThe player is sending the d100 result for "${pending.skillName}". Threshold: ${pending.goodThreshold}. If the number is ≤ threshold, it succeeds; otherwise it fails. Narrate the consequence in Spanish and always append [CLEAR_PENDING_ROLL]. If success opens the archive, append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].`
+        : `\n\n## PENDING DEMO ROLL\nThe player is sending the d100 result for "${pending.skillName}". Threshold: ${pending.goodThreshold}. If the number is ≤ threshold, it succeeds; otherwise it fails. Narrate the consequence and always append [CLEAR_PENDING_ROLL]. If success opens the archive, append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].`
+    : '';
+
+  return `\n\n## DEMO KEEPER MODE
+${languageLine}
+This is a public instant demo. Keep momentum high, keep replies short, and guide the fiction toward opening Archive 7 without railroading the player's exact method.
+
+Progress tags are mandatory and must be truthful:
+- If the player actually inspects/understands the brass door, append [DEMO_CLUE:door_inspected].
+- If the player actually finds or takes the silver filing pin, append [DEMO_CLUE:silver_pin] and [ITEM:0:Silver filing pin:A sharpened filing pin narrow enough for Archive 7's lock:1].
+- If the player actually overhears or learns the passphrase, append [DEMO_CLUE:passphrase].
+- If the player reaches, opens, or enters the archive, append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].
+
+Do not emit a progress tag for an action that did not actually reveal or achieve that thing.${rollLine}`;
 }

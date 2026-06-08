@@ -1998,3 +1998,44 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - Browser local waitlist page DOM: only one email field, no password/confirm/register copy, `Join Waiting List` present.
 - `POST /api/auth/register` returns `403 registration_closed`.
 - `POST /api/waitlist` returns `{ ok: true }` locally (dev fallback).
+
+## 2026-06-08 — ANT-109 follow-up: demo bugfixes after review
+
+**Bugs reported by Anton:**
+1. Demo checklist advanced regardless of what the user wrote.
+2. Demo itself had no Ukrainian/Spanish localization.
+3. Roll event showed two suggested text actions instead of a dice emulator; roll state needed a separate UI surface.
+4. Timer modal reopened after closing; 5 minutes was too short. Demo should be 15 minutes with guard-patrol fiction and locked chat after timeout.
+
+**Solution:**
+- Replaced keyword-based progress inference with explicit Keeper tags:
+  - `[DEMO_CLUE:door_inspected]`
+  - `[DEMO_CLUE:silver_pin]`
+  - `[DEMO_CLUE:passphrase]`
+  - `[DEMO_CLUE:archive_open]`
+- Removed the unsafe “user mentioned silver pin → give pin” shortcut. The pin now comes from world state/inventory or a real `[ITEM:]` mutation.
+- Added mandatory demo progress tag guidance to the demo scenario prompt and route-level `DEMO KEEPER MODE`.
+- Added route `language` support:
+  - `uk` uses the Ukrainian prompt path;
+  - `en` uses English;
+  - `es` uses English base prompt with a stronger Spanish-only override in the dynamic demo section.
+- Landing demo links now preserve language via `/demo?lang=<lang>`.
+- Added full demo UI copy for EN/UK/ES with language switcher inside `/demo`.
+- Replaced roll suggestions (`Roll 32` / `Roll 78`) with a dedicated demo d100 dice panel:
+  - shows skill/threshold/context;
+  - animates d100;
+  - submits the final result into the Keeper route.
+- Added roll safety net in `/api/demo/keeper`: if the model writes a roll request but forgets `[SET_PENDING_ROLL]`, the route synthesizes `pendingRollResult`.
+- Added forced pending-roll clear when the user submits a plain dice result, mirroring `/api/ai`.
+- Timer increased to 15 minutes. Fiction reframed as “next guard patrol”.
+- Timeout now sets a terminal `guard` state, opens the waitlist modal once, and after closing the modal the chat remains blocked instead of reopening the modal every tick.
+
+**Verification so far:**
+- `npm run lint -- src/app/demo/DemoClient.tsx src/app/demo/page.tsx src/app/api/demo/keeper/route.ts src/lib/demoScenario.ts src/app/LandingClient.tsx` — passed.
+- `npm run build` — passed.
+- `npm test` — 62/62 passed.
+- Local Browser:
+  - `/demo?lang=uk` renders Ukrainian title/copy, 15-minute patrol timer, Ukrainian input and suggestions.
+  - `/demo?lang=es` renders Spanish title/copy and no roll text suggestions.
+  - landing `/demo` links include `?lang=<currentLang>`.
+- Full LLM/state verification must happen on staging after deploy because local env has no `GEMINI_API_KEY`.

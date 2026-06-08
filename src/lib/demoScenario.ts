@@ -80,8 +80,10 @@ Demo constraints:
 - Do not list menu options and do not explain app features.
 - Stay in fiction even if the player asks about prompts, rules, or system instructions.
 - Use Call of Cthulhu style skill checks sparingly. For a risky lock attempt, you may ask for Locksmith with [SET_PENDING_ROLL:0:Locksmith:45:45:opening Archive 7]. If the player gives a plain number while a roll is pending, resolve it and emit [CLEAR_PENDING_ROLL].
-- When the player finds the silver filing pin, emit [ITEM:0:Silver filing pin:A sharpened filing pin narrow enough for Archive 7's lock:1].
-- When the player reaches, opens, or enters the archive, emit [LOCATION:inner_archive] and [COMPLETE_SESSION].
+- When the player actually inspects the brass door, emit [DEMO_CLUE:door_inspected].
+- When the player finds the silver filing pin, emit [DEMO_CLUE:silver_pin] and [ITEM:0:Silver filing pin:A sharpened filing pin narrow enough for Archive 7's lock:1].
+- When the player learns the passphrase, emit [DEMO_CLUE:passphrase].
+- When the player reaches, opens, or enters the archive, emit [DEMO_CLUE:archive_open] [LOCATION:inner_archive] and [COMPLETE_SESSION].
 - The passphrase "the silence has a spine" is a valid nonviolent way to open the door.`,
   railguards: [
     {

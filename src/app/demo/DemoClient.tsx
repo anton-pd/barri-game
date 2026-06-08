@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 
 type DemoRole = 'keeper' | 'player' | 'system';
+type DemoLang = 'en' | 'uk' | 'es';
+type EndingReason = 'completed' | 'message_limit' | 'guard' | 'manual';
+type ClosedReason = Exclude<EndingReason, 'manual'>;
 
 interface DemoMessage {
   id: string;
@@ -63,34 +66,12 @@ interface KeeperReply {
 }
 
 const MAX_USER_MESSAGES = 10;
-const DEMO_SECONDS = 5 * 60;
+const DEMO_SECONDS = 15 * 60;
 
-const initialWorldState: DemoWorldState = {
-  act: 1,
-  currentLocation: 'archive_threshold',
-  visitedLocations: ['archive_threshold', 'intake_desk'],
-  discoveredClues: [],
-  npcRelations: { archive_echo: 'unknown' },
-  summary:
-    'The investigator stands before Archive 7 after midnight. The door is sealed, but the corridor offers clues for a careful mind.',
-  openThreads: ['Find a way into the secret archive'],
-  playerNotes: [],
-  totalMessageCount: 0,
-};
-
-const initialMessages: DemoMessage[] = [
-  {
-    id: 'intro',
-    role: 'keeper',
-    meta: 'Keeper',
-    text: 'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked CASES THAT REFUSED TO DIE. Brass hinges. No handle. A thin keyhole listens back.',
-  },
-  {
-    id: 'briefing',
-    role: 'system',
-    meta: 'Objective',
-    text: 'Find a way into the secret archive. Speak naturally, or use the suggested actions below.',
-  },
+const LANGS: { code: DemoLang; label: string }[] = [
+  { code: 'en', label: 'EN' },
+  { code: 'uk', label: 'УК' },
+  { code: 'es', label: 'ES' },
 ];
 
 function hasInventoryItem(players: DemoPlayer[] | null, name: string) {
@@ -109,13 +90,43 @@ function getFlags(worldState: DemoWorldState, players: DemoPlayer[] | null): Dem
   };
 }
 
-function getSuggestions(flags: DemoFlags, worldState: DemoWorldState) {
-  if (flags.archiveOpen) return ['Join the waitlist'];
-  if (worldState.pendingRollResult) return ['Roll 32', 'Roll 78'];
-  if (flags.hasPin) return ['Use the silver pin on the lock', 'Listen at the keyhole', 'Open the archive door'];
-  if (flags.hasPassphrase) return ['Say the passphrase into the keyhole', 'Search the intake desk', 'Inspect the brass door'];
-  if (flags.doorInspected) return ['Search the intake desk', 'Listen at the keyhole', 'Try to open the door'];
-  return ['Inspect the brass door', 'Search the intake desk', 'Listen at the keyhole'];
+function createInitialWorldState(copy: DemoCopy): DemoWorldState {
+  return {
+    act: 1,
+    currentLocation: 'archive_threshold',
+    visitedLocations: ['archive_threshold', 'intake_desk'],
+    discoveredClues: [],
+    npcRelations: { archive_echo: 'unknown' },
+    summary: copy.stateSummary,
+    openThreads: [copy.objective],
+    playerNotes: [],
+    totalMessageCount: 0,
+  };
+}
+
+function createInitialMessages(copy: DemoCopy): DemoMessage[] {
+  return [
+    {
+      id: 'intro',
+      role: 'keeper',
+      meta: copy.keeper,
+      text: copy.intro,
+    },
+    {
+      id: 'briefing',
+      role: 'system',
+      meta: copy.objectiveLabel,
+      text: copy.briefing,
+    },
+  ];
+}
+
+function getSuggestions(flags: DemoFlags, copy: DemoCopy) {
+  if (flags.archiveOpen) return [copy.suggestions.waitlist];
+  if (flags.hasPin) return copy.suggestions.hasPin;
+  if (flags.hasPassphrase) return copy.suggestions.hasPassphrase;
+  if (flags.doorInspected) return copy.suggestions.doorInspected;
+  return copy.suggestions.initial;
 }
 
 function countClues(flags: DemoFlags) {
@@ -123,13 +134,16 @@ function countClues(flags: DemoFlags) {
 }
 
 export default function DemoClient() {
-  const [messages, setMessages] = useState<DemoMessage[]>(initialMessages);
-  const [worldState, setWorldState] = useState<DemoWorldState>(initialWorldState);
+  const [lang, setLang] = useState<DemoLang>('en');
+  const copy = DEMO_COPY[lang];
+  const [messages, setMessages] = useState<DemoMessage[]>(() => createInitialMessages(DEMO_COPY.en));
+  const [worldState, setWorldState] = useState<DemoWorldState>(() => createInitialWorldState(DEMO_COPY.en));
   const [players, setPlayers] = useState<DemoPlayer[] | null>(null);
   const [input, setInput] = useState('');
   const [userMessages, setUserMessages] = useState(0);
   const [thinking, setThinking] = useState(false);
-  const [ending, setEnding] = useState<'completed' | 'message_limit' | 'manual' | null>(null);
+  const [ending, setEnding] = useState<EndingReason | null>(null);
+  const [chatClosedReason, setChatClosedReason] = useState<ClosedReason | null>(null);
   const [email, setEmail] = useState('');
   const [waitlistState, setWaitlistState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waitlistError, setWaitlistError] = useState('');
@@ -137,8 +151,16 @@ export default function DemoClient() {
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const flags = useMemo(() => getFlags(worldState, players), [worldState, players]);
-  const suggestions = useMemo(() => getSuggestions(flags, worldState), [flags, worldState]);
+  const suggestions = useMemo(() => getSuggestions(flags, copy), [flags, copy]);
   const clueCount = countClues(flags);
+  const pendingRoll = worldState.pendingRollResult;
+
+  useEffect(() => {
+    const queryLang = new URLSearchParams(window.location.search).get('lang');
+    if (queryLang === 'uk' || queryLang === 'es' || queryLang === 'en') {
+      resetDemo(queryLang);
+    }
+  }, []);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({
@@ -148,19 +170,40 @@ export default function DemoClient() {
   }, [messages, thinking]);
 
   useEffect(() => {
-    if (ending) return undefined;
+    if (chatClosedReason) return undefined;
     const timer = window.setInterval(() => {
-      setSecondsLeft((value) => {
-        if (value <= 1) {
-          setEnding('message_limit');
-          return 0;
-        }
-        return value - 1;
-      });
+      setSecondsLeft((value) => Math.max(value - 1, 0));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [ending]);
+  }, [chatClosedReason]);
+
+  useEffect(() => {
+    if (secondsLeft !== 0 || chatClosedReason) return;
+    setChatClosedReason('guard');
+    setEnding('guard');
+    addMessage({
+      role: 'system',
+      meta: copy.guard.meta,
+      text: copy.guard.notice,
+    });
+  }, [secondsLeft, chatClosedReason, copy]);
+
+  function resetDemo(nextLang: DemoLang) {
+    const nextCopy = DEMO_COPY[nextLang];
+    setLang(nextLang);
+    setMessages(createInitialMessages(nextCopy));
+    setWorldState(createInitialWorldState(nextCopy));
+    setPlayers(null);
+    setInput('');
+    setUserMessages(0);
+    setThinking(false);
+    setEnding(null);
+    setChatClosedReason(null);
+    setWaitlistState('idle');
+    setWaitlistError('');
+    setSecondsLeft(DEMO_SECONDS);
+  }
 
   function addMessage(message: Omit<DemoMessage, 'id'>) {
     setMessages((prev) => [
@@ -172,9 +215,9 @@ export default function DemoClient() {
     ]);
   }
 
-  async function submitTurn(value: string) {
+  async function submitTurn(value: string, options?: { allowPendingRoll?: boolean }) {
     const trimmed = value.trim();
-    if (!trimmed || thinking || ending) return;
+    if (!trimmed || thinking || chatClosedReason || (pendingRoll && !options?.allowPendingRoll)) return;
 
     const nextCount = userMessages + 1;
     const history = messages
@@ -197,6 +240,7 @@ export default function DemoClient() {
           history,
           worldState,
           players,
+          language: lang,
         }),
       });
       const reply = await res.json() as KeeperReply | { error?: string };
@@ -209,22 +253,24 @@ export default function DemoClient() {
       addMessage({ role: 'keeper', meta: reply.meta ?? 'Keeper', text: reply.text });
 
       if (reply.completed) {
+        setChatClosedReason('completed');
         setEnding('completed');
       } else if (nextCount >= MAX_USER_MESSAGES) {
         addMessage({
           role: 'system',
-          meta: 'Archive notice',
-          text: 'The Keeper closes the preview file at ten entries. The full dossier waits beyond registration.',
+          meta: copy.messageLimit.meta,
+          text: copy.messageLimit.notice,
         });
+        setChatClosedReason('message_limit');
         setEnding('message_limit');
       }
     } catch (error) {
       addMessage({
         role: 'system',
-        meta: 'Connection',
+        meta: copy.connection.meta,
         text: error instanceof Error
-          ? `The Keeper cannot reach the file right now: ${error.message}`
-          : 'The Keeper cannot reach the file right now.',
+          ? `${copy.connection.errorPrefix} ${error.message}`
+          : copy.connection.error,
       });
     } finally {
       setThinking(false);
@@ -248,7 +294,7 @@ export default function DemoClient() {
         body: JSON.stringify({
           email,
           source: 'instant-demo',
-          locale: 'en',
+          locale: lang,
           outcome: ending ?? 'manual',
           messageCount: userMessages,
           notes: `Archive demo clues=${clueCount}; archiveOpen=${flags.archiveOpen}`,
@@ -267,6 +313,10 @@ export default function DemoClient() {
     }
   }
 
+  function closeModal() {
+    setEnding(null);
+  }
+
   const minutes = Math.floor(secondsLeft / 60);
   const seconds = String(secondsLeft % 60).padStart(2, '0');
 
@@ -274,67 +324,78 @@ export default function DemoClient() {
     <>
       <main className="demo-shell">
         <header className="demo-topbar">
-          <Link href="/" className="demo-brand" aria-label="Back to Barri landing">
+          <Link href="/" className="demo-brand" aria-label={copy.backLabel}>
             <span className="demo-seal">B</span>
             <span>Barri</span>
           </Link>
           <div className="demo-top-actions">
-            <span className="demo-file">Demo file / Archive 7</span>
-            <Link href="/auth/login" className="demo-login">Sign in</Link>
+            <span className="demo-file">{copy.fileLabel}</span>
+            <div className="demo-lang-switcher" aria-label={copy.languageLabel}>
+              {LANGS.map((item) => (
+                <button
+                  key={item.code}
+                  type="button"
+                  className={item.code === lang ? 'active' : ''}
+                  onClick={() => resetDemo(item.code)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <Link href="/auth/login" className="demo-login">{copy.signIn}</Link>
           </div>
         </header>
 
-        <section className="demo-stage" aria-label="Playable instant demo">
-          <aside className="demo-dossier" aria-label="Case status">
-            <div className="demo-dossier-label">5-minute preview</div>
-            <h1>The Archive Door</h1>
+        <section className="demo-stage" aria-label={copy.stageLabel}>
+          <aside className="demo-dossier" aria-label={copy.caseStatusLabel}>
+            <div className="demo-dossier-label">{copy.previewLabel}</div>
+            <h1>{copy.title}</h1>
             <p>
-              You are outside a secret Bureau archive. The Keeper will respond to your choices, track
-              what you discover, and close the file when you get inside.
+              {copy.description}
             </p>
 
-            <div className="demo-progress" aria-label="Demo progress">
+            <div className="demo-progress" aria-label={copy.progressLabel}>
               <div>
-                <span>Entries</span>
+                <span>{copy.entriesLabel}</span>
                 <strong>{userMessages}/{MAX_USER_MESSAGES}</strong>
               </div>
               <div>
-                <span>Clock</span>
+                <span>{copy.clockLabel}</span>
                 <strong>{minutes}:{seconds}</strong>
               </div>
               <div>
-                <span>Clues</span>
+                <span>{copy.cluesLabel}</span>
                 <strong>{clueCount}/3</strong>
               </div>
             </div>
 
             <div className="demo-evidence">
-              <div className={flags.doorInspected ? 'found' : ''}>Brass door inspected</div>
-              <div className={flags.hasPin ? 'found' : ''}>Silver filing pin found</div>
-              <div className={flags.hasPassphrase ? 'found' : ''}>Passphrase overheard</div>
-              <div className={flags.archiveOpen ? 'found' : ''}>Archive opened</div>
+              <div className={flags.doorInspected ? 'found' : ''}>{copy.evidence.door}</div>
+              <div className={flags.hasPin ? 'found' : ''}>{copy.evidence.pin}</div>
+              <div className={flags.hasPassphrase ? 'found' : ''}>{copy.evidence.passphrase}</div>
+              <div className={flags.archiveOpen ? 'found' : ''}>{copy.evidence.archive}</div>
             </div>
 
             <div className="demo-roll">
-              <span>Last check</span>
+              <span>{copy.lastCheckLabel}</span>
               {worldState.pendingRollResult ? (
                 <strong>{worldState.pendingRollResult.skillName} {'<='} {worldState.pendingRollResult.goodThreshold}</strong>
               ) : flags.archiveOpen ? (
-                <strong>Resolved</strong>
+                <strong>{copy.resolvedLabel}</strong>
               ) : (
-                <strong>Keeper driven</strong>
+                <strong>{copy.keeperDrivenLabel}</strong>
               )}
             </div>
           </aside>
 
-          <section className="demo-console" aria-label="Keeper transcript">
+          <section className="demo-console" aria-label={copy.transcriptLabel}>
             <div className="demo-console-header">
               <div>
-                <span>Live transcript</span>
-                <strong>Keeper online</strong>
+                <span>{copy.liveTranscriptLabel}</span>
+                <strong>{copy.keeperOnlineLabel}</strong>
               </div>
               <button type="button" onClick={() => setEnding('manual')} className="demo-queue-button">
-                Join waitlist
+                {copy.joinWaitlist}
               </button>
             </div>
 
@@ -347,37 +408,54 @@ export default function DemoClient() {
               ))}
               {thinking && (
                 <article className="demo-message keeper thinking">
-                  <div className="demo-message-meta">Keeper</div>
-                  <p>The Keeper consults the file...</p>
+                  <div className="demo-message-meta">{copy.keeper}</div>
+                  <p>{copy.thinking}</p>
                 </article>
               )}
             </div>
 
-            <div className="demo-suggestions" aria-label="Suggested actions">
-              {suggestions.map((suggestion) => (
-                <button
-                  type="button"
-                  key={suggestion}
-                  onClick={() => suggestion === 'Join the waitlist' ? setEnding('completed') : submitTurn(suggestion)}
-                  disabled={thinking || Boolean(ending)}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+            {pendingRoll && (
+              <DemoDiceRoller
+                key={`${pendingRoll.skillName}-${pendingRoll.goodThreshold}-${pendingRoll.context}`}
+                pendingRoll={pendingRoll}
+                copy={copy.dice}
+                disabled={thinking || Boolean(chatClosedReason)}
+                onResult={(result) => submitTurn(String(result), { allowPendingRoll: true })}
+              />
+            )}
+
+            {!pendingRoll && (
+              <div className="demo-suggestions" aria-label={copy.suggestionsLabel}>
+                {suggestions.map((suggestion) => (
+                  <button
+                    type="button"
+                    key={suggestion}
+                    onClick={() => suggestion === copy.suggestions.waitlist ? setEnding('manual') : submitTurn(suggestion)}
+                    disabled={thinking || Boolean(chatClosedReason)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="demo-input-row">
               <input
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
-                disabled={thinking || Boolean(ending)}
-                placeholder="Tell the Keeper what you do..."
-                aria-label="Tell the Keeper what you do"
+                disabled={thinking || Boolean(chatClosedReason) || Boolean(pendingRoll)}
+                placeholder={pendingRoll ? copy.rollInputPlaceholder : copy.inputPlaceholder}
+                aria-label={copy.inputLabel}
               />
-              <button type="submit" disabled={thinking || Boolean(ending) || !input.trim()}>
-                Send
+              <button type="submit" disabled={thinking || Boolean(chatClosedReason) || Boolean(pendingRoll) || !input.trim()}>
+                {copy.send}
               </button>
             </form>
+            {chatClosedReason && (
+              <div className="demo-closed-notice">
+                {copy.closed[chatClosedReason]}
+              </div>
+            )}
           </section>
         </section>
       </main>
@@ -385,24 +463,23 @@ export default function DemoClient() {
       {ending && (
         <div className="demo-modal-backdrop" role="presentation">
           <section className="demo-modal" role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
-            <div className="demo-modal-stamp">{ending === 'completed' ? 'Entered' : 'Filed'}</div>
-            <div className="demo-dossier-label">Preview complete</div>
+            <div className="demo-modal-stamp">{copy.modal[ending].stamp}</div>
+            <div className="demo-dossier-label">{copy.modal.previewComplete}</div>
             <h2 id="demo-modal-title">
-              {ending === 'completed' ? 'The archive opens.' : 'The Keeper closes the preview file.'}
+              {copy.modal[ending].title}
             </h2>
             <p>
-              Barri is opening access in controlled batches. Leave your email and the Bureau will call
-              you when the next table is ready.
+              {copy.modal[ending].body}
             </p>
 
             {waitlistState === 'success' ? (
               <div className="demo-success">
-                <strong>Filed under waiting list.</strong>
-                <span>We have your address. The next letter will not be blank.</span>
+                <strong>{copy.waitlist.successTitle}</strong>
+                <span>{copy.waitlist.successBody}</span>
               </div>
             ) : (
               <form onSubmit={submitWaitlist} className="demo-waitlist-form">
-                <label htmlFor="waitlist-email">Investigator email</label>
+                <label htmlFor="waitlist-email">{copy.waitlist.emailLabel}</label>
                 <div>
                   <input
                     id="waitlist-email"
@@ -410,11 +487,11 @@ export default function DemoClient() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
-                    placeholder="investigator@example.com"
+                    placeholder={copy.waitlist.placeholder}
                     autoComplete="email"
                   />
                   <button type="submit" disabled={waitlistState === 'loading'}>
-                    {waitlistState === 'loading' ? 'Filing...' : 'Join queue'}
+                    {waitlistState === 'loading' ? copy.waitlist.loading : copy.waitlist.submit}
                   </button>
                 </div>
                 {waitlistState === 'error' && <span className="demo-form-error">{waitlistError}</span>}
@@ -422,8 +499,10 @@ export default function DemoClient() {
             )}
 
             <div className="demo-modal-links">
-              <button type="button" onClick={() => setEnding(null)}>Return to file</button>
-              <Link href="/auth/login">Already cleared?</Link>
+              <button type="button" onClick={closeModal}>
+                {chatClosedReason ? copy.modal.reviewFile : copy.modal.returnToFile}
+              </button>
+              <Link href="/auth/login">{copy.modal.alreadyCleared}</Link>
             </div>
           </section>
         </div>
@@ -431,3 +510,479 @@ export default function DemoClient() {
     </>
   );
 }
+
+interface DiceCopy {
+  title: string;
+  threshold: string;
+  contextFallback: string;
+  tens: string;
+  units: string;
+  result: string;
+  roll: string;
+  rolling: string;
+  success: string;
+  fail: string;
+  send: (result: number) => string;
+}
+
+function DemoDiceRoller({
+  pendingRoll,
+  copy,
+  disabled,
+  onResult,
+}: {
+  pendingRoll: NonNullable<DemoWorldState['pendingRollResult']>;
+  copy: DiceCopy;
+  disabled: boolean;
+  onResult: (result: number) => void;
+}) {
+  const [phase, setPhase] = useState<'idle' | 'rolling' | 'done'>('idle');
+  const [display, setDisplay] = useState(0);
+  const [finalResult, setFinalResult] = useState<number | null>(null);
+  const timerRef = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+  }, []);
+
+  function roll() {
+    if (phase !== 'idle' || disabled) return;
+
+    const result = Math.floor(Math.random() * 100) + 1;
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) {
+      setDisplay(result);
+      setFinalResult(result);
+      setPhase('done');
+      return;
+    }
+
+    setPhase('rolling');
+    let elapsed = 0;
+    let interval = 44;
+
+    function tick() {
+      elapsed += interval;
+      setDisplay(Math.floor(Math.random() * 100) + 1);
+      if (elapsed >= 1450) {
+        setDisplay(result);
+        setFinalResult(result);
+        setPhase('done');
+        return;
+      }
+      if (elapsed > 950) interval = Math.min(180, interval * 1.24);
+      timerRef.current = window.setTimeout(tick, interval);
+    }
+
+    timerRef.current = window.setTimeout(tick, interval);
+  }
+
+  const isSuccess = finalResult !== null && finalResult <= pendingRoll.goodThreshold;
+  const tens = display === 100 ? '00' : String(Math.floor(display / 10) * 10).padStart(2, '0');
+  const units = display === 100 ? '0' : String(display % 10);
+
+  return (
+    <section className="demo-dice-panel" aria-live="polite">
+      <div className="demo-dice-header">
+        <span>{copy.title}</span>
+        <strong>{pendingRoll.skillName}</strong>
+      </div>
+      <p>
+        {copy.threshold} <b>{pendingRoll.goodThreshold}</b>
+        {' · '}
+        {pendingRoll.context || copy.contextFallback}
+      </p>
+
+      <div className="demo-dice-row">
+        <div className="demo-die">
+          <strong>{phase === 'idle' ? '--' : tens}</strong>
+          <span>{copy.tens}</span>
+        </div>
+        <span className="demo-dice-plus">+</span>
+        <div className="demo-die">
+          <strong>{phase === 'idle' ? '-' : units}</strong>
+          <span>{copy.units}</span>
+        </div>
+        {phase === 'done' && finalResult !== null && (
+          <>
+            <span className="demo-dice-plus">=</span>
+            <div className={`demo-die demo-die-result ${isSuccess ? 'success' : 'fail'}`}>
+              <strong>{finalResult}</strong>
+              <span>{isSuccess ? copy.success : copy.fail}</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="demo-dice-actions">
+        {phase === 'idle' && (
+          <button type="button" onClick={roll} disabled={disabled}>
+            {copy.roll}
+          </button>
+        )}
+        {phase === 'rolling' && <span>{copy.rolling}</span>}
+        {phase === 'done' && finalResult !== null && (
+          <button type="button" onClick={() => onResult(finalResult)} disabled={disabled}>
+            {copy.send(finalResult)}
+          </button>
+        )}
+      </div>
+    </section>
+  );
+}
+
+const DEMO_COPY = {
+  en: {
+    keeper: 'Keeper',
+    objective: 'Find a way into the secret archive',
+    objectiveLabel: 'Objective',
+    stateSummary:
+      'The investigator stands before Archive 7 after midnight. The door is sealed, but the corridor offers clues for a careful mind.',
+    intro:
+      'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked CASES THAT REFUSED TO DIE. Brass hinges. No handle. A thin keyhole listens back.',
+    briefing:
+      'Find a way into the secret archive. Speak naturally, or use the suggested actions below.',
+    backLabel: 'Back to Barri landing',
+    fileLabel: 'Demo file / Archive 7',
+    languageLabel: 'Demo language',
+    signIn: 'Sign in',
+    stageLabel: 'Playable instant demo',
+    caseStatusLabel: 'Case status',
+    previewLabel: '15-minute preview',
+    title: 'The Archive Door',
+    description:
+      'You have 15 minutes before the next guard patrol. Get inside the secret Bureau archive before the corridor catches you.',
+    progressLabel: 'Demo progress',
+    entriesLabel: 'Entries',
+    clockLabel: 'Patrol',
+    cluesLabel: 'Clues',
+    evidence: {
+      door: 'Brass door inspected',
+      pin: 'Silver filing pin found',
+      passphrase: 'Passphrase overheard',
+      archive: 'Archive opened',
+    },
+    lastCheckLabel: 'Last check',
+    resolvedLabel: 'Resolved',
+    keeperDrivenLabel: 'Keeper driven',
+    transcriptLabel: 'Keeper transcript',
+    liveTranscriptLabel: 'Live transcript',
+    keeperOnlineLabel: 'Keeper online',
+    joinWaitlist: 'Join waitlist',
+    thinking: 'The Keeper consults the file...',
+    suggestionsLabel: 'Suggested actions',
+    suggestions: {
+      waitlist: 'Join the waitlist',
+      initial: ['Inspect the brass door', 'Search the intake desk', 'Listen at the keyhole'],
+      doorInspected: ['Search the intake desk', 'Listen at the keyhole', 'Try to open the door'],
+      hasPin: ['Use the silver pin on the lock', 'Listen at the keyhole', 'Open the archive door'],
+      hasPassphrase: ['Say the passphrase into the keyhole', 'Search the intake desk', 'Inspect the brass door'],
+    },
+    inputPlaceholder: 'Tell the Keeper what you do...',
+    rollInputPlaceholder: 'Resolve the d100 check above...',
+    inputLabel: 'Tell the Keeper what you do',
+    send: 'Send',
+    guard: {
+      meta: 'Guard patrol',
+      notice:
+        'Heavy footsteps enter the corridor. The night guard finds you outside Archive 7 before the door yields. The preview file is closed.',
+    },
+    messageLimit: {
+      meta: 'Archive notice',
+      notice: 'The Keeper closes the preview file at ten entries. The full dossier waits beyond access.',
+    },
+    connection: {
+      meta: 'Connection',
+      error: 'The Keeper cannot reach the file right now.',
+      errorPrefix: 'The Keeper cannot reach the file right now:',
+    },
+    closed: {
+      completed: 'The archive file is complete. Join the waiting list to continue beyond the demo.',
+      message_limit: 'The preview is closed after ten entries. Join the waiting list for the full archive.',
+      guard: 'The guard has ended this attempt. The transcript is preserved for review.',
+    },
+    dice: {
+      title: 'd100 check',
+      threshold: 'Need',
+      contextFallback: 'The Keeper is waiting for the result.',
+      tens: 'tens',
+      units: 'units',
+      result: 'result',
+      roll: 'Roll d100',
+      rolling: 'The dice are rolling...',
+      success: 'success',
+      fail: 'fail',
+      send: (result: number) => `Send ${result}`,
+    },
+    modal: {
+      previewComplete: 'Preview complete',
+      returnToFile: 'Return to file',
+      reviewFile: 'Review file',
+      alreadyCleared: 'Already cleared?',
+      completed: {
+        stamp: 'Entered',
+        title: 'The archive opens.',
+        body: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
+      },
+      message_limit: {
+        stamp: 'Filed',
+        title: 'The Keeper closes the preview file.',
+        body: 'Ten entries are enough to prove the file is alive. Join the queue and the Bureau will summon you for the full case.',
+      },
+      guard: {
+        stamp: 'Caught',
+        title: 'The guard finds you.',
+        body: 'The patrol reaches the corridor before Archive 7 opens. Leave your email and try the full case when access clears.',
+      },
+      manual: {
+        stamp: 'Queue',
+        title: 'Join the waiting list.',
+        body: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
+      },
+    },
+    waitlist: {
+      emailLabel: 'Investigator email',
+      placeholder: 'investigator@example.com',
+      loading: 'Filing...',
+      submit: 'Join queue',
+      successTitle: 'Filed under waiting list.',
+      successBody: 'We have your address. The next letter will not be blank.',
+    },
+  },
+  uk: {
+    keeper: 'Хранитель',
+    objective: 'Знайти шлях у секретний архів',
+    objectiveLabel: 'Мета',
+    stateSummary:
+      'Слідчий стоїть перед Архівом 7 після опівночі. Двері запечатані, але коридор залишив підказки для уважного ока.',
+    intro:
+      'Дощ січе високі вікна Бюро. Перед вами запечатані архівні двері з написом: СПРАВИ, ЩО ВІДМОВИЛИСЯ ПОМЕРТИ. Латунні петлі. Жодної ручки. Тонка замкова щілина ніби слухає у відповідь.',
+    briefing:
+      'Знайдіть шлях у секретний архів. Пишіть природно або скористайтесь запропонованими діями нижче.',
+    backLabel: 'Повернутися на лендинг Barri',
+    fileLabel: 'Демо-файл / Архів 7',
+    languageLabel: 'Мова демо',
+    signIn: 'Увійти',
+    stageLabel: 'Ігрове instant demo',
+    caseStatusLabel: 'Стан справи',
+    previewLabel: '15-хвилинне превʼю',
+    title: 'Двері Архіву',
+    description:
+      'У вас 15 хвилин до наступного обходу сторожа. Потрапте до секретного архіву Бюро, поки коридор вас не видав.',
+    progressLabel: 'Прогрес демо',
+    entriesLabel: 'Записи',
+    clockLabel: 'Обхід',
+    cluesLabel: 'Підказки',
+    evidence: {
+      door: 'Латунні двері оглянуто',
+      pin: 'Срібну архівну шпильку знайдено',
+      passphrase: 'Парольну фразу почуто',
+      archive: 'Архів відкрито',
+    },
+    lastCheckLabel: 'Остання перевірка',
+    resolvedLabel: 'Вирішено',
+    keeperDrivenLabel: 'Веде Хранитель',
+    transcriptLabel: 'Протокол Хранителя',
+    liveTranscriptLabel: 'Живий протокол',
+    keeperOnlineLabel: 'Хранитель на звʼязку',
+    joinWaitlist: 'Стати в чергу',
+    thinking: 'Хранитель звіряється з файлом...',
+    suggestionsLabel: 'Запропоновані дії',
+    suggestions: {
+      waitlist: 'Стати в чергу',
+      initial: ['Оглянути латунні двері', 'Обшукати стіл реєстрації', 'Послухати біля замкової щілини'],
+      doorInspected: ['Обшукати стіл реєстрації', 'Послухати біля замкової щілини', 'Спробувати відчинити двері'],
+      hasPin: ['Скористатися срібною шпилькою', 'Послухати біля замкової щілини', 'Відчинити двері архіву'],
+      hasPassphrase: ['Прошепотіти фразу в замкову щілину', 'Обшукати стіл реєстрації', 'Оглянути латунні двері'],
+    },
+    inputPlaceholder: 'Скажіть Хранителю, що ви робите...',
+    rollInputPlaceholder: 'Спершу вирішіть d100 перевірку вище...',
+    inputLabel: 'Скажіть Хранителю, що ви робите',
+    send: 'Надіслати',
+    guard: {
+      meta: 'Обхід сторожа',
+      notice:
+        'Важкі кроки входять у коридор. Нічний сторож застає вас біля Архіву 7 до того, як двері піддались. Демо-файл закрито.',
+    },
+    messageLimit: {
+      meta: 'Повідомлення архіву',
+      notice: 'Хранитель закриває превʼю після десяти записів. Повне досьє чекає після доступу.',
+    },
+    connection: {
+      meta: 'Звʼязок',
+      error: 'Хранитель не може дістатися файлу зараз.',
+      errorPrefix: 'Хранитель не може дістатися файлу зараз:',
+    },
+    closed: {
+      completed: 'Архівний файл завершено. Станьте в чергу, щоб продовжити після демо.',
+      message_limit: 'Превʼю закрито після десяти записів. Станьте в чергу до повного архіву.',
+      guard: 'Сторож завершив цю спробу. Протокол збережено для перегляду.',
+    },
+    dice: {
+      title: 'd100 перевірка',
+      threshold: 'Потрібно',
+      contextFallback: 'Хранитель чекає результат.',
+      tens: 'десятки',
+      units: 'одиниці',
+      result: 'результат',
+      roll: 'Кинути d100',
+      rolling: 'Кубики котяться...',
+      success: 'успіх',
+      fail: 'провал',
+      send: (result: number) => `Надіслати ${result}`,
+    },
+    modal: {
+      previewComplete: 'Превʼю завершено',
+      returnToFile: 'Повернутися до файлу',
+      reviewFile: 'Переглянути файл',
+      alreadyCleared: 'Вже маєте доступ?',
+      completed: {
+        stamp: 'Вхід',
+        title: 'Архів відкривається.',
+        body: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
+      },
+      message_limit: {
+        stamp: 'Закрито',
+        title: 'Хранитель закриває превʼю.',
+        body: 'Десяти записів достатньо, щоб довести: файл живий. Станьте в чергу, і Бюро викличе вас до повної справи.',
+      },
+      guard: {
+        stamp: 'Спіймано',
+        title: 'Сторож вас знаходить.',
+        body: 'Обхід доходить до коридору раніше, ніж Архів 7 відчиняється. Залиште email і спробуйте повну справу після доступу.',
+      },
+      manual: {
+        stamp: 'Черга',
+        title: 'Стати в чергу.',
+        body: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
+      },
+    },
+    waitlist: {
+      emailLabel: 'Email слідчого',
+      placeholder: 'investigator@example.com',
+      loading: 'Підшиваємо...',
+      submit: 'Стати в чергу',
+      successTitle: 'Підшито до списку очікування.',
+      successBody: 'Адресу прийнято. Наступний лист не буде порожнім.',
+    },
+  },
+  es: {
+    keeper: 'Guardián',
+    objective: 'Encontrar la entrada al archivo secreto',
+    objectiveLabel: 'Objetivo',
+    stateSummary:
+      'El investigador está frente al Archivo 7 después de medianoche. La puerta está sellada, pero el corredor guarda pistas para quien mire con cuidado.',
+    intro:
+      'La lluvia golpea los altos ventanales del Buró. Estás ante una puerta de archivo sellada: CASOS QUE SE NEGARON A MORIR. Bisagras de latón. Sin pomo. Una cerradura fina parece escuchar.',
+    briefing:
+      'Encuentra la forma de entrar al archivo secreto. Escribe con naturalidad o usa las acciones sugeridas abajo.',
+    backLabel: 'Volver al inicio de Barri',
+    fileLabel: 'Archivo demo / Archivo 7',
+    languageLabel: 'Idioma de la demo',
+    signIn: 'Entrar',
+    stageLabel: 'Demo jugable',
+    caseStatusLabel: 'Estado del expediente',
+    previewLabel: 'Vista de 15 minutos',
+    title: 'La Puerta del Archivo',
+    description:
+      'Tienes 15 minutos antes de la próxima ronda del guardia. Entra al archivo secreto del Buró antes de que el corredor te delate.',
+    progressLabel: 'Progreso de la demo',
+    entriesLabel: 'Entradas',
+    clockLabel: 'Ronda',
+    cluesLabel: 'Pistas',
+    evidence: {
+      door: 'Puerta de latón inspeccionada',
+      pin: 'Alfiler de archivo encontrado',
+      passphrase: 'Contraseña escuchada',
+      archive: 'Archivo abierto',
+    },
+    lastCheckLabel: 'Última prueba',
+    resolvedLabel: 'Resuelta',
+    keeperDrivenLabel: 'Guía del Guardián',
+    transcriptLabel: 'Transcripción del Guardián',
+    liveTranscriptLabel: 'Transcripción en vivo',
+    keeperOnlineLabel: 'Guardián en línea',
+    joinWaitlist: 'Unirse a la lista',
+    thinking: 'El Guardián consulta el expediente...',
+    suggestionsLabel: 'Acciones sugeridas',
+    suggestions: {
+      waitlist: 'Unirse a la lista',
+      initial: ['Inspeccionar la puerta de latón', 'Registrar el escritorio', 'Escuchar por la cerradura'],
+      doorInspected: ['Registrar el escritorio', 'Escuchar por la cerradura', 'Intentar abrir la puerta'],
+      hasPin: ['Usar el alfiler en la cerradura', 'Escuchar por la cerradura', 'Abrir la puerta del archivo'],
+      hasPassphrase: ['Susurrar la contraseña en la cerradura', 'Registrar el escritorio', 'Inspeccionar la puerta de latón'],
+    },
+    inputPlaceholder: 'Dile al Guardián qué haces...',
+    rollInputPlaceholder: 'Resuelve primero la prueba d100...',
+    inputLabel: 'Dile al Guardián qué haces',
+    send: 'Enviar',
+    guard: {
+      meta: 'Ronda del guardia',
+      notice:
+        'Pasos pesados entran en el corredor. El guardia nocturno te encuentra ante el Archivo 7 antes de que la puerta ceda. La demo queda cerrada.',
+    },
+    messageLimit: {
+      meta: 'Aviso del archivo',
+      notice: 'El Guardián cierra la vista previa tras diez entradas. El expediente completo espera tras el acceso.',
+    },
+    connection: {
+      meta: 'Conexión',
+      error: 'El Guardián no puede alcanzar el expediente ahora.',
+      errorPrefix: 'El Guardián no puede alcanzar el expediente ahora:',
+    },
+    closed: {
+      completed: 'El expediente de archivo está completo. Únete a la lista para continuar después de la demo.',
+      message_limit: 'La vista previa se cerró tras diez entradas. Únete a la lista para el archivo completo.',
+      guard: 'El guardia ha terminado este intento. La transcripción queda preservada.',
+    },
+    dice: {
+      title: 'Prueba d100',
+      threshold: 'Necesitas',
+      contextFallback: 'El Guardián espera el resultado.',
+      tens: 'decenas',
+      units: 'unidades',
+      result: 'resultado',
+      roll: 'Tirar d100',
+      rolling: 'Los dados ruedan...',
+      success: 'éxito',
+      fail: 'fallo',
+      send: (result: number) => `Enviar ${result}`,
+    },
+    modal: {
+      previewComplete: 'Vista completada',
+      returnToFile: 'Volver al expediente',
+      reviewFile: 'Revisar expediente',
+      alreadyCleared: '¿Ya tienes acceso?',
+      completed: {
+        stamp: 'Dentro',
+        title: 'El archivo se abre.',
+        body: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
+      },
+      message_limit: {
+        stamp: 'Archivado',
+        title: 'El Guardián cierra la vista previa.',
+        body: 'Diez entradas bastan para demostrar que el expediente vive. Únete a la lista y el Buró te convocará al caso completo.',
+      },
+      guard: {
+        stamp: 'Capturado',
+        title: 'El guardia te encuentra.',
+        body: 'La ronda llega al corredor antes de que el Archivo 7 se abra. Deja tu email e intenta el caso completo cuando tengas acceso.',
+      },
+      manual: {
+        stamp: 'Lista',
+        title: 'Unirse a la lista.',
+        body: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
+      },
+    },
+    waitlist: {
+      emailLabel: 'Email del investigador',
+      placeholder: 'investigator@example.com',
+      loading: 'Archivando...',
+      submit: 'Unirse',
+      successTitle: 'Archivado en la lista de espera.',
+      successBody: 'Tenemos tu dirección. La próxima carta no estará en blanco.',
+    },
+  },
+} as const;
+
+type DemoCopy = (typeof DEMO_COPY)[keyof typeof DEMO_COPY];

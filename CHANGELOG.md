@@ -708,3 +708,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Fixed
 - **Registration bypass**: direct `POST /api/auth/register` тимчасово закритий (`registration_closed`), щоб public launch доступ ішов тільки через waitlist.
+- **Demo checklist**: прогрес у `/demo` більше не рухається від keyword-збігів у будь-якому тексті; чекбокси оновлюються тільки через явні Keeper progress tags або реальні state mutations.
+- **Demo localization**: `/demo` отримав EN/UK/ES UI copy, language switcher і language-aware Keeper route.
+- **Demo dice checks**: roll state тепер показується окремим d100 emulator panel замість suggested text actions.
+- **Demo timeout**: preview timer збільшено до 15 хвилин, оформлено як обхід сторожа, а після timeout chat блокується без повторного відкриття модалки після закриття.
