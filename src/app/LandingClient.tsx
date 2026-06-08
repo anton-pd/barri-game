@@ -17,7 +17,7 @@ export default function LandingClient() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const c = CONTENT[lang];
-  const demoHref = "/demo";
+  const demoHref = `/demo?lang=${lang}`;
   const waitlistHref = "/auth/register";
 
   useEffect(() => {
