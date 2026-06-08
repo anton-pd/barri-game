@@ -309,6 +309,23 @@ export async function initializeSchema() {
   `;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS waitlist_entries (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      email         VARCHAR(254) UNIQUE NOT NULL,
+      source        VARCHAR(80) NOT NULL DEFAULT 'unknown',
+      locale        VARCHAR(12),
+      outcome       VARCHAR(40),
+      message_count INTEGER,
+      notes         TEXT,
+      user_agent    TEXT,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_waitlist_entries_source ON waitlist_entries(source)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_waitlist_entries_created_at ON waitlist_entries(created_at)`;
+
+  await sql`
     INSERT INTO app_settings (key, value) VALUES
       ('ai_provider',             'gemini-flash'),
       ('tts_provider',            'gemini'),
@@ -331,6 +348,48 @@ export async function setAppSetting(key: string, value: string): Promise<void> {
     INSERT INTO app_settings (key, value, updated_at)
     VALUES (${key}, ${value}, NOW())
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+  `;
+}
+
+// ── Waitlist ─────────────────────────────────────────────────────────────────
+
+export interface WaitlistEntryInput {
+  email: string;
+  source: string;
+  locale?: string;
+  outcome?: string;
+  messageCount?: number;
+  notes?: string;
+  userAgent?: string | null;
+}
+
+export async function upsertWaitlistEntry(input: WaitlistEntryInput): Promise<void> {
+  await sql`
+    INSERT INTO waitlist_entries (
+      email,
+      source,
+      locale,
+      outcome,
+      message_count,
+      notes,
+      user_agent
+    ) VALUES (
+      ${input.email},
+      ${input.source},
+      ${input.locale ?? null},
+      ${input.outcome ?? null},
+      ${input.messageCount ?? null},
+      ${input.notes ?? null},
+      ${input.userAgent ?? null}
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      source = EXCLUDED.source,
+      locale = COALESCE(EXCLUDED.locale, waitlist_entries.locale),
+      outcome = COALESCE(EXCLUDED.outcome, waitlist_entries.outcome),
+      message_count = COALESCE(EXCLUDED.message_count, waitlist_entries.message_count),
+      notes = COALESCE(EXCLUDED.notes, waitlist_entries.notes),
+      user_agent = COALESCE(EXCLUDED.user_agent, waitlist_entries.user_agent),
+      updated_at = NOW()
   `;
 }
 
