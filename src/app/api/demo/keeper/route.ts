@@ -152,7 +152,7 @@ function applyDemoStateHints(
   }
   if (/(search|desk|drawer|blotter|filing pin|silver pin)/.test(text)) {
     nextWorld = addClue(nextWorld, 'silver_pin');
-    if (/(filing pin|silver pin)/.test(text)) {
+    if (/(search|desk|drawer|blotter|filing pin|silver pin)/.test(text)) {
       nextPlayers = ensureSilverPin(nextPlayers);
     }
   }
@@ -250,6 +250,12 @@ export async function POST(request: Request) {
     const history = normalizeHistory(body.history);
     let worldState = sanitizeWorldState(body.worldState);
     let players = sanitizePlayers(body.players);
+    if (
+      worldState.discoveredClues.includes('silver_pin') ||
+      /(silver filing pin|silver pin|filing pin)/i.test(message)
+    ) {
+      players = ensureSilverPin(players);
+    }
     const priorUserTurns = history.filter((entry) => entry.role === 'player').length;
     if (priorUserTurns >= 10) {
       return NextResponse.json({
