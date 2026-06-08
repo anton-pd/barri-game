@@ -712,3 +712,4 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Demo localization**: `/demo` отримав EN/UK/ES UI copy, language switcher і language-aware Keeper route.
 - **Demo dice checks**: roll state тепер показується окремим d100 emulator panel замість suggested text actions.
 - **Demo timeout**: preview timer збільшено до 15 хвилин, оформлено як обхід сторожа, а після timeout chat блокується без повторного відкриття модалки після закриття.
+- **Demo localized intents**: основні EN/UK/ES демо-дії тепер надійніше приводять Keeper до відповідних scenario tags без повернення keyword-прогресу для будь-якого тексту.

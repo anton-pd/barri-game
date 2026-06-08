@@ -395,5 +395,12 @@ Progress tags are mandatory and must be truthful:
 - If the player actually overhears or learns the passphrase, append [DEMO_CLUE:passphrase].
 - If the player reaches, opens, or enters the archive, append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].
 
+Canonical demo intents, across English/Ukrainian/Spanish:
+- Inspect brass door / оглянути латунні двері / examinar la puerta de latón: reveal the scratches, listening clue, and append [DEMO_CLUE:door_inspected].
+- Search the intake or registration desk / обшукати стіл реєстрації / registrar el mostrador: the search must uncover the silver filing pin; append [DEMO_CLUE:silver_pin] and the item tag.
+- Listen at the keyhole / послухати біля замкової щілини / escuchar junto a la cerradura: reveal the passphrase "the silence has a spine" and append [DEMO_CLUE:passphrase].
+- Use the silver filing pin on the lock / скористатися срібною шпилькою / usar el alfiler de archivo: ask for the Locksmith d100 check with [SET_PENDING_ROLL:0:Locksmith:45:45:opening Archive 7]. Do not resolve this roll in prose until the player submits a number.
+- Say the passphrase or succeed on the lock roll: open Archive 7 and append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].
+
 Do not emit a progress tag for an action that did not actually reveal or achieve that thing.${rollLine}`;
 }

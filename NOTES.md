@@ -2039,3 +2039,13 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
   - `/demo?lang=es` renders Spanish title/copy and no roll text suggestions.
   - landing `/demo` links include `?lang=<currentLang>`.
 - Full LLM/state verification must happen on staging after deploy because local env has no `GEMINI_API_KEY`.
+
+**Follow-up during staging QA:**
+- Staging Browser QA showed the Ukrainian suggested action “Обшукати стіл реєстрації” could make the Keeper describe the desk without uncovering the silver pin.
+- Strengthened `DEMO KEEPER MODE` with canonical EN/UK/ES demo intents:
+  - inspect brass door → door clue;
+  - search intake/registration desk → silver filing pin + item tag;
+  - listen at keyhole → passphrase;
+  - use silver filing pin → pending Locksmith d100 roll;
+  - passphrase or successful lock roll → archive completion.
+- This keeps checklist updates tied to Keeper tags/state mutations while making the core localized demo actions reliable.
