@@ -12,32 +12,70 @@ interface DemoMessage {
   meta?: string;
 }
 
-interface DemoState {
+interface DemoInventoryItem {
+  id: string;
+  name: string;
+  description: string;
+  uses: number;
+  equipped?: boolean;
+  broken?: boolean;
+}
+
+interface DemoPlayer {
+  name?: string;
+  inventory: DemoInventoryItem[];
+  skills?: Record<string, number>;
+}
+
+interface DemoWorldState {
+  act: number;
+  currentLocation?: string;
+  visitedLocations: string[];
+  discoveredClues: string[];
+  npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
+  summary: string;
+  openThreads: string[];
+  playerNotes: string[];
+  totalMessageCount?: number;
+  pendingRollResult?: {
+    characterIdx: number;
+    skillName: string;
+    skillValue: number;
+    context: string;
+    goodThreshold: number;
+  };
+}
+
+interface DemoFlags {
   doorInspected: boolean;
   hasPin: boolean;
   hasPassphrase: boolean;
   archiveOpen: boolean;
-  lastRoll: number | null;
-  lastRollTarget: number | null;
 }
 
 interface KeeperReply {
   text: string;
   meta?: string;
   completed?: boolean;
-  state: DemoState;
+  completionReason?: 'objective' | 'message_limit' | null;
+  worldState: DemoWorldState;
+  players: DemoPlayer[];
 }
 
 const MAX_USER_MESSAGES = 10;
 const DEMO_SECONDS = 5 * 60;
 
-const initialState: DemoState = {
-  doorInspected: false,
-  hasPin: false,
-  hasPassphrase: false,
-  archiveOpen: false,
-  lastRoll: null,
-  lastRollTarget: null,
+const initialWorldState: DemoWorldState = {
+  act: 1,
+  currentLocation: 'archive_threshold',
+  visitedLocations: ['archive_threshold', 'intake_desk'],
+  discoveredClues: [],
+  npcRelations: { archive_echo: 'unknown' },
+  summary:
+    'The investigator stands before Archive 7 after midnight. The door is sealed, but the corridor offers clues for a careful mind.',
+  openThreads: ['Find a way into the secret archive'],
+  playerNotes: [],
+  totalMessageCount: 0,
 };
 
 const initialMessages: DemoMessage[] = [
@@ -55,111 +93,39 @@ const initialMessages: DemoMessage[] = [
   },
 ];
 
-function normalize(input: string) {
-  return input.trim().toLowerCase();
+function hasInventoryItem(players: DemoPlayer[] | null, name: string) {
+  return players?.some((player) =>
+    player.inventory?.some((item) => item.name.toLowerCase().includes(name))
+  ) ?? false;
 }
 
-function hasAny(input: string, words: string[]) {
-  return words.some((word) => input.includes(word));
-}
-
-function resolveKeeperTurn(input: string, current: DemoState): KeeperReply {
-  const text = normalize(input);
-  const next: DemoState = { ...current };
-
-  if (hasAny(text, ['pin', 'pick', 'lockpick', 'unlock']) && next.hasPin) {
-    const roll = Math.ceil(Math.random() * 60);
-    next.lastRoll = roll;
-    next.lastRollTarget = 60;
-    next.archiveOpen = true;
-    return {
-      state: next,
-      completed: true,
-      meta: `d100 ${roll} <= 60`,
-      text: `The silver pin turns once, twice, then disappears into the lock as if swallowed. The Keeper calls for a Locksmith check. ${roll}. Success. Behind the door, green-shaded lamps wake one by one. The archive admits you.`,
-    };
-  }
-
-  if (hasAny(text, ['passphrase', 'phrase', 'silence', 'spine', 'say', 'whisper']) && next.hasPassphrase) {
-    next.archiveOpen = true;
-    return {
-      state: next,
-      completed: true,
-      meta: 'Social clue resolved',
-      text: 'You speak the phrase into the keyhole: "The silence has a spine." The brass warms under your breath. Somewhere inside, a clerk who died in 1904 stamps APPROVED. The door opens.',
-    };
-  }
-
-  if (hasAny(text, ['search', 'desk', 'ledger', 'pocket', 'coat', 'drawer', 'table'])) {
-    next.hasPin = true;
-    return {
-      state: next,
-      meta: 'Item gained',
-      text: 'You search the abandoned intake desk. Under a blotter, beside three unpaid telegrams, you find a silver filing pin filed to a wicked point. It is too deliberate to be accidental.',
-    };
-  }
-
-  if (hasAny(text, ['listen', 'keyhole', 'hear', 'sound', 'ear'])) {
-    next.hasPassphrase = true;
-    return {
-      state: next,
-      meta: 'Clue discovered',
-      text: 'You lean close to the keyhole. A typewriter clacks inside the sealed room: two strokes, a pause, then a whisper. "The silence has a spine." The Keeper records the phrase before you can forget it.',
-    };
-  }
-
-  if (hasAny(text, ['inspect', 'look', 'examine', 'door', 'brass', 'plaque'])) {
-    next.doorInspected = true;
-    return {
-      state: next,
-      meta: 'Location detail',
-      text: 'The brass plaque has been polished by nervous thumbs: ARCHIVE 7. Beneath it, scratched into the wood, someone wrote: LISTEN FIRST, FORCE LAST. The lock is narrow enough for a filing pin.',
-    };
-  }
-
-  if (hasAny(text, ['open', 'enter', 'inside', 'go in'])) {
-    if (next.hasPin) {
-      const roll = Math.ceil(Math.random() * 60);
-      next.lastRoll = roll;
-      next.lastRollTarget = 60;
-      next.archiveOpen = true;
-      return {
-        state: next,
-        completed: true,
-        meta: `d100 ${roll} <= 60`,
-        text: `You set the silver pin into the narrow lock and breathe out. The Keeper calls for a Locksmith check. ${roll}. Success. The latch gives, and the archive exhales paper dust and cold candle smoke.`,
-      };
-    }
-
-    return {
-      state: next,
-      meta: 'Blocked',
-      text: 'You press your shoulder to the door. It does not move. The Keeper notes the attempt, then the silence after it. You will need a clue, a tool, or a phrase the archive recognises.',
-    };
-  }
-
+function getFlags(worldState: DemoWorldState, players: DemoPlayer[] | null): DemoFlags {
+  const clues = new Set(worldState.discoveredClues);
   return {
-    state: next,
-    meta: 'Keeper improvises',
-    text: 'The Keeper lets the moment breathe. Dust gathers in the seams of the door. Somewhere behind it, paper shifts without hands. Try reading the room: inspect the door, listen at the keyhole, or search the desk.',
+    doorInspected: clues.has('door_inspected'),
+    hasPin: clues.has('silver_pin') || hasInventoryItem(players, 'silver filing pin'),
+    hasPassphrase: clues.has('passphrase'),
+    archiveOpen: clues.has('archive_open') || worldState.currentLocation === 'inner_archive',
   };
 }
 
-function getSuggestions(state: DemoState) {
-  if (state.archiveOpen) return ['Join the waitlist'];
-  if (state.hasPin) return ['Use the silver pin on the lock', 'Listen at the keyhole', 'Open the archive door'];
-  if (state.hasPassphrase) return ['Say the passphrase into the keyhole', 'Search the intake desk', 'Inspect the brass door'];
-  if (state.doorInspected) return ['Search the intake desk', 'Listen at the keyhole', 'Try to open the door'];
+function getSuggestions(flags: DemoFlags, worldState: DemoWorldState) {
+  if (flags.archiveOpen) return ['Join the waitlist'];
+  if (worldState.pendingRollResult) return ['Roll 32', 'Roll 78'];
+  if (flags.hasPin) return ['Use the silver pin on the lock', 'Listen at the keyhole', 'Open the archive door'];
+  if (flags.hasPassphrase) return ['Say the passphrase into the keyhole', 'Search the intake desk', 'Inspect the brass door'];
+  if (flags.doorInspected) return ['Search the intake desk', 'Listen at the keyhole', 'Try to open the door'];
   return ['Inspect the brass door', 'Search the intake desk', 'Listen at the keyhole'];
 }
 
-function countClues(state: DemoState) {
-  return [state.doorInspected, state.hasPin, state.hasPassphrase].filter(Boolean).length;
+function countClues(flags: DemoFlags) {
+  return [flags.doorInspected, flags.hasPin, flags.hasPassphrase].filter(Boolean).length;
 }
 
 export default function DemoClient() {
   const [messages, setMessages] = useState<DemoMessage[]>(initialMessages);
-  const [demoState, setDemoState] = useState<DemoState>(initialState);
+  const [worldState, setWorldState] = useState<DemoWorldState>(initialWorldState);
+  const [players, setPlayers] = useState<DemoPlayer[] | null>(null);
   const [input, setInput] = useState('');
   const [userMessages, setUserMessages] = useState(0);
   const [thinking, setThinking] = useState(false);
@@ -170,8 +136,9 @@ export default function DemoClient() {
   const [secondsLeft, setSecondsLeft] = useState(DEMO_SECONDS);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
-  const suggestions = useMemo(() => getSuggestions(demoState), [demoState]);
-  const clueCount = countClues(demoState);
+  const flags = useMemo(() => getFlags(worldState, players), [worldState, players]);
+  const suggestions = useMemo(() => getSuggestions(flags, worldState), [flags, worldState]);
+  const clueCount = countClues(flags);
 
   useEffect(() => {
     transcriptRef.current?.scrollTo({
@@ -205,21 +172,41 @@ export default function DemoClient() {
     ]);
   }
 
-  function submitTurn(value: string) {
+  async function submitTurn(value: string) {
     const trimmed = value.trim();
     if (!trimmed || thinking || ending) return;
 
     const nextCount = userMessages + 1;
+    const history = messages
+      .filter((message): message is DemoMessage & { role: 'keeper' | 'player' } =>
+        message.role === 'keeper' || message.role === 'player'
+      )
+      .map((message) => ({ role: message.role, text: message.text }));
+
     setUserMessages(nextCount);
     setInput('');
     addMessage({ role: 'player', meta: 'You', text: trimmed });
     setThinking(true);
 
-    window.setTimeout(() => {
-      const reply = resolveKeeperTurn(trimmed, demoState);
-      setDemoState(reply.state);
+    try {
+      const res = await fetch('/api/demo/keeper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: trimmed,
+          history,
+          worldState,
+          players,
+        }),
+      });
+      const reply = await res.json() as KeeperReply | { error?: string };
+      if (!res.ok || !('text' in reply)) {
+        throw new Error('error' in reply && reply.error ? reply.error : 'Keeper did not answer.');
+      }
+
+      setWorldState(reply.worldState);
+      setPlayers(reply.players);
       addMessage({ role: 'keeper', meta: reply.meta ?? 'Keeper', text: reply.text });
-      setThinking(false);
 
       if (reply.completed) {
         setEnding('completed');
@@ -231,7 +218,17 @@ export default function DemoClient() {
         });
         setEnding('message_limit');
       }
-    }, 560);
+    } catch (error) {
+      addMessage({
+        role: 'system',
+        meta: 'Connection',
+        text: error instanceof Error
+          ? `The Keeper cannot reach the file right now: ${error.message}`
+          : 'The Keeper cannot reach the file right now.',
+      });
+    } finally {
+      setThinking(false);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -254,7 +251,7 @@ export default function DemoClient() {
           locale: 'en',
           outcome: ending ?? 'manual',
           messageCount: userMessages,
-          notes: `Archive demo clues=${clueCount}; archiveOpen=${demoState.archiveOpen}`,
+          notes: `Archive demo clues=${clueCount}; archiveOpen=${flags.archiveOpen}`,
         }),
       });
       const data = await res.json();
@@ -312,18 +309,20 @@ export default function DemoClient() {
             </div>
 
             <div className="demo-evidence">
-              <div className={demoState.doorInspected ? 'found' : ''}>Brass door inspected</div>
-              <div className={demoState.hasPin ? 'found' : ''}>Silver filing pin found</div>
-              <div className={demoState.hasPassphrase ? 'found' : ''}>Passphrase overheard</div>
-              <div className={demoState.archiveOpen ? 'found' : ''}>Archive opened</div>
+              <div className={flags.doorInspected ? 'found' : ''}>Brass door inspected</div>
+              <div className={flags.hasPin ? 'found' : ''}>Silver filing pin found</div>
+              <div className={flags.hasPassphrase ? 'found' : ''}>Passphrase overheard</div>
+              <div className={flags.archiveOpen ? 'found' : ''}>Archive opened</div>
             </div>
 
             <div className="demo-roll">
               <span>Last check</span>
-              {demoState.lastRoll && demoState.lastRollTarget ? (
-                <strong>d100: {demoState.lastRoll} {'<='} {demoState.lastRollTarget}</strong>
+              {worldState.pendingRollResult ? (
+                <strong>{worldState.pendingRollResult.skillName} {'<='} {worldState.pendingRollResult.goodThreshold}</strong>
+              ) : flags.archiveOpen ? (
+                <strong>Resolved</strong>
               ) : (
-                <strong>Awaiting pressure</strong>
+                <strong>Keeper driven</strong>
               )}
             </div>
           </aside>

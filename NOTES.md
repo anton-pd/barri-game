@@ -1949,3 +1949,23 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 **Key decisions:**
 - Demo Keeper is scripted/deterministic instead of calling the live LLM. This keeps launch traffic fast, free, and stable while still showing Barri's interaction loop.
 - The waitlist API returns a success-only fallback in non-production if DB is unavailable, but production still fails loudly if persistence is broken.
+
+## 2026-06-08 — ANT-109 follow-up: instant demo wired to Keeper prompt
+
+**Problem:** Anton caught that `/demo` looked good but the Keeper turn was still a keyword-scripted mock, not connected to Barri's actual system prompt/scenario flow.
+
+**Solution:**
+- Added `src/lib/demoScenario.ts` with a real short `Scenario` object for “The Archive Door”: CoC 7e ruleset, locations, railguards, must-happen events, NPC echo, demo-specific system guidance, and one investigator player.
+- Added public `POST /api/demo/keeper` that builds prompt blocks through `buildSystemPromptBlocks(DEMO_SCENARIO, worldState, players, { language: 'en' })`, calls Gemini 2.5 Flash, parses core Keeper tags (`ITEM`, `LOCATION`, `COMPLETE_SESSION`, pending roll), and returns updated demo `worldState`/players without auth or DB session persistence.
+- Reworked `DemoClient.tsx` to remove the local `resolveKeeperTurn()` keyword script. The UI now posts player actions + history + demo state to `/api/demo/keeper`; progress indicators are derived from returned state/inventory.
+
+**Key decisions:**
+- Kept `/api/demo/keeper` separate from `/api/ai` because the demo must be public/no-auth and should not create a user session, but it reuses the same system prompt builder and tag conventions.
+- Added lightweight state inference only for UI progress (door inspected / pin / passphrase / archive open) in case the LLM narrates the clue but omits an optional state tag; Keeper text itself is not scripted.
+- Used Gemini Flash for launch demo cost/speed and capped history/message size for public access.
+
+**Verification so far:**
+- `npm run lint -- src/app/demo/page.tsx src/app/demo/DemoClient.tsx src/app/api/demo/keeper/route.ts src/lib/demoScenario.ts` — passed.
+- `npm run build` — passed after local `npm install` restored missing dev dependency `vitest`; lockfile churn reverted.
+- `npm test` — 62/62 passed.
+- In-app Browser local `/demo` renders title/input; clicking “Inspect the brass door” calls `/api/demo/keeper` and shows a controlled connection notice because local env has no `GEMINI_API_KEY`. Full LLM verification must happen on staging where Docker env provides the key.
