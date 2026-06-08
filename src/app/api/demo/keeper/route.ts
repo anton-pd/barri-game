@@ -141,7 +141,9 @@ function applyDemoStateHints(
   players: Player[],
   completed: boolean
 ): { worldState: WorldState; players: Player[] } {
-  const text = `${userMessage}\n${rawAssistantText}`.toLowerCase();
+  const userText = userMessage.toLowerCase();
+  const assistantText = rawAssistantText.toLowerCase();
+  const text = `${userText}\n${assistantText}`;
   let nextWorld = worldState;
   let nextPlayers = players;
 
@@ -154,7 +156,10 @@ function applyDemoStateHints(
       nextPlayers = ensureSilverPin(nextPlayers);
     }
   }
-  if (/(listen|keyhole|passphrase|silence has a spine|phrase|whisper)/.test(text)) {
+  if (
+    /(listen|hear|sound|keyhole)/.test(userText) ||
+    /(passphrase|silence has a spine|typewriter clacks|whisper)/.test(assistantText)
+  ) {
     nextWorld = addClue(nextWorld, 'passphrase');
   }
   if (completed || /(archive admits|archive opens|door opens|inside the archive|enter the archive)/.test(text)) {
