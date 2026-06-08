@@ -1969,3 +1969,32 @@ Verification: `npm test` 44/44, `tsc` clean, lint 0 errors.
 - `npm run build` — passed after local `npm install` restored missing dev dependency `vitest`; lockfile churn reverted.
 - `npm test` — 62/62 passed.
 - In-app Browser local `/demo` renders title/input; clicking “Inspect the brass door” calls `/api/demo/keeper` and shows a controlled connection notice because local env has no `GEMINI_API_KEY`. Full LLM verification must happen on staging where Docker env provides the key.
+
+## 2026-06-08 — ANT-109 follow-up: launch waitlist gate polish
+
+**Ask:** Anton requested public launch flow cleanup:
+1. Landing topbar `Enter Dossier` should become a styled waitlist CTA that bypasses demo and goes directly to the waitlist form.
+2. The waiting-list form must not allow account registration; access is only through the waitlist during launch.
+3. Public `Open Case Files` should show one unlocked demo case and then real existing scenarios as locked/access-denied files with a secondary waitlist CTA.
+
+**Solution:**
+- Landing:
+  - topbar CTA now routes to `/auth/register` as waitlist intake (`Join Waitlist` / localized copy);
+  - final CTA also routes to waitlist;
+  - hero/demo CTA and demo case still route to `/demo`.
+- `/auth/register` is now waitlist-only: one email field, posts to `POST /api/waitlist`, no password/confirm fields, success state says the request is filed.
+- `POST /api/auth/register` now returns `403 registration_closed` to prevent direct registration API bypass while launch access is waitlist-gated.
+- Login footer copy changed from “Begin initiation” to “Join the waiting list”.
+- Demo completion modal no longer links to account creation/registration; success state just confirms filing and the secondary link is “Already cleared?” to login.
+- Landing case cabinet now renders:
+  - one open demo card (“The Cursed Archive” / localized variants) with `Try Keeper`;
+  - locked cards fetched from `/api/scenarios`, using real scenario titles/covers/metadata, with `Access denied` primary state and `Join waitlist` secondary action.
+
+**Verification:**
+- `npm run lint -- src/app/LandingClient.tsx src/app/content.ts src/app/auth/register/page.tsx src/app/auth/login/page.tsx src/app/api/auth/register/route.ts src/app/demo/DemoClient.tsx` — passed.
+- `npm run build` — passed.
+- `npm test` — 62/62 passed.
+- Browser local landing DOM: `Join Waitlist` present, `Enter Dossier` absent, `Try Keeper` present, real scenarios loaded from `/api/scenarios`, locked cards show `Access denied`.
+- Browser local waitlist page DOM: only one email field, no password/confirm/register copy, `Join Waiting List` present.
+- `POST /api/auth/register` returns `403 registration_closed`.
+- `POST /api/waitlist` returns `{ ok: true }` locally (dev fallback).

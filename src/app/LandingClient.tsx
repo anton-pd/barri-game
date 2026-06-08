@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { CONTENT, type Lang } from "./content";
+import type { Scenario } from "@/types";
 
 const LANGS: { code: Lang; label: string }[] = [
   { code: "en", label: "EN" },
@@ -12,8 +14,35 @@ const LANGS: { code: Lang; label: string }[] = [
 
 export default function LandingClient() {
   const [lang, setLang] = useState<Lang>("en");
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenariosLoading, setScenariosLoading] = useState(true);
   const c = CONTENT[lang];
   const demoHref = "/demo";
+  const waitlistHref = "/auth/register";
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadScenarios() {
+      try {
+        const res = await fetch("/api/scenarios");
+        if (!res.ok) throw new Error("Could not load scenarios");
+        const data = await res.json() as Scenario[];
+        if (active) setScenarios(data);
+      } catch {
+        if (active) setScenarios([]);
+      } finally {
+        if (active) setScenariosLoading(false);
+      }
+    }
+
+    loadScenarios();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const caseCopy = CASE_COPY[lang];
 
   return (
     <>
@@ -41,7 +70,7 @@ export default function LandingClient() {
               </button>
             ))}
           </div>
-          <Link href={demoHref} className="enter-btn">{c.nav.enter}</Link>
+          <Link href={waitlistHref} className="enter-btn">{c.nav.enter}</Link>
         </div>
       </header>
 
@@ -175,32 +204,77 @@ export default function LandingClient() {
         </div>
 
         <div className="case-grid">
-          {c.cases.files.map((f) => (
-            <article className={`case ${f.cls}`} key={f.id}>
+          <article className="case case-1 case-demo">
+            <div className="case-hdr">
+              <span className="case-id">{caseCopy.demo.id}</span>
+              <span className="case-badge">{caseCopy.demo.badge}</span>
+            </div>
+            <h3>{caseCopy.demo.title}</h3>
+            <div className="case-sub">{caseCopy.demo.sub}</div>
+            <div className="case-image" />
+            <div className="case-meta">
+              {caseCopy.demo.meta.map((m) => (
+                <div key={m.k}><span className="k">{m.k}</span>{m.v}</div>
+              ))}
+            </div>
+            <p className="brief">{caseCopy.demo.brief}</p>
+            <div className="case-replayable">{caseCopy.demo.replayable}</div>
+            <Link href={demoHref} className="case-open">
+              <span>{caseCopy.demo.cta}</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+            <span className="case-stamp">{caseCopy.demo.stamp}</span>
+          </article>
+
+          {scenariosLoading ? (
+            <article className="case case-locked case-loading">
               <div className="case-hdr">
-                <span className="case-id">{f.id}</span>
-                <span className={`case-badge${f.badgeSealed ? " sealed" : ""}`}>{f.badge}</span>
+                <span className="case-id">{caseCopy.loading.id}</span>
+                <span className="case-badge sealed">{caseCopy.loading.badge}</span>
               </div>
-              <h3>{f.title}</h3>
-              <div className="case-sub">{f.sub}</div>
+              <h3>{caseCopy.loading.title}</h3>
+              <div className="case-sub">{caseCopy.loading.sub}</div>
               <div className="case-image" />
-              <div className="case-meta">
-                {f.meta.map((m) => (
-                  <div key={m.k}><span className="k">{m.k}</span>{m.v}</div>
-                ))}
-              </div>
-              <p className="brief">{f.brief}</p>
-              <div className="case-replayable">{f.replayable}</div>
-              {f.cta ? (
-                <Link href={demoHref} className="case-open">{f.cta} →</Link>
-              ) : (
-                <span className="case-open" style={{ opacity: 0.45, borderColor: "transparent", cursor: "not-allowed" }}>
-                  {f.replayable}
-                </span>
-              )}
-              {f.stamp && <span className="case-stamp">{f.stamp}</span>}
+              <p className="brief">{caseCopy.loading.brief}</p>
             </article>
-          ))}
+          ) : (
+            scenarios.map((scenario, index) => (
+              <article className={`case case-locked case-${(index % 2) + 2}`} key={scenario.id}>
+                <div className="case-hdr">
+                  <span className="case-id">{formatScenarioId(index, scenario, caseCopy)}</span>
+                  <span className="case-badge sealed">{caseCopy.locked.badge}</span>
+                </div>
+                <h3>{getScenarioTitle(scenario, lang)}</h3>
+                <div className="case-sub">{scenario.era}</div>
+                <div className={`case-image${scenario.cover ? " case-image--cover" : ""}`}>
+                  {scenario.cover && (
+                    <Image
+                      src={scenario.cover}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1180px) 30vw, (min-width: 760px) 45vw, 92vw"
+                    />
+                  )}
+                </div>
+                <div className="case-meta">
+                  <div><span className="k">{caseCopy.locked.metaSessions}</span>{formatSessions(scenario, caseCopy)}</div>
+                  <div><span className="k">{caseCopy.locked.metaPlayers}</span>{formatPlayers(scenario, caseCopy)}</div>
+                  <div><span className="k">{caseCopy.locked.metaTone}</span>{formatDifficulty(scenario.difficulty, caseCopy)}</div>
+                  <div><span className="k">{caseCopy.locked.metaAccess}</span>{caseCopy.locked.accessValue}</div>
+                </div>
+                <p className="brief">{scenario.description}</p>
+                <div className="case-replayable">{caseCopy.locked.replayable}</div>
+                <span className="case-open case-open--disabled">
+                  <span>{caseCopy.locked.primary}</span>
+                  <span aria-hidden="true">×</span>
+                </span>
+                <Link href={waitlistHref} className="case-secondary">
+                  {caseCopy.locked.secondary}
+                </Link>
+                <span className="case-stamp">{caseCopy.locked.stamp}</span>
+              </article>
+            ))
+          )}
         </div>
       </section>
 
@@ -239,7 +313,7 @@ export default function LandingClient() {
           <em>{c.cta.h2}</em>
         </h2>
         <p>{c.cta.body}</p>
-        <Link href={demoHref} className="btn-primary" style={{ fontSize: 15 }}>
+        <Link href={waitlistHref} className="btn-primary" style={{ fontSize: 15 }}>
           {c.cta.btn} <span className="arrow">→</span>
         </Link>
       </section>
@@ -282,4 +356,178 @@ export default function LandingClient() {
       </footer>
     </>
   );
+}
+
+const CASE_COPY = {
+  en: {
+    demo: {
+      id: "File № 00 · Demo",
+      badge: "Demo",
+      title: "The Cursed Archive",
+      sub: "A sealed Bureau door. Five minutes with the Keeper.",
+      meta: [
+        { k: "Access", v: "Open" },
+        { k: "Players", v: "1" },
+        { k: "Tone", v: "Occult preview" },
+        { k: "Duration", v: "≈ 2 min" },
+      ],
+      brief:
+        "Stand before Archive 7 and find a way inside. The Keeper responds through the real Barri prompt pipeline, tracks what you discover, and closes the file when the door opens.",
+      replayable: "Public preview · no account required",
+      cta: "Try Keeper",
+      stamp: "Open Demo",
+    },
+    locked: {
+      idPrefix: "File",
+      badge: "Access Denied",
+      metaSessions: "Sessions",
+      metaPlayers: "Players",
+      metaTone: "Tone",
+      metaAccess: "Access",
+      accessValue: "Registered only",
+      replayable: "Sealed file · registered investigators only",
+      primary: "Access denied",
+      secondary: "Join waitlist",
+      stamp: "Sealed",
+      oneShot: "1",
+      campaign: "Campaign",
+      unknown: "—",
+      difficulty: {
+        beginner: "Beginner",
+        intermediate: "Intermediate",
+        advanced: "Advanced",
+      },
+    },
+    loading: {
+      id: "Cabinet · Syncing",
+      badge: "Cataloguing",
+      title: "Reading the Archive",
+      sub: "Real case files are being pulled from the cabinet.",
+      brief: "The clerk is still stamping the list. The sealed files will appear when the index returns.",
+    },
+  },
+  uk: {
+    demo: {
+      id: "Справа № 00 · Демо",
+      badge: "Демо",
+      title: "Проклятий Архів",
+      sub: "Запечатані двері Бюро. П'ять хвилин із Хранителем.",
+      meta: [
+        { k: "Доступ", v: "Відкрито" },
+        { k: "Гравці", v: "1" },
+        { k: "Тон", v: "Окультне прев'ю" },
+        { k: "Тривалість", v: "≈ 2 хв" },
+      ],
+      brief:
+        "Станьте перед Архівом 7 і знайдіть шлях усередину. Хранитель відповідає через реальний prompt pipeline Barri, веде знахідки й закриває файл, коли двері відчиняються.",
+      replayable: "Публічне прев'ю · акаунт не потрібен",
+      cta: "Спробувати Хранителя",
+      stamp: "Демо",
+    },
+    locked: {
+      idPrefix: "Справа",
+      badge: "Доступ закрито",
+      metaSessions: "Сесії",
+      metaPlayers: "Гравці",
+      metaTone: "Тон",
+      metaAccess: "Доступ",
+      accessValue: "Лише зареєстровані",
+      replayable: "Запечатаний файл · тільки для зареєстрованих слідчих",
+      primary: "Доступ закрито",
+      secondary: "Стати в чергу",
+      stamp: "Закрито",
+      oneShot: "1",
+      campaign: "Кампанія",
+      unknown: "—",
+      difficulty: {
+        beginner: "Початковий",
+        intermediate: "Середній",
+        advanced: "Складний",
+      },
+    },
+    loading: {
+      id: "Архів · Синхронізація",
+      badge: "Каталог",
+      title: "Читаємо архів",
+      sub: "Реальні справи підтягуються з шухляди.",
+      brief: "Клерк ще ставить печатки. Запечатані файли з'являться, щойно індекс повернеться.",
+    },
+  },
+  es: {
+    demo: {
+      id: "Expediente № 00 · Demo",
+      badge: "Demo",
+      title: "El Archivo Maldito",
+      sub: "Una puerta sellada del Buró. Cinco minutos con el Guardián.",
+      meta: [
+        { k: "Acceso", v: "Abierto" },
+        { k: "Jugadores", v: "1" },
+        { k: "Tono", v: "Vista oculta" },
+        { k: "Duración", v: "≈ 2 min" },
+      ],
+      brief:
+        "Ponte frente al Archivo 7 y encuentra el modo de entrar. El Guardián responde con el prompt real de Barri, registra tus hallazgos y cierra el expediente cuando la puerta se abre.",
+      replayable: "Vista pública · sin cuenta",
+      cta: "Probar Guardián",
+      stamp: "Demo",
+    },
+    locked: {
+      idPrefix: "Expediente",
+      badge: "Acceso denegado",
+      metaSessions: "Sesiones",
+      metaPlayers: "Jugadores",
+      metaTone: "Tono",
+      metaAccess: "Acceso",
+      accessValue: "Solo registrados",
+      replayable: "Expediente sellado · solo investigadores registrados",
+      primary: "Acceso denegado",
+      secondary: "Unirse a la lista",
+      stamp: "Sellado",
+      oneShot: "1",
+      campaign: "Campaña",
+      unknown: "—",
+      difficulty: {
+        beginner: "Inicial",
+        intermediate: "Intermedio",
+        advanced: "Avanzado",
+      },
+    },
+    loading: {
+      id: "Archivo · Sincronizando",
+      badge: "Catálogo",
+      title: "Leyendo el archivo",
+      sub: "Los expedientes reales se están cargando desde el gabinete.",
+      brief: "El secretario aún está sellando la lista. Los expedientes aparecerán cuando vuelva el índice.",
+    },
+  },
+} as const;
+
+function getScenarioTitle(scenario: Scenario, lang: Lang) {
+  if (lang === "uk") return scenario.titleUk || scenario.title;
+  return scenario.title;
+}
+
+function formatScenarioId(index: number, scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+  const number = String(index + 1).padStart(2, "0");
+  const suffix = scenario.rulesetId?.replace("_", " ").toUpperCase() ?? "CASE";
+  return `${copy.locked.idPrefix} № ${number} · ${suffix}`;
+}
+
+function formatSessions(scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+  if (scenario.sessionConfig?.isCampaign) return copy.locked.campaign;
+  return String(scenario.sessionConfig?.estimatedSessions ?? copy.locked.oneShot);
+}
+
+function formatPlayers(scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+  const min = scenario.sessionConfig?.minPlayers;
+  const max = scenario.sessionConfig?.maxPlayers;
+  if (!min || !max) return copy.locked.unknown;
+  return min === max ? String(min) : `${min} – ${max}`;
+}
+
+function formatDifficulty(
+  difficulty: Scenario["difficulty"],
+  copy: typeof CASE_COPY[Lang]
+) {
+  return copy.locked.difficulty[difficulty];
 }

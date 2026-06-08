@@ -429,6 +429,11 @@
   color: var(--blood-0);
 }
 
+.auth-waitlist-note--form {
+  margin: 0 !important;
+  line-height: 1.55;
+}
+
 .auth-success-stamp {
   display: inline-block;
   margin: 18px auto 0;

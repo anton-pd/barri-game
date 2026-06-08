@@ -7,7 +7,7 @@ export const CONTENT = {
       procedure: "Procedure",
       cases: "Case Files",
       testimony: "Testimony",
-      enter: "Enter Dossier →",
+      enter: "Join Waitlist →",
     },
     hero: {
       caseNo: "Case Nº 1929 / CTH",
@@ -108,7 +108,7 @@ export const CONTENT = {
     cases: {
       label: "§ III · The Cabinet",
       heading: ["Open ", "case files."],
-      desc: "Two full investigations at your disposal. Each one is replayable — different choices lead to different suspects, different endings, different horrors.",
+      desc: "One demo file is open. The rest of the cabinet is real, sealed, and waiting for registered investigators.",
       files: [
         {
           id: "File № 01 · CoC 7e", badge: "Open", badgeSealed: false,
@@ -179,8 +179,8 @@ export const CONTENT = {
       label: "§ V · Final Notice",
       h1: "The file is open.",
       h2: "Will you read it?",
-      body: "No install. No download. Your browser is the parlour, the typewriter, and the door. Step inside — the Keeper has been expecting you.",
-      btn: "Enter the Dossier",
+      body: "No install. No download. Join the queue for full access, or try the open demo file while the Bureau reviews your request.",
+      btn: "Join the Waitlist",
     },
     footer: {
       credit1: "© 1929 – 2026 · Barri Bureau of Unspeakable Affairs",
@@ -195,7 +195,7 @@ export const CONTENT = {
       procedure: "Процедура",
       cases: "Справи",
       testimony: "Свідчення",
-      enter: "Відкрити досьє →",
+      enter: "Стати в чергу →",
     },
     hero: {
       caseNo: "Справа №1929 / ЗГ",
@@ -296,7 +296,7 @@ export const CONTENT = {
     cases: {
       label: "§ III · Шухляда",
       heading: ["Відкриті ", "справи."],
-      desc: "Два повноцінних розслідування у вашому розпорядженні. Кожне перегравуване — різні вибори ведуть до різних підозрюваних, кінцівок та жахів.",
+      desc: "Одна демо-справа відкрита. Решта архіву реальна, запечатана і чекає зареєстрованих слідчих.",
       files: [
         {
           id: "Справа № 01 · CoC 7e", badge: "Відкрита", badgeSealed: false,
@@ -367,8 +367,8 @@ export const CONTENT = {
       label: "§ V · Фінальне повідомлення",
       h1: "Справа відкрита.",
       h2: "Ви готові читати?",
-      body: "Жодного встановлення. Жодного завантаження. Ваш браузер — це зала, друкарська машинка і двері. Увійдіть — Хранитель вас вже чекає.",
-      btn: "Відкрити досьє",
+      body: "Жодного встановлення. Жодного завантаження. Станьте в чергу на повний доступ або спробуйте відкритий демо-файл, поки Бюро розглядає запит.",
+      btn: "Стати в чергу",
     },
     footer: {
       credit1: "© 1929 – 2026 · Barri — Бюро незрозумілих справ",
@@ -383,7 +383,7 @@ export const CONTENT = {
       procedure: "Procedimiento",
       cases: "Expedientes",
       testimony: "Testimonios",
-      enter: "Abrir expediente →",
+      enter: "Unirse a la lista →",
     },
     hero: {
       caseNo: "Expediente Nº 1929 / CTH",
@@ -484,7 +484,7 @@ export const CONTENT = {
     cases: {
       label: "§ III · El archivo",
       heading: ["Expedientes ", "abiertos."],
-      desc: "Dos investigaciones completas a tu disposición. Cada una rejugable — diferentes elecciones llevan a diferentes sospechosos, desenlaces y horrores.",
+      desc: "Un expediente demo está abierto. El resto del archivo es real, sellado y reservado para investigadores registrados.",
       files: [
         {
           id: "Expediente № 01 · CoC 7e", badge: "Abierto", badgeSealed: false,
@@ -555,8 +555,8 @@ export const CONTENT = {
       label: "§ V · Aviso final",
       h1: "El expediente está abierto.",
       h2: "¿Lo leerás?",
-      body: "Sin instalación. Sin descarga. Tu navegador es el salón, la máquina de escribir y la puerta. Entra — el Guardián lleva tiempo esperándote.",
-      btn: "Entrar al expediente",
+      body: "Sin instalación. Sin descarga. Únete a la lista para acceso completo, o prueba el expediente demo mientras el Buró revisa tu solicitud.",
+      btn: "Unirse a la lista",
     },
     footer: {
       credit1: "© 1929 – 2026 · Barri — Buró de Asuntos Indecibles",

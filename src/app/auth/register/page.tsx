@@ -5,8 +5,6 @@ import Link from 'next/link';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -15,29 +13,32 @@ export default function RegisterPage() {
     e.preventDefault();
     setError('');
 
-    if (password !== confirm) {
-      setError('Passwords do not match');
-      return;
-    }
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    if (!email.trim()) {
+      setError('Investigator email is required');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          source: 'public-waitlist',
+          locale: 'en',
+          outcome: 'requested-access',
+          messageCount: 0,
+          notes: 'Joined from public waitlist intake form.',
+        }),
       });
 
       const data = await res.json();
 
-      if (res.status === 201) {
+      if (res.ok) {
         setSuccess(true);
       } else {
-        setError(data.error || 'Registration failed');
+        setError(data.error || 'Could not file the request.');
       }
     } catch {
       setError('Connection error. Please try again.');
@@ -60,34 +61,32 @@ export default function RegisterPage() {
         {success ? (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(8deg)' }}>
-              Processed
-              <small>Pending Verify</small>
+              Filed
+              <small>Waiting List</small>
             </div>
 
             <div className="auth-card-hdr">
               <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
-              <h2>New Recruit Intake</h2>
-              <p>Application received and filed.</p>
+              <h2>Access Request Filed</h2>
+              <p>Your dossier is waiting for clearance.</p>
             </div>
 
             <div className="auth-success">
               <span className="auth-success-glyph">✉</span>
               <h2>You&apos;re on the waiting list</h2>
               <p>
-                A letter from the abyss has been dispatched to{' '}
+                Your address has been filed as{' '}
                 <span className="auth-success-email">{email}</span>.
               </p>
-              <p>Click the enclosed link to verify your identity before the seal expires.</p>
               <p className="auth-waitlist-note">
-                The Bureau admits investigators <strong>in small numbers</strong>. Once your
-                post is verified, your file joins the queue — we&apos;ll summon you the moment a
-                seat at the table opens.
+                The Bureau admits investigators <strong>in controlled batches</strong>. We&apos;ll
+                summon you when the next table opens.
               </p>
               <div className="auth-success-stamp">Waiting List</div>
             </div>
 
             <div className="auth-foot">
-              Already verified?{' '}
+              Already cleared?{' '}
               <Link href="/auth/login">Access the archive</Link>
             </div>
           </>
@@ -100,8 +99,8 @@ export default function RegisterPage() {
 
             <div className="auth-card-hdr">
               <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
-              <h2>Begin Your Initiation</h2>
-              <p>Register to start your investigation.</p>
+              <h2>Join the Waiting List</h2>
+              <p>Access opens in small batches. File your email for the next summons.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="auth-form">
@@ -117,40 +116,20 @@ export default function RegisterPage() {
                 />
               </div>
 
-              <div className="auth-field">
-                <label>Clearance Code</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                  placeholder="Min. 8 characters"
-                />
-              </div>
-
-              <div className="auth-field">
-                <label>Confirm Code</label>
-                <input
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  required
-                  autoComplete="new-password"
-                  placeholder="••••••••"
-                />
-              </div>
+              <p className="auth-waitlist-note auth-waitlist-note--form">
+                Registration is closed during launch. The waiting list is the only intake route.
+              </p>
 
               {error && <div className="auth-error">{error}</div>}
 
               <button type="submit" disabled={loading} className="auth-submit">
-                <span>{loading ? 'Filing application...' : 'Submit for Initiation'}</span>
+                <span>{loading ? 'Filing request...' : 'Join Waiting List'}</span>
                 <span>→</span>
               </button>
             </form>
 
             <div className="auth-foot">
-              Already initiated?{' '}
+              Already cleared?{' '}
               <Link href="/auth/login">Access the archive</Link>
             </div>
           </>
