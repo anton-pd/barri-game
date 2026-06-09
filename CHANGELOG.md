@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.30] — 2026-06-09
+
+### Fixed
+- **Item descriptions with colons no longer break the [ITEM:] tag (ANT-125).** A Keeper description like "Записка з адресою: вул. Глибока 13" silently failed the parser — the narration said the player picked the item up, but inventory never got it. The description segment is now lazy-greedy, anchored by the trailing `:uses]`.
+
 ## [0.4.29] — 2026-06-09
 
 ### Fixed
