@@ -49,10 +49,13 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
         .replace(/\s*\[EQUIP:\d+:[^\]]+\]/g, '')
         .replace(/\s*\[BREAK_ITEM:\d+:[^\]]+\]/g, '')
         .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+        .replace(/\s*\[NEW_LOCATION:[\w-]+:[^:]+:[^\]]+\]/g, '')
         .replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '')
         .replace(/\s*\[SET_PENDING_ROLL:[^\]]+\]/g, '')
         .replace(/\s*\[CLEAR_PENDING_ROLL\]/g, '')
         .replace(/\s*\[RANDOM_EVENT:[^\]]+\]/g, '')
+        .replace(/\s*\[COMPLETE_SESSION\]/g, '')
+        .replace(/\s*\[FINISH_EVENING\]/g, '')
         .trim();
       if (text) segments.push({ type: 'narration', text });
     }

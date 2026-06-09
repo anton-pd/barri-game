@@ -2311,3 +2311,18 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - Не став прибирати `npcRelations` лише з промпта без захисту в merge: Haiku може емітнути поле і без запиту, захист у merge — справжній guard.
 - Race вікно скорочено з "тривалість Haiku-виклику" до мілісекунд (read→write). Повна серіалізація (SELECT FOR UPDATE) — overkill для одного гравця на сесію.
 - Verification: tsc clean; tsx smoke-test — merged.npcRelations ≡ current, narrative-поля оновлюються, промпт не містить прибраних полів; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-118: exhaustive tag application (DELTA/LOCATION matchAll)
+
+### Problem
+`/api/ai` парсив `[DELTA:]`, `[LOCATION:]`, `[NEW_LOCATION:]` одиночним `.match()`, але стрипав їх глобально з textForDB. Якщо кіпер емітив два DELTA (окремо шкода для двох гравців — per-player шаблон до цього прямо запрошує) або проходив через дві локації за одну відповідь — зайві теги мовчки губились: нарація розходилась зі станом, наступний промпт будувався з хибного стану. NEW_LOCATION завжди перемагав LOCATION незалежно від порядку в тексті. Бонус-баги: id з дефісом не парсився в NEW_LOCATION (`\w+` vs `[\w-]+` у LOCATION), а `[NEW_LOCATION:]`/`[COMPLETE_SESSION]`/`[FINISH_EVENING]` не стрипались у parseSegments → могли світитись у свіжих NPC-бульбашках і multi-speaker TTS.
+
+### Solution
+- `route.ts`: `deltaMatches = matchAll(...)` — усі DELTA застосовуються по черзі; `locationMoves` — всі LOCATION/NEW_LOCATION зібрані з `m.index`, відсортовані за позицією в тексті: кожен move → visitedLocations (+dynamicLocations для NEW_LOCATION), `currentLocation` = останній move (`finalMove`). Ambient і `location`/`locationName` у done-події — від finalMove. `needsPlayerUpdate` → `deltaMatches.length > 0`.
+- NEW_LOCATION id grammar вирівняно з LOCATION: `[\w-]+` (парсер + strip-regex у textForDB).
+- `segments.ts`: до strip-списку narration додано NEW_LOCATION, COMPLETE_SESSION, FINISH_EVENING.
+
+### Key decisions
+- `[IMAGE:]` лишив single-match: промпт явно вимагає рівно один тег, клієнт теж рендерить лише перший — узгоджено.
+- Семантика "останній move = current" обрана замість "NEW_LOCATION wins": відповідає порядку нарації.
+- Verification: tsc clean; tsx smoke-test — обидва DELTA застосовані, 2 moves у правильному порядку, hyphen-id парситься, сегменти чисті; staging перезібрано, 200 OK.
