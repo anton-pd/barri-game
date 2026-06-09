@@ -625,13 +625,6 @@ export async function POST(request: Request) {
           }
         );
 
-        if (updatedWorldState.activeRandomEvent && updatedWorldState.activeRandomEvent.type !== 'roll_event') {
-          updatedWorldState = clearActiveEvent(updatedWorldState);
-        }
-        if (!updatedWorldState.pendingRollResult && updatedWorldState.activeRandomEvent?.type === 'roll_event') {
-          updatedWorldState = clearActiveEvent(updatedWorldState);
-        }
-
         // Force-clear pendingRollResult if the player sent a dice result (plain number).
         // LLM often forgets [CLEAR_PENDING_ROLL]; without this the roll persists in DB
         // and the DiceRoller reopens on every page load.
@@ -671,6 +664,17 @@ export async function POST(request: Request) {
               },
             };
           }
+        }
+
+        // ── Random-event cleanup (ANT-124: AFTER force-clear + roll synthesis) ──
+        // One-shot events (non-roll) end with this response. A roll_event lives
+        // until its roll is resolved: it must survive a synthesized pending roll
+        // (fallback above) and die in the same turn the dice force-clear fires.
+        if (updatedWorldState.activeRandomEvent && updatedWorldState.activeRandomEvent.type !== 'roll_event') {
+          updatedWorldState = clearActiveEvent(updatedWorldState);
+        }
+        if (!updatedWorldState.pendingRollResult && updatedWorldState.activeRandomEvent?.type === 'roll_event') {
+          updatedWorldState = clearActiveEvent(updatedWorldState);
         }
 
         // ── Parse [NPC_UPDATE:Name:relation:notes] tags (ANT-70) ────────────
