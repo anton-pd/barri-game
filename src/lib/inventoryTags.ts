@@ -23,9 +23,12 @@ export function parseInventoryTags(
     inventory: (p.inventory ?? []).map((it) => ({ ...it })),
   }));
 
-  // [ITEM:idx:name:desc:uses] — add item
+  // [ITEM:idx:name:desc:uses] — add item.
+  // ANT-125: desc is lazy-greedy `(.+?)` anchored by the trailing `:uses]` so
+  // colons inside the description ("Нотатка: стара адреса") don't break the
+  // match — with `[^:]+` the tag silently failed and the item was never added.
   text = text.replace(
-    /\[ITEM:(\d+):([^:]+):([^:]+):(-?\d+)\]/g,
+    /\[ITEM:(\d+):([^:]+):(.+?):(-?\d+)\]/g,
     (_, idx, name, desc, uses) => {
       const i = Number(idx);
       if (!mutated[i]) return '';
