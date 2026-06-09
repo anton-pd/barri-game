@@ -2397,3 +2397,15 @@ SSE-чанки стрімляться сирим виводом моделі, а
 ### Key decisions
 - "draw" залишено лише з обʼєктним займенником/артиклем ("draw me/the...") — "I draw my revolver" не тригерить.
 - Verification: tsc clean; tsx smoke 17/17 (10 позитивних uk/en, 7 негативних включно з "I draw my revolver" і "Беру лист"); staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-124: порядок очищення activeRandomEvent
+
+### Problem
+Cleanup-перевірки activeRandomEvent стояли МІЖ парсингом тегів і force-clear/auto-inject: (1) roll_event, де LLM написав текст кидка без тегу, втрачав event ДО того, як fallback синтезував pendingRoll — bookkeeping і [RANDOM_EVENT]-резолюція губились, хоча кидок відбувався; (2) коли гравець слав число, а LLM забув [CLEAR_PENDING_ROLL], force-clear знімав кидок ПІСЛЯ перевірок — roll_event висів зайвий хід і блокував нові події (evaluateRandomEvent повертає noEvent поки activeRandomEvent існує).
+
+### Solution
+- Обидві перевірки перенесені після force-clear і auto-inject блоку. Семантика: non-roll події — one-shot (вмирають з цією відповіддю); roll_event живе рівно доки живе його кидок.
+
+### Key decisions
+- Логіка перевірок не змінювалась — лише позиція; tsc clean, поведінкові гілки перевірені трасуванням чотирьох сценаріїв (тег є / тільки текст / число+CLEAR / число без CLEAR).
+- Staging перезібрано, 200 OK.

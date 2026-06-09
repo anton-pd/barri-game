@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.29] — 2026-06-09
+
+### Fixed
+- **Random-event lifetime follows the roll it spawned (ANT-124).** Event cleanup now runs after the dice force-clear and the roll-text fallback: a roll_event whose roll text lacked the tag keeps its event alive while the roll is synthesized, and a roll resolved via force-clear (LLM forgot [CLEAR_PENDING_ROLL]) releases its event in the same turn instead of blocking new events for one extra turn.
+
 ## [0.4.28] — 2026-06-09
 
 ### Fixed
