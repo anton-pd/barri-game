@@ -43,20 +43,24 @@ function detectVoiceStyle(): string {
 }
 
 function isExplicitImageRequest(message: string): boolean {
+  // ANT-123: show-intent verbs only. Bare nouns (letter/map/photo/draw) fired
+  // on ordinary narration ("I read the letter") and forced an image-generation
+  // instruction + cost on every such message.
+  // NOTE: no \b around Cyrillic — JS word boundaries are ASCII-only, so
+  // /\bпокажи\b/ can never match (the pre-ANT-123 patterns had this bug).
   return [
-    /\bпокаж[иі]\b/i,
-    /\bпоказати\b/i,
-    /\bдай побачити\b/i,
-    /\bяк це виглядає\b/i,
-    /\bshow me\b/i,
-    /\bshow us\b/i,
-    /\bwhat does .* look like\b/i,
-    /\bcan i see\b/i,
-    /\bimage\b/i,
-    /\bphoto\b/i,
-    /\bmap\b/i,
-    /\bletter\b/i,
-    /\bdraw\b/i,
+    /покаж/i,
+    /показати/i,
+    /дай побачити/i,
+    /хочу побачити/i,
+    /як (це|вона|він|воно) виглядає/i,
+    /намалюй/i,
+    /\bshow (me|us)\b/i,
+    /\bwhat does .{0,50} look like\b/i,
+    /\bcan (i|we) see\b/i,
+    /\blet (me|us) see\b/i,
+    /\bi want to see\b/i,
+    /\bdraw (me|us|a|an|the|it)\b/i,
   ].some((pattern) => pattern.test(message));
 }
 

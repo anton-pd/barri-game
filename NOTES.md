@@ -2383,3 +2383,17 @@ SSE-чанки стрімляться сирим виводом моделі, а
 ### Key decisions
 - Без UUID-генерації — досить детермінованих суфіксів від одного timestamp.
 - Verification: tsc clean; зміна структурна (різні суфікси), функціональний шлях ремапу не змінювався; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-123: image-request детекція — show-intent замість голих іменників
+
+### Problem
+`isExplicitImageRequest()` матчив голі `\bletter\b`, `\bmap\b`, `\bphoto\b`, `\bimage\b`, `\bdraw\b` будь-де в повідомленні → "I read the letter" чи "I draw my revolver" примусово інжектили ОБОВʼЯЗКОВУ [IMAGE:]-інструкцію (+вартість генерації) на кожному такому ході EN-сесії. Бонус-знахідка: українські патерни (`/\bпокаж[иі]\b/`) НІКОЛИ не матчились — `\b` у JS працює лише з ASCII `\w`, кирилиця для нього не word-символи, тож boundary між пробілом і "п" не існує.
+
+### Solution
+- Залишено лише show-intent дієслівні фрази: покаж/показати/дай побачити/хочу побачити/як це виглядає/намалюй + show me|us, can I|we see, let me|us see, what does X look like, i want to see, draw me|us|a|the|it.
+- Голі іменники прибрані повністю.
+- Кириличні патерни без `\b` (substring/фразовий матч) — тепер реально працюють.
+
+### Key decisions
+- "draw" залишено лише з обʼєктним займенником/артиклем ("draw me/the...") — "I draw my revolver" не тригерить.
+- Verification: tsc clean; tsx smoke 17/17 (10 позитивних uk/en, 7 негативних включно з "I draw my revolver" і "Беру лист"); staging перезібрано, 200 OK.
