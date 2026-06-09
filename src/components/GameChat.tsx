@@ -816,7 +816,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     introRequested.current = true;
     setIsLoading(true);
 
-    const introId = Date.now().toString();
+    const introId = `local-${Date.now()}-intro`;
     // Show empty optimistic bubble immediately
     setMessages([{
       id: introId,
@@ -1181,10 +1181,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           return name ? `[${name}]: ${a.text}` : a.text;
         }).join('\n');
 
-    // Show each action as individual bubble in chat
+    // Show each action as individual bubble in chat.
+    // ANT-122: namespaced local ids — `now + i` for user bubbles collided with
+    // the assistant id (`Date.now() + 1`) when 2+ queued actions landed in the
+    // same millisecond, so stream chunks were appended into a player's bubble.
     const now = Date.now();
     const newUserMsgs: Message[] = allActions.map((a, i) => ({
-      id: (now + i).toString(),
+      id: `local-${now}-u${i}`,
       session_id: session.id,
       role: 'user',
       content: a.text,
@@ -1194,7 +1197,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     setMessages((prev) => [...prev, ...newUserMsgs]);
 
     // Optimistic assistant bubble — shows streaming text as it arrives
-    const optimisticId = (Date.now() + 1).toString();
+    const optimisticId = `local-${now}-a`;
     setMessages((prev) => [...prev, {
       id: optimisticId,
       session_id: session.id,
