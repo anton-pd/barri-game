@@ -9,6 +9,10 @@
   opacity: 0.13;
 }
 
+.landing-root:has(.chat-root)::after {
+  content: none;
+}
+
 /* ── Root layout ────────────────────────────────────────────── */
 .chat-root {
   height: 100dvh;

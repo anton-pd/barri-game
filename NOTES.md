@@ -2250,3 +2250,11 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - Browser `Page.captureScreenshot` timed out twice on this session after viewport resize.
 - macOS `screencapture` also failed in this Codex environment with `could not create image from display`.
 - Visual verification was therefore done via Browser DOM snapshot and computed CSS checks rather than an attached screenshot.
+
+## 2026-06-09 — ANT-115 follow-up: remove landing vignette from game chat
+
+**Issue:** Anton still saw a vignette in the staging game chat after the ANT-115 deploy.
+
+**Cause:** ANT-115 removed the radial vignette from `.chat-root::after`, but the session page is wrapped in `.landing-root`. The global landing overlay `.landing-root::after` from `landing.css` still applied the landing-page "vignette + smoke wash" over the chat.
+
+**Fix:** Added `.landing-root:has(.chat-root)::after { content: none; }` in `src/app/session/[id]/chat.css` so game-chat pages disable the landing overlay while keeping the landing page visuals intact.
