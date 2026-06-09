@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.24] — 2026-06-09
+
+### Fixed
+- **Dice-roll contract hardening (ANT-119).** Four fixes to the roll loop: (1) the auto-inject fallback that synthesizes `[SET_PENDING_ROLL]` when the Keeper writes roll text without the tag now tolerates bold markdown and reworded parentheticals in both languages; (2) a roll result is attributed to the player the roll was set for (`pendingRoll.characterIdx`), not whoever's tab is active; (3) `[SET_PENDING_ROLL]` values are validated server-side against the actual character sheet — wrong player index falls back to the sender, a known skill's value is corrected to the sheet value (threshold follows when the LLM used the "threshold = value" convention, floored at 10); (4) a bare-number dice result no longer counts as a passive turn, so consecutive rolls stop falsely triggering the "players are silent" nudge.
+
 ## [0.4.23] — 2026-06-09
 
 ### Fixed

@@ -2326,3 +2326,19 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - `[IMAGE:]` лишив single-match: промпт явно вимагає рівно один тег, клієнт теж рендерить лише перший — узгоджено.
 - Семантика "останній move = current" обрана замість "NEW_LOCATION wins": відповідає порядку нарації.
 - Verification: tsc clean; tsx smoke-test — обидва DELTA застосовані, 2 moves у правильному порядку, hyphen-id парситься, сегменти чисті; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-119: dice roll contract hardening
+
+### Problem
+Чотири слабкі місця в roll-петлі: (1) auto-inject fallback вимагав літеральну фразу `Кинь X (1к100, треба N або менше)` — bold markdown чи перефразована дужка → DiceRoller не зʼявлявся попри rollReminder; (2) `submitRollResult` відправляв число від `activePlayer`, а не від `pendingRoll.characterIdx` — кидок за іншого гравця приходив як `[ЧужеІмʼя]: 57` і кіпер нарратив не того персонажа; (3) сервер сліпо довіряв `skillValue`/`characterIdx` з тегу (fallback-шлях уже валідував — тег-шлях ні); (4) число-результат кидка (length < 20) інкрементив `passiveMessageCount` — кілька кидків поспіль фальшиво тригерили "гравці затихли".
+
+### Solution
+- `route.ts` SET_PENDING_ROLL handler: невалідний idx → fallback на playerIdx відправника; відома навичка (case-insensitive) → skillValue з листа; якщо LLM використав конвенцію threshold=value — поріг теж коригується і клампиться ≥10 (тільки для skill-кидків; Удача/Стійкість не в skills — значення LLM зберігаються).
+- `route.ts` fallback regex: `(?:Кинь|Кидай)` + `\**` навколо навички + будь-яка дужка з `1к100|1d100` і числом; EN-аналог з `(?:a|an)?` і опційним `check`. `/i` для обох.
+- `route.ts`: `isDiceResult` піднято до обчислення `passive` — результат кидка не пасивний хід (і скидає лічильник, бо це engagement).
+- `GameChat.tsx`: `sendMessage(text?, asPlayerIdx?)`; `submitRollResult` передає `pendingRoll.characterIdx` (з перевіркою що такий гравець існує).
+
+### Key decisions
+- Тег-граматика не змінювалась — лише валідація і толерантність fallback.
+- Поріг ≥10 застосовується тільки коли знайдено skill entry: SAN/Luck кидки з legitимно низькими значеннями не спотворюються.
+- Verification: tsc clean; tsx smoke — 6/6 варіантів фраз матчаться (укр/англ, bold, перефразовані дужки), негативний кейс (число в дужках у нарації) не матчиться; staging перезібрано, 200 OK.
