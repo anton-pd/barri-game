@@ -3,7 +3,7 @@
 // Added Keeper activity and event instruction injection.
 // ANT-64: full localization of the keeper prompt for en sessions (all control sections translated).
 import type { Scenario, WorldState, Player, InventoryItem } from '@/types';
-import { buildRulesetPromptBlock } from './rulesets';
+import { buildRulesetPromptBlock, supportsPendingRollTag } from './rulesets';
 import { buildDeltaTemplate, formatStatLine } from './statUtils';
 
 export interface SystemPromptBlocks {
@@ -505,6 +505,12 @@ ${C.headingStyle}
 
   const prefixTail = players.length > 2 ? C.prefixManyPlayers : C.prefixFewPlayers;
 
+  // [SET_PENDING_ROLL] is the d100 pipeline — reminding non-percentile rulesets
+  // to use it contradicts their own dice rules block (ANT-120).
+  const rollReminderSection = supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e')
+    ? `\n\n${C.rollReminder}`
+    : '';
+
   const dynamicBlock = `
 ${C.hCurrent}
 ${C.curAct}: ${worldState.act}
@@ -529,9 +535,7 @@ ${players
   .join('\n\n')}
 
 ${C.prefixRule}${prefixTail}
-${C.skillRule}${variantHintSection}${activitySection}${eventSection}${imageRequestSection}
-
-${C.rollReminder}
+${C.skillRule}${variantHintSection}${activitySection}${eventSection}${imageRequestSection}${rollReminderSection}
 `.trim();
 
   return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };

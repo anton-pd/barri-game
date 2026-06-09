@@ -50,6 +50,15 @@ export function getRuleset(id: string): RulesetConfig {
   return ruleset;
 }
 
+// The virtual-dice pipeline ([SET_PENDING_ROLL] → DiceRoller → numeric result)
+// implements d100 roll-under only. Other systems resolve rolls in plain text —
+// injecting the tag protocol for them contradicts their own dice rules and
+// would render inverted success/fail verdicts in the d100 roller (ANT-120).
+export function supportsPendingRollTag(rulesetId: string | undefined | null): boolean {
+  const r = rulesetId ? RULESETS[rulesetId] : undefined;
+  return (r ?? RULESETS.coc_7e).diceType === 'percentile';
+}
+
 type Lang = 'uk' | 'en';
 
 // Generates the ruleset rules block for the system prompt.
@@ -195,6 +204,10 @@ Only in dramatic situations with an uncertain outcome:
 ### Roll format
 "Roll [Stat]. Need X or more." — where X is the difficulty (usually 5–15).
 
+### Resolving rolls
+Ask for the roll in plain text and wait for the player to report their result in chat.
+Do NOT use [SET_PENDING_ROLL] — it is a d100-only mechanism and is not available in this system.
+
 ### Results
 - Roll >= difficulty → Success
 - Roll < difficulty → Failure
@@ -228,6 +241,10 @@ Keep the player informed of their current token count.
 "Кинь [Характеристика]. Потрібно X або більше."
 де X = складність (зазвичай 5-15).
 
+### Вирішення кидків
+Проси кидок звичайним текстом і чекай, поки гравець повідомить результат у чаті.
+НЕ використовуй [SET_PENDING_ROLL] — це механізм лише для d100 і в цій системі недоступний.
+
 ### Результати
 - Roll >= складність → Успіх
 - Roll < складність → Провал
@@ -243,5 +260,8 @@ Keep the player informed of their current token count.
 3 провали поспіль → персонаж виснажений, наступний кидок з пенальті.`;
   }
 
-  return `## ПРАВИЛА КУБИКІВ (${rulesetId})\n[Ruleset rules placeholder]`;
+  return `## ПРАВИЛА КУБИКІВ (${rulesetId})
+[Ruleset rules placeholder]
+Кидки вирішуй звичайним текстом: проси кидок і чекай на результат від гравця.
+НЕ використовуй [SET_PENDING_ROLL] — це механізм лише для d100-систем.`;
 }
