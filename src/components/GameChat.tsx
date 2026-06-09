@@ -992,12 +992,18 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   }
 
   function submitRollResult(result: number) {
+    // ANT-119: attribute the result to the player the roll was set for, not
+    // whoever's tab happens to be active — otherwise the Keeper narrates the
+    // wrong character.
+    const rollIdx = pendingRoll?.characterIdx;
+    const asPlayerIdx =
+      typeof rollIdx === 'number' && session.players[rollIdx] ? rollIdx : undefined;
     setSession((s) => ({
       ...s,
       world_state: { ...s.world_state, pendingRollResult: undefined },
     }));
     setPhysicalRollInput('');
-    sendMessage(result.toString());
+    sendMessage(result.toString(), asPlayerIdx);
   }
 
   function submitPhysicalRoll() {
@@ -1152,13 +1158,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
   // ── Send message ─────────────────────────────────────────────────────────────
 
-  async function sendMessage(text?: string) {
+  async function sendMessage(text?: string, asPlayerIdx?: number) {
     if (sessionIsReadOnly) return;
     const immediate = (text || input).trim();
 
     // Build full action list
     const allActions = immediate
-      ? [...pendingActions, { playerIdx: activePlayer, text: immediate }]
+      ? [...pendingActions, { playerIdx: asPlayerIdx ?? activePlayer, text: immediate }]
       : [...pendingActions];
 
     if (allActions.length === 0 || isLoading) return;

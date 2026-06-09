@@ -371,7 +371,12 @@ export async function POST(request: Request) {
       })();
 
   let worldState: WorldState = session.world_state;
-  const passive = isIntro ? false : isPassiveMessage(message);
+  // A bare number while a roll is pending is a dice result — engagement, not
+  // passivity (ANT-119). Without this, a few rolls in a row falsely trigger
+  // the "players are silent" nudge.
+  const isDiceResult =
+    !isIntro && !!session.world_state.pendingRollResult && /^\d+$/.test(message.trim());
+  const passive = isIntro || isDiceResult ? false : isPassiveMessage(message);
   worldState = {
     ...worldState,
     passiveMessageCount: passive ? (worldState.passiveMessageCount ?? 0) + 1 : 0,
@@ -565,11 +570,31 @@ export async function POST(request: Request) {
         textAfterRollTags = textAfterRollTags.replace(
           /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+)(?::([^\]]*))?\]/g,
           (_, idx, skillName, skillValue, threshold, context) => {
+            // ANT-119: validate tag values against real player data instead of
+            // trusting the LLM blindly (the fallback path below already did).
+            const rawIdx = Number(idx);
+            const characterIdx = session.players[rawIdx] ? rawIdx : playerIdx;
+            const trimmedSkill = String(skillName).trim();
+            const tagValue = Number(skillValue);
+            let goodThreshold = Number(threshold);
+            let resolvedValue = tagValue;
+            const skillEntry = Object.entries(session.players[characterIdx]?.skills ?? {}).find(
+              ([k]) => k.toLowerCase() === trimmedSkill.toLowerCase()
+            );
+            if (skillEntry) {
+              resolvedValue = skillEntry[1];
+              // The prompt instructs threshold = skill value for a Regular
+              // success; if the LLM followed that but used a wrong number,
+              // correct both. An intentionally different threshold is kept.
+              if (goodThreshold === tagValue) goodThreshold = resolvedValue;
+              // Ruleset rule: never set a skill-roll threshold below 10.
+              goodThreshold = Math.max(10, goodThreshold);
+            }
             updatedWorldState.pendingRollResult = {
-              characterIdx: Number(idx),
-              skillName,
-              skillValue: Number(skillValue),
-              goodThreshold: Number(threshold),
+              characterIdx,
+              skillName: trimmedSkill,
+              skillValue: resolvedValue,
+              goodThreshold,
               context: context ?? '',
             };
             return '';
@@ -599,7 +624,6 @@ export async function POST(request: Request) {
         // Force-clear pendingRollResult if the player sent a dice result (plain number).
         // LLM often forgets [CLEAR_PENDING_ROLL]; without this the roll persists in DB
         // and the DiceRoller reopens on every page load.
-        const isDiceResult = worldState.pendingRollResult && /^\d+$/.test(message.trim());
         if (isDiceResult && updatedWorldState.pendingRollResult === worldState.pendingRollResult) {
           updatedWorldState = { ...updatedWorldState, pendingRollResult: undefined };
         }
@@ -608,9 +632,12 @@ export async function POST(request: Request) {
         // Gemini Flash often ignores the tag instruction despite explicit prompting.
         // Detect the roll request pattern and synthesize the tag from text.
         if (!updatedWorldState.pendingRollResult) {
+          // ANT-119: tolerant shapes — bold markdown around the verb/skill,
+          // any parenthetical that mentions 1к100/1d100 and a number
+          // ("(1к100, треба 65)", "(1d100, under 45)", "(roll 1d100, need 30 or less)").
           const rollTextMatch =
-            textAfterRollTags.match(/Кинь\s+([\wА-ЯҐЄІЇа-яґєії\s\/]+?)\s*\(1к100,\s*треба\s*(\d+)\s*або\s*менше\)/) ??
-            textAfterRollTags.match(/Roll\s+([\w\s\/]+?)\s*\(1d100,\s*need\s*(\d+)\s*or\s*less\)/);
+            textAfterRollTags.match(/(?:Кинь|Кидай)\s+\**([\wА-ЯҐЄІЇа-яґєії'’\s\/]+?)\**\s*\([^)]*?(?:1к100|1d100)[^)]*?(\d{1,3})[^)]*\)/i) ??
+            textAfterRollTags.match(/Roll\s+(?:a\s+|an\s+)?\**([\w\s\/]+?)\**\s*(?:check\s*)?\([^)]*?(?:1d100|1к100)[^)]*?(\d{1,3})[^)]*\)/i);
           if (rollTextMatch) {
             const skillNameRaw = rollTextMatch[1].trim();
             const threshold = Number(rollTextMatch[2]);
