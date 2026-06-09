@@ -64,6 +64,35 @@ export function parseSegments(rawText: string, npcs: NPC[]): Segment[] {
   return segments;
 }
 
+/**
+ * Strip control tags from text for live display while a response is streaming.
+ * Removes all complete data-only tags plus any *partial* tag at the end of the
+ * buffer (e.g. `[DELTA:{"0` mid-stream). NPC wrapper tags are left intact —
+ * the display path unwraps them separately via stripNpcTags(). Harmless on
+ * finished messages: the server already strips these before persisting.
+ */
+export function stripStreamingArtifacts(text: string): string {
+  return text
+    .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
+    .replace(/\s*\[ITEM:\d+:[^\]]+\]/g, '')
+    .replace(/\s*\[USE_ITEM:\d+:[^\]]+\]/g, '')
+    .replace(/\s*\[REMOVE_ITEM:\d+:[^\]]+\]/g, '')
+    .replace(/\s*\[EQUIP:\d+:[^\]]+\]/g, '')
+    .replace(/\s*\[BREAK_ITEM:\d+:[^\]]+\]/g, '')
+    .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
+    .replace(/\s*\[NEW_LOCATION:[\w-]+:[^:]+:[^\]]+\]/g, '')
+    .replace(/\s*\[SET_PENDING_ROLL:[^\]]+\]/g, '')
+    .replace(/\s*\[CLEAR_PENDING_ROLL\]/g, '')
+    .replace(/\s*\[RANDOM_EVENT:[^\]]+\]/g, '')
+    .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
+    .replace(/\s*\[CASE_PLAN:[^\]]*\]/g, '')
+    .replace(/\s*\[COMPLETE_SESSION\]/g, '')
+    .replace(/\s*\[FINISH_EVENING\]/g, '')
+    // Trailing partial tag at the stream buffer edge: an opening bracket
+    // followed by an (incomplete) uppercase tag name and whatever came after.
+    .replace(/\s*\[\/?[A-Z_]*(?::[^\]]*)?$/, '');
+}
+
 /** Strip NPC wrapper tags from text, keeping the inner dialogue text intact. */
 export function stripNpcTags(text: string): string {
   return text

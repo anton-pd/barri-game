@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
 import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
-import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
+import { hasNpcSpeech, parseSegments, stripNpcTags, stripStreamingArtifacts } from '@/lib/segments';
 import { resolvePlayerStats } from '@/lib/statUtils';
 import type { AiProvider } from '@/app/api/ai/route';
 import VoiceButton from './VoiceButton';
@@ -1709,10 +1709,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // Parse [IMAGE:...] tag (persisted in DB for reconstruction after reload)
           const imageTagMatch = !isUser ? msg.content.match(/\[IMAGE:(\w+):([^\]]+)\]/) : null;
+          const baseContent = imageTagMatch
+            ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
+            : msg.content;
+          // ANT-121: while streaming, the bubble shows raw model output — hide
+          // complete data tags and the partial tag at the buffer edge so
+          // [DELTA:...] / [CASE_PLAN:...] never flash before the done event.
           const displayContent = stripNpcTags(
-            imageTagMatch
-              ? msg.content.replace(/\s*\[IMAGE:\w+:[^\]]+\]/g, '').trim()
-              : msg.content
+            isUser ? baseContent : stripStreamingArtifacts(baseContent)
           );
           const imgMeta = imageTagMatch
             ? { type: imageTagMatch[1], prompt: imageTagMatch[2] }
