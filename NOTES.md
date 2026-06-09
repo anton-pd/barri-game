@@ -2357,3 +2357,17 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - Гейт на сервері, а не в GameChat: якщо pendingRollResult ніколи не сетиться — клієнтський лок композера і роллер не тригеряться, нуль клієнтських змін.
 - Повноцінна підтримка віртуальних кидків для KoB/d20 (roll-over напрямок, інші кубики) — окрема майбутня фіча; зараз чесний text-flow без зламаного UI.
 - Verification: tsc clean; tsx smoke — coc has reminder / kob+dnd не мають, kob-блок містить заборону, unknown ruleset → дефолт coc; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-121: streaming tag flash у чат-бульбашці
+
+### Problem
+SSE-чанки стрімляться сирим виводом моделі, а render-time стрипання покривало лише [NPC:] та [IMAGE:]. Теги йдуть наприкінці відповіді → гравець на мить бачив [DELTA:{...}], [CASE_PLAN:{...}], [SET_PENDING_ROLL:...] і обрізані теги на краю буфера ([DELTA:{"0), поки done-event не замінював текст на cleanText.
+
+### Solution
+- `segments.ts`: новий `stripStreamingArtifacts(text)` — видаляє всі повні data-теги (DELTA, ITEM/USE/REMOVE/EQUIP/BREAK, LOCATION, NEW_LOCATION, SET/CLEAR_PENDING_ROLL, RANDOM_EVENT, NPC_UPDATE, CASE_PLAN, COMPLETE_SESSION, FINISH_EVENING) + трейлінг-частковий тег `\[\/?[A-Z_]*(?::[^\]]*)?$`. Повні [NPC:] теги не чіпає (їх розгортає stripNpcTags), частковий [NPC:Ган на краю — ховає.
+- `GameChat.tsx`: displayContent для assistant-бульбашок проходить через stripStreamingArtifacts перед stripNpcTags; user-повідомлення не зачіпаються (легітимні дужки користувача).
+
+### Key decisions
+- Фільтрація на клієнті в render, а не на сервері в chunk-стрімі: сервер не може знати межі тегів між чанками без буферизації, а render-фільтр тривіальний і idempotent (на готових повідомленнях теги вже відсутні).
+- Кирилиця в квадратних дужках не матчиться (тег-імена лише [A-Z_]).
+- Verification: tsc clean; tsx smoke 9/9 (повні теги, часткові на краю, NPC-збереження, кирилиця); staging перезібрано, 200 OK.

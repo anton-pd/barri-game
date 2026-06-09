@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.26] — 2026-06-09
+
+### Fixed
+- **Raw control tags no longer flash in the chat bubble during streaming (ANT-121).** SSE chunks stream raw model output, and tags arrive at the end of a reply — `[DELTA:{...}]`, `[CASE_PLAN:{...}]`, `[SET_PENDING_ROLL:...]` and partial tags at the buffer edge briefly showed before the done event replaced the text. The assistant-bubble display path now strips all complete data tags plus any trailing partial tag while streaming.
+
 ## [0.4.25] — 2026-06-09
 
 ### Fixed
