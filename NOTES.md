@@ -2342,3 +2342,18 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - Тег-граматика не змінювалась — лише валідація і толерантність fallback.
 - Поріг ≥10 застосовується тільки коли знайдено skill entry: SAN/Luck кидки з legitимно низькими значеннями не спотворюються.
 - Verification: tsc clean; tsx smoke — 6/6 варіантів фраз матчаться (укр/англ, bold, перефразовані дужки), негативний кейс (число в дужках у нарації) не матчиться; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-120: ruleset-aware roll protocol
+
+### Problem
+`rollReminder` у dynamic-блоці вимагав `[SET_PENDING_ROLL]` з d100 roll-under семантикою для ВСІХ ruleset-ів, але блок Kids on Bikes вчить "roll ≥ difficulty = success" і взагалі не згадує тег — два кешовані блоки суперечили один одному в одному промпті. DiceRoller хардкодить d100 і `total <= threshold = success` → будь-який KoB/D&D кидок показував би інвертований вердикт.
+
+### Solution
+- `rulesets.ts`: новий хелпер `supportsPendingRollTag(rulesetId)` — true лише для `diceType === 'percentile'` (невідомі ruleset-и → дефолт coc_7e → true, поведінка не змінюється). У KoB-блоки (uk+en) і placeholder додано явну інструкцію: кидки вирішуються текстом, `[SET_PENDING_ROLL]` — d100-only, не використовувати.
+- `prompts.ts`: `rollReminder` додається в dynamic-блок лише для percentile ruleset-ів.
+- `route.ts`: `allowPendingRoll` гейт — для non-percentile тег стрипається, але стан не сетиться; auto-inject fallback теж пропускається. Віртуальний d100-роллер фізично не може зʼявитись у не-d100 сесії.
+
+### Key decisions
+- Гейт на сервері, а не в GameChat: якщо pendingRollResult ніколи не сетиться — клієнтський лок композера і роллер не тригеряться, нуль клієнтських змін.
+- Повноцінна підтримка віртуальних кидків для KoB/d20 (roll-over напрямок, інші кубики) — окрема майбутня фіча; зараз чесний text-flow без зламаного UI.
+- Verification: tsc clean; tsx smoke — coc has reminder / kob+dnd не мають, kob-блок містить заборону, unknown ruleset → дефолт coc; staging перезібрано, 200 OK.

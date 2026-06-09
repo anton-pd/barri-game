@@ -17,6 +17,7 @@ import { evaluateRandomEvent, applyEventDecision, resolveActiveEvent, clearActiv
 import { getCampaignContext } from '@/lib/campaigns';
 import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 import { applyDeltaToPlayer } from '@/lib/statUtils';
+import { supportsPendingRollTag } from '@/lib/rulesets';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import type { WorldState } from '@/types';
 
@@ -567,9 +568,15 @@ export async function POST(request: Request) {
         let updatedWorldState = { ...worldState };
         let textAfterRollTags = textAfterInventory;
 
+        // The [SET_PENDING_ROLL] → DiceRoller pipeline is d100 roll-under only.
+        // For non-percentile rulesets the tag is stripped but ignored — the
+        // d100 roller would render inverted verdicts there (ANT-120).
+        const allowPendingRoll = supportsPendingRollTag(scenario.rulesetId);
+
         textAfterRollTags = textAfterRollTags.replace(
           /\[SET_PENDING_ROLL:(\d+):([^:]+):(\d+):(\d+)(?::([^\]]*))?\]/g,
           (_, idx, skillName, skillValue, threshold, context) => {
+            if (!allowPendingRoll) return '';
             // ANT-119: validate tag values against real player data instead of
             // trusting the LLM blindly (the fallback path below already did).
             const rawIdx = Number(idx);
@@ -631,7 +638,7 @@ export async function POST(request: Request) {
         // ── Auto-inject [SET_PENDING_ROLL] if AI wrote "Кинь X" / "Roll X" but forgot the tag ──
         // Gemini Flash often ignores the tag instruction despite explicit prompting.
         // Detect the roll request pattern and synthesize the tag from text.
-        if (!updatedWorldState.pendingRollResult) {
+        if (allowPendingRoll && !updatedWorldState.pendingRollResult) {
           // ANT-119: tolerant shapes — bold markdown around the verb/skill,
           // any parenthetical that mentions 1к100/1d100 and a number
           // ("(1к100, треба 65)", "(1d100, under 45)", "(roll 1d100, need 30 or less)").

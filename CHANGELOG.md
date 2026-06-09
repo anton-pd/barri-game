@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.25] — 2026-06-09
+
+### Fixed
+- **Roll protocol is now ruleset-aware (ANT-120).** The `[SET_PENDING_ROLL]` reminder used to be appended to every prompt even for Kids on Bikes / D&D 5e, whose own dice rules contradict d100 roll-under — and the virtual DiceRoller would have rendered inverted success/fail verdicts. The reminder is now injected only for percentile rulesets, KoB and the placeholder ruleset block explicitly tell the Keeper to resolve rolls in plain text, and the server strips-but-ignores `[SET_PENDING_ROLL]` tags (and skips the text-fallback synthesis) for non-percentile rulesets so the d100 roller can never engage there. CoC behavior unchanged.
+
 ## [0.4.24] — 2026-06-09
 
 ### Fixed
