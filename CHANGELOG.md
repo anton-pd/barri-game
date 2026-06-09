@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.22] — 2026-06-09
+
+### Fixed
+- **Periodic summarizer no longer corrupts NPC relations (ANT-117).** Every 20 messages the Haiku world-state summary used to replace the whole `npcRelations` object with transcript-guessed IDs, wiping deterministic `[NPC:]` auto-registration and `[NPC_UPDATE:]` relations and polluting the dossier. `npcRelations` is now engine-owned in the merge, and the summarize prompt no longer asks for `npcRelations`/`currentLocation`/`visitedLocations` (all engine-owned and previously discarded or harmful).
+- **Summarizer stale-write race fixed.** The fire-and-forget summary update now re-reads the latest session state after the LLM call instead of writing a merge based on a seconds-old snapshot, so a player turn taken during summarization is no longer clobbered. Completed sessions are skipped.
+
 ## [0.4.21] — 2026-06-09
 
 ### Fixed

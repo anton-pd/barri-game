@@ -66,7 +66,6 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 async function summarizeAndUpdateWorldState(
   sessionId: string,
   aiProvider: AiProvider,
-  currentWorldState: WorldState,
   lang: 'uk' | 'en'
 ): Promise<void> {
   try {
@@ -90,9 +89,14 @@ async function summarizeAndUpdateWorldState(
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]) as Partial<WorldState>;
+      // The LLM call above takes seconds and this runs fire-and-forget — the
+      // player may have taken another turn meanwhile. Merge onto the freshest
+      // state, not the snapshot from when the summary was requested (ANT-117).
+      const freshSession = await getSession(sessionId);
+      if (!freshSession || freshSession.status === 'completed') return;
       // Take narrative fields from the summary but keep authoritative
       // navigation/engine state (ANT-68 — see worldStateMerge.ts).
-      const merged = mergeSummarizedWorldState(currentWorldState, parsed);
+      const merged = mergeSummarizedWorldState(freshSession.world_state, parsed);
       await updateSession(sessionId, { world_state: merged });
     }
   } catch (error) {
@@ -812,7 +816,7 @@ export async function POST(request: Request) {
 
         const msgCount = await countMessages(sessionId);
         if (msgCount % 20 === 0) {
-          summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState, sessionLang);
+          summarizeAndUpdateWorldState(sessionId, aiProvider, sessionLang);
         }
 
         const updatedSession = await getSession(sessionId);

@@ -565,10 +565,7 @@ ${transcript}
 Return JSON in this format:
 {
   "act": <current act (number)>,
-  "currentLocation": "<current location id or null>",
-  "visitedLocations": [<list of visited locations>],
   "discoveredClues": [<list of discovered clues>],
-  "npcRelations": {<npc_id>: "friendly"|"neutral"|"hostile"|"unknown"},
   "summary": "<concise recap of what happened, 2-3 sentences>",
   "openThreads": [<unresolved plot threads>],
   "playerNotes": [<important player actions>]
@@ -588,10 +585,7 @@ ${transcript}
 Поверни JSON у форматі:
 {
   "act": <поточний акт (число)>,
-  "currentLocation": "<id поточної локації або null>",
-  "visitedLocations": [<список відвіданих локацій>],
   "discoveredClues": [<список знайдених підказок>],
-  "npcRelations": {<id_npc>: "friendly"|"neutral"|"hostile"|"unknown"},
   "summary": "<стислий переказ що сталось, 2-3 речення>",
   "openThreads": [<незакриті сюжетні лінії>],
   "playerNotes": [<важливі дії гравців>]

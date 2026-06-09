@@ -2296,3 +2296,18 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - Тег-протокол ([SET_PENDING_ROLL], [RANDOM_EVENT], [IMAGE], [CLEAR_PENDING_ROLL]) не змінювався — тільки мова навколишніх інструкцій.
 - Verification: tsc clean; tsx smoke-test — EN-варіанти не містять кирилиці, зберігають тег-інструкції, UK-дефолти незмінні; staging контейнер перезібрано (env -u ANTHROPIC_API_KEY), 200 OK.
 - Це фікс №1 з аудиту консистентності кіпера (топ-5). Наступні: summarizer vs npcRelations race, matchAll для DELTA/LOCATION, dice-контракт, ruleset-aware roll protocol.
+
+## [2026-06-09 · Claude] — ANT-117: summarizer clobbered npcRelations + stale-write race
+
+### Problem
+Кожні 20 повідомлень `summarizeAndUpdateWorldState` (Haiku) повертав JSON з `npcRelations`, але Haiku бачить лише транскрипт і вигадує id-шники. `mergeSummarizedWorldState` захищав навігаційні/engine-поля, проте `...parsed` повністю замінював обʼєкт `npcRelations` — детерміністична авто-реєстрація `[NPC:]` і ставлення з `[NPC_UPDATE:]` стирались, у досьє зʼявлялись фейкові id. Друга проблема: функція fire-and-forget і писала merge на основі snapshot стану, знятого ДО виклику LLM — хід гравця, зроблений за ці секунди, затирався.
+
+### Solution
+- `worldStateMerge.ts`: `npcRelations: current.npcRelations` додано до захищених полів (engine-owned, з поясненням чому).
+- `prompts.ts`: з обох (uk/en) форматів summarize-JSON прибрано `npcRelations`, `currentLocation`, `visitedLocations` — все одно engine-owned: relations тепер захищені, навігація захищена ще з ANT-68. Менше токенів, нуль шкоди.
+- `route.ts`: `summarizeAndUpdateWorldState` більше не приймає snapshot `currentWorldState` — після відповіді Haiku робить `getSession(sessionId)` і мержить narrative-поля на СВІЖИЙ стан. Якщо сесія зникла або `completed` — write пропускається.
+
+### Key decisions
+- Не став прибирати `npcRelations` лише з промпта без захисту в merge: Haiku може емітнути поле і без запиту, захист у merge — справжній guard.
+- Race вікно скорочено з "тривалість Haiku-виклику" до мілісекунд (read→write). Повна серіалізація (SELECT FOR UPDATE) — overkill для одного гравця на сесію.
+- Verification: tsc clean; tsx smoke-test — merged.npcRelations ≡ current, narrative-поля оновлюються, промпт не містить прибраних полів; staging перезібрано, 200 OK.
