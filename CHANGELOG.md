@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.28] — 2026-06-09
+
+### Fixed
+- **Explicit-image detection no longer fires on bare nouns (ANT-123).** "I read the letter" / "check the map" / "I draw my revolver" used to force a mandatory [IMAGE:] tag (and an image-generation cost) because bare `letter`/`map`/`photo`/`image`/`draw` matched anywhere. Detection now requires show-intent verb phrases (показати / show me / can I see / what does X look like / draw me ...). Bonus: the Ukrainian patterns never matched at all before — JS `\b` word boundaries are ASCII-only — so "покажи лист" now actually triggers the visual request instruction.
+
 ## [0.4.27] — 2026-06-09
 
 ### Fixed
