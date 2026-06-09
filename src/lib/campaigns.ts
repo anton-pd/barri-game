@@ -11,14 +11,18 @@ import {
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Get campaign context for injection into prompts
-export async function getCampaignContext(campaignId: string): Promise<{
+export async function getCampaignContext(
+  campaignId: string,
+  lang: 'uk' | 'en' = 'uk'
+): Promise<{
   recentSummaries: string;
 }> {
   const summaries = await getRecentSessionSummaries(campaignId, 3);
+  const eveningLabel = lang === 'en' ? 'Evening' : 'Вечір';
 
   const ordered = [...summaries].reverse();
   const recentSummaries = ordered.length
-    ? ordered.map((s) => `Вечір ${s.sessionNumber}: ${s.summary}`).join('\n')
+    ? ordered.map((s) => `${eveningLabel} ${s.sessionNumber}: ${s.summary}`).join('\n')
     : '';
 
   return { recentSummaries };
@@ -52,9 +56,10 @@ export async function closeSession(
   campaignId: string,
   sessionNumber: number,
   players: Player[],
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string }>,
+  lang: 'uk' | 'en' = 'uk'
 ): Promise<{ summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> }> {
-  const summarizePrompt = buildCloseSessionPrompt(messages);
+  const summarizePrompt = buildCloseSessionPrompt(messages, lang);
 
   // Finishing an evening must never hard-fail on a summarization hiccup
   // (LLM auth/network error, malformed JSON). Wrap the whole call so the
@@ -80,7 +85,11 @@ export async function closeSession(
     };
   } catch (error) {
     console.error('closeSession: summarization failed, using fallback summary', error);
-    summaryData = { summary: 'Сесія завершена.', keyEvents: [], npcChanges: {} };
+    summaryData = {
+      summary: lang === 'en' ? 'Session completed.' : 'Сесія завершена.',
+      keyEvents: [],
+      npcChanges: {},
+    };
   }
 
   await saveSessionSummary(
@@ -100,7 +109,27 @@ export async function closeSession(
   };
 }
 
-function buildCloseSessionPrompt(messages: Array<{ role: string; content: string }>): string {
+function buildCloseSessionPrompt(
+  messages: Array<{ role: string; content: string }>,
+  lang: 'uk' | 'en' = 'uk'
+): string {
+  if (lang === 'en') {
+    const transcript = messages
+      .map((m) => `${m.role === 'user' ? 'PLAYER' : 'KEEPER'}: ${m.content}`)
+      .join('\n\n');
+
+    return `Analyze this RPG session. Respond ONLY with valid JSON. All text values must be in English.
+
+${transcript}
+
+Return JSON:
+{
+  "summary": "<2-3 sentences on what happened>",
+  "keyEvents": ["<event 1>", "<event 2>"],
+  "npcChanges": {"<npc_id>": {"attitude": "friendly|neutral|hostile"}}
+}`;
+  }
+
   const transcript = messages
     .map((m) => `${m.role === 'user' ? 'ГРАВЕЦЬ' : 'КІПЕР'}: ${m.content}`)
     .join('\n\n');

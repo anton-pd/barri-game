@@ -138,9 +138,53 @@ export function clearActiveEvent(worldState: WorldState): WorldState {
 export function buildEventInstruction(
   eventType: 'positive' | 'negative' | 'neutral' | 'roll_event',
   isTransition: boolean,
-  scenario: Scenario
+  scenario: Scenario,
+  lang: 'uk' | 'en' = 'uk'
 ): string {
   const hints = scenario.eventHints?.[eventType] ?? [];
+
+  if (lang === 'en') {
+    const hintLine = hints.length
+      ? `\nFor inspiration: ${hints.slice(0, 2).join('; ')}`
+      : '';
+
+    const transitionNote = isTransition
+      ? 'The event is tied to the location transition — weave it naturally into the moment of arrival.\n'
+      : '';
+
+    const typeInstructions: Record<string, string> = {
+      positive: `Introduce a POSITIVE random event:
+  - An unexpected find that helps the investigation
+  - An NPC suddenly becomes more candid or helpful
+  - Circumstances turn in the players' favor${hintLine}`,
+
+      negative: `Introduce a NEGATIVE random event:
+  - Something breaks or goes missing
+  - A new obstacle or threat
+  - An NPC becomes more suspicious or hostile${hintLine}`,
+
+      neutral: `Introduce a NEUTRAL atmospheric event:
+  - A strange detail that deepens the atmosphere
+  - An unexpected visitor or sound
+  - A moment that adds texture to the scene${hintLine}`,
+
+      roll_event: `Introduce an event RESOLVED BY A ROLL:
+  1. Describe a sudden situation with physical or mental risk
+  2. Ask for the appropriate skill roll
+  3. Place [SET_PENDING_ROLL:idx:Skill:value:threshold:context]
+  4. Stop — do not describe consequences until the result${hintLine}`,
+    };
+
+    return `\n\n## ⚡ RANDOM EVENT (server trigger)
+${transitionNote}${typeInstructions[eventType]}
+
+Introduction rules:
+- Weave it organically into the current moment
+- Do not tell the players this is a "random event"
+- After introducing it, add: [RANDOM_EVENT:${eventType}:short_event_id]
+- At most 2 extra sentences on top of the normal reply`;
+  }
+
   const hintLine = hints.length
     ? `\nДля натхнення: ${hints.slice(0, 2).join('; ')}`
     : '';

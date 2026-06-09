@@ -94,7 +94,9 @@ export async function POST(
     const keeperMessageCount = messages.filter((message) => message.role === 'assistant').length;
     const completedAt = new Date().toISOString();
 
-    let summary = session.world_state.summary || 'Сесію завершено.';
+    const sessionLang: 'uk' | 'en' = (session.language ?? 'uk') as 'uk' | 'en';
+    let summary = session.world_state.summary
+      || (sessionLang === 'en' ? 'Session completed.' : 'Сесію завершено.');
     if (session.campaign_id) {
       const existingSummary = await getSessionSummaryBySessionId(session.id);
       if (existingSummary) {
@@ -105,7 +107,8 @@ export async function POST(
           session.campaign_id,
           session.session_number ?? 1,
           session.players,
-          messages.map((message) => ({ role: message.role, content: message.content }))
+          messages.map((message) => ({ role: message.role, content: message.content })),
+          sessionLang
         );
         summary = summaryData.summary;
       }

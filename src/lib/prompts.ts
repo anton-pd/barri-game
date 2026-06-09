@@ -547,7 +547,34 @@ export function buildSystemPrompt(
   return `${ruleset}\n\n${s}\n\n${d}`;
 }
 
-export function buildSummarizePrompt(messages: { role: string; content: string }[]): string {
+export function buildSummarizePrompt(
+  messages: { role: string; content: string }[],
+  lang: Lang = 'uk'
+): string {
+  if (lang === 'en') {
+    const transcript = messages
+      .map((m) => `${m.role === 'user' ? 'PLAYER' : 'KEEPER'}: ${m.content}`)
+      .join('\n\n');
+
+    return `Analyze this RPG session and return a WorldState JSON object.
+Respond ONLY with valid JSON, no explanations. All text values must be in English.
+
+Session:
+${transcript}
+
+Return JSON in this format:
+{
+  "act": <current act (number)>,
+  "currentLocation": "<current location id or null>",
+  "visitedLocations": [<list of visited locations>],
+  "discoveredClues": [<list of discovered clues>],
+  "npcRelations": {<npc_id>: "friendly"|"neutral"|"hostile"|"unknown"},
+  "summary": "<concise recap of what happened, 2-3 sentences>",
+  "openThreads": [<unresolved plot threads>],
+  "playerNotes": [<important player actions>]
+}`;
+  }
+
   const transcript = messages
     .map((m) => `${m.role === 'user' ? 'ГРАВЕЦЬ' : 'КІПЕР'}: ${m.content}`)
     .join('\n\n');
