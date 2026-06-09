@@ -531,10 +531,27 @@ export async function POST(request: Request) {
 
         // ── Parse tags ──────────────────────────────────────────────────────
 
-        const deltaMatch       = assistantText.match(/\[DELTA:(\{[\s\S]*?\})\]/);
-        const imageMatch       = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
-        const locationMatch    = assistantText.match(/\[LOCATION:([\w-]+)\]/);
-        const newLocationMatch = assistantText.match(/\[NEW_LOCATION:(\w+):([^:]+):([^\]]+)\]/);
+        // ANT-118: apply ALL tags, not just the first — the keeper may emit
+        // several DELTA tags (one per player) or pass through several locations
+        // in one reply. Tags were already stripped globally, so single .match()
+        // silently discarded the rest and state diverged from the narration.
+        const deltaMatches = [...assistantText.matchAll(/\[DELTA:(\{[\s\S]*?\})\]/g)];
+        const imageMatch   = assistantText.match(/\[IMAGE:(\w+):([^\]]+)\]/);
+        // Location moves in document order: every move counts as visited, every
+        // NEW_LOCATION registers a dynamic location, the LAST move is current.
+        const locationMoves: { id: string; name?: string; description?: string; at: number }[] = [
+          ...[...assistantText.matchAll(/\[LOCATION:([\w-]+)\]/g)].map((m) => ({
+            id: m[1],
+            at: m.index ?? 0,
+          })),
+          ...[...assistantText.matchAll(/\[NEW_LOCATION:([\w-]+):([^:]+):([^\]]+)\]/g)].map((m) => ({
+            id: m[1],
+            name: m[2],
+            description: m[3],
+            at: m.index ?? 0,
+          })),
+        ].sort((a, b) => a.at - b.at);
+        const finalMove = locationMoves.length > 0 ? locationMoves[locationMoves.length - 1] : null;
         const completionAction = detectCompletionAction(assistantText);
 
         const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
@@ -686,7 +703,7 @@ export async function POST(request: Request) {
         const textForDB = textAfterRollTags
           .replace(/\s*\[DELTA:\{[\s\S]*?\}\]/g, '')
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
-          .replace(/\s*\[NEW_LOCATION:\w+:[^:]+:[^\]]+\]/g, '')
+          .replace(/\s*\[NEW_LOCATION:[\w-]+:[^:]+:[^\]]+\]/g, '')
           .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
           .replace(/\s*\[CASE_PLAN:[^\]]*\]/g, '')
           .replace(/\s*\[COMPLETE_SESSION\]/g, '')
@@ -731,12 +748,12 @@ export async function POST(request: Request) {
           }
         }
 
-        // ── Apply DELTA (ruleset-driven; legacy hp/sanity/luck still valid) ─
+        // ── Apply DELTA (all tags in order; legacy hp/sanity/luck still valid) ─
 
         let updatedPlayers = mutatedPlayers;
-        if (deltaMatch) {
+        for (const dm of deltaMatches) {
           try {
-            const delta = JSON.parse(deltaMatch[1]) as Record<string, Record<string, number>>;
+            const delta = JSON.parse(dm[1]) as Record<string, Record<string, number>>;
             updatedPlayers = updatedPlayers.map((p, i) => {
               const d = delta[String(i)];
               if (!d) return p;
@@ -745,33 +762,23 @@ export async function POST(request: Request) {
           } catch { /* malformed — ignore */ }
         }
 
-        // ── Apply LOCATION ──────────────────────────────────────────────────
+        // ── Apply LOCATION / NEW_LOCATION moves in document order ───────────
 
-        if (locationMatch) {
-          const locId = locationMatch[1];
+        for (const move of locationMoves) {
           updatedWorldState = {
             ...updatedWorldState,
-            currentLocation: locId,
-            visitedLocations: updatedWorldState.visitedLocations.includes(locId)
+            currentLocation: move.id,
+            visitedLocations: updatedWorldState.visitedLocations.includes(move.id)
               ? updatedWorldState.visitedLocations
-              : [...updatedWorldState.visitedLocations, locId],
-          };
-        }
-
-        // ── Apply NEW_LOCATION (situational) ────────────────────────────────
-
-        if (newLocationMatch) {
-          const [, locId, locName, locDesc] = newLocationMatch;
-          updatedWorldState = {
-            ...updatedWorldState,
-            currentLocation: locId,
-            visitedLocations: updatedWorldState.visitedLocations.includes(locId)
-              ? updatedWorldState.visitedLocations
-              : [...updatedWorldState.visitedLocations, locId],
-            dynamicLocations: {
-              ...updatedWorldState.dynamicLocations,
-              [locId]: { name: locName.trim(), description: locDesc.trim() },
-            },
+              : [...updatedWorldState.visitedLocations, move.id],
+            ...(move.name
+              ? {
+                  dynamicLocations: {
+                    ...updatedWorldState.dynamicLocations,
+                    [move.id]: { name: move.name.trim(), description: (move.description ?? '').trim() },
+                  },
+                }
+              : {}),
           };
         }
 
@@ -805,7 +812,7 @@ export async function POST(request: Request) {
         // ── Persist state ───────────────────────────────────────────────────
 
         const needsPlayerUpdate =
-          deltaMatch !== null ||
+          deltaMatches.length > 0 ||
           JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
         await updateSession(session.id, {
           world_state: updatedWorldState,
@@ -823,10 +830,7 @@ export async function POST(request: Request) {
 
         // ── Ambient ─────────────────────────────────────────────────────────
 
-        const ambientFile = resolveAmbientFileForLocation(
-          scenario,
-          (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null
-        );
+        const ambientFile = resolveAmbientFileForLocation(scenario, finalMove?.id ?? null);
 
         // ── TTS prefetch ────────────────────────────────────────────────────
 
@@ -837,7 +841,7 @@ export async function POST(request: Request) {
 
         const imageType    = imageMatch?.[1] ?? null;
         const imagePrompt  = imageMatch?.[2]?.trim() ?? null;
-        const location     = (newLocationMatch?.[1] ?? locationMatch?.[1]) ?? null;
+        const location     = finalMove?.id ?? null;
         const locationName = location
           ? (scenario.locations.find((l) => l.id === location)?.name
               ?? updatedWorldState.dynamicLocations?.[location]?.name

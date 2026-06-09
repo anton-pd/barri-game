@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.23] — 2026-06-09
+
+### Fixed
+- **All Keeper tags are now applied, not just the first one (ANT-118).** Multiple `[DELTA:]` tags in one reply (e.g. separate damage for two players) all apply in order; `[LOCATION:]`/`[NEW_LOCATION:]` moves are processed in document order — every move counts as visited, every new location registers, and the *last* move becomes current (previously NEW_LOCATION always beat LOCATION regardless of order, and extra tags were silently discarded while still being stripped from the text).
+- **Hyphenated situational location ids parse correctly.** `[NEW_LOCATION:]` id grammar now matches `[LOCATION:]` (`[\w-]+`).
+- **Raw tags no longer leak into NPC/narration segments.** `[NEW_LOCATION:]`, `[COMPLETE_SESSION]`, and `[FINISH_EVENING]` are stripped from segment text (they could previously surface in fresh-response bubbles and multi-speaker TTS).
+
 ## [0.4.22] — 2026-06-09
 
 ### Fixed
