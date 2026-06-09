@@ -2434,3 +2434,14 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 ### Key decisions
 - Win-win без трейдофу: і кеш, і комплаєнс покращуються одночасно — порядок contents не впливає на жодну іншу логіку (історія для Claude-гілки не змінювалась).
 - Verification: tsc clean; перевірка layout — структурна (push-порядок очевидний з коду); staging перезібрано, 200 OK. Реальні cache-hit метрики видно буде в api_usage після ігрових сесій.
+
+## [2026-06-09 · Claude] — ANT-127: синхронізація PROJECT_CONTEXT.md з кодом
+
+### Problem
+Документація розійшлася з рушієм: Limits казав `max_tokens: 600 (main)` (код: 900 ходи / 1400 інтро); Tag Protocol таблиця не містила [NPC_UPDATE], [CASE_PLAN], [COMPLETE_SESSION], [FINISH_EVENING]; Message Persistence занижував список стрипнутих тегів; WorldState shape не мав casePlan/npcDetails/dynamicNpcs; ніде не зафіксовано, що npcRelations engine-owned (ANT-117) і що теги застосовуються multi-match у порядку тексту (ANT-118).
+
+### Solution
+- Оновлено Limits, Tag Protocol (+4 теги, нотатки про ANT-118/119/120 семантику), Message Persistence (повний список стрипання + streaming-фільтр ANT-121), NPC Auto-Registration (engine-ownership), WorldState shape (+3 поля).
+
+### Key decisions
+- Doc-only — rebuild staging не потрібен; CHANGELOG-рядок доданий під 0.4.31 без окремого бампа версії.

@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.31] — 2026-06-09
 
 ### Changed
+- **PROJECT_CONTEXT.md synced with the engine (ANT-127).** Corrected max_tokens limits (900/1400/500), added the missing tags to the protocol table ([NPC_UPDATE], [CASE_PLAN], [COMPLETE_SESSION], [FINISH_EVENING]), documented multi-tag application order, textForDB stripping rules, engine ownership of npcRelations, and the casePlan/npcDetails/dynamicNpcs WorldState fields.
 - **Gemini split-cache mode actually caches now (ANT-126).** The [SESSION STATE] turn moved from the start of contents to the end, right before the latest player message. Implicit caching matches a stable token prefix — with the always-changing dynamic block first, the cacheable prefix ended at systemInstruction; now it covers systemInstruction plus the append-only history. Side benefit: the current state and roll instructions sit adjacent to the model's response point instead of behind up to 30 history messages, which should reduce how often Gemini forgets [SET_PENDING_ROLL]. Debug snapshots label the layout as `split-tail`.
 
 ## [0.4.30] — 2026-06-09

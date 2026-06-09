@@ -125,7 +125,7 @@ src/
 | `dynamic` | ~400-600 tok | No | Current world_state + players with full inventory (item IDs included) |
 
 Caching via `anthropic-beta: prompt-caching-2024-07-31`.
-Limits: `max_tokens: 600` (main), `500` (summarize).
+Limits: `max_tokens: 900` (main turns), `1400` (intro), `500` (summarize).
 
 ### Model Pricing
 
@@ -148,16 +148,22 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 [LOCATION:location_id]                              — move to existing location (scenario or dynamic)
 [NEW_LOCATION:id:Name:Description]                  — create situational location + move there
 [NPC:Name]speech text[/NPC]                         — NPC dialogue bubble
-[SET_PENDING_ROLL:idx:skill:val:threshold:context]  — request dice roll
+[SET_PENDING_ROLL:idx:skill:val:threshold:context]  — request dice roll (percentile rulesets only, ANT-120)
 [CLEAR_PENDING_ROLL]                                — cancel pending roll
 [RANDOM_EVENT:type:event_id]                        — resolve active random event
+[NPC_UPDATE:Name:relation:notes]                    — update NPC relation + cumulative notes
+[CASE_PLAN:{"id","label","status","note"}]          — upsert living case plan item
+[COMPLETE_SESSION]                                  — scenario finale (client opens confirmation modal)
+[FINISH_EVENING]                                    — campaign evening finale (client opens confirmation modal)
 ```
+
+All `[DELTA:]` tags apply in order; `[LOCATION:]`/`[NEW_LOCATION:]` moves apply in document order, the last move becomes current (ANT-118). `[SET_PENDING_ROLL]` values are validated against the character sheet server-side (ANT-119).
 
 ### Message Persistence
 
-- Saved to DB: `textForDB` — **NPC and IMAGE tags preserved**, only DELTA/LOCATION stripped
+- Saved to DB: `textForDB` — **NPC and IMAGE tags preserved**; data-only tags stripped (DELTA, LOCATION, NEW_LOCATION, NPC_UPDATE, CASE_PLAN, COMPLETE_SESSION, FINISH_EVENING; inventory/roll/event tags are stripped during parsing)
 - On client reload: `parseSegments()` restores NPC bubbles and dynamic images from DB content
-- `cleanText` (all tags stripped) used only for SSE stream chunks and TTS input
+- `cleanText` (all tags stripped) used for the `done` SSE event and TTS input. Live stream chunks are raw model output — the client display path hides data tags and trailing partial tags while streaming (ANT-121)
 
 ### Dynamic Image Caching
 
@@ -174,6 +180,8 @@ LLM embeds structured tags in its response text. Server parses and applies them:
 
 On each AI response: server scans for `[NPC:Name]` → if name matches `scenario.npcs` and not yet in `npcRelations` → auto-adds as `'unknown'`. No wait for summarize cycle.
 
+`npcRelations` is **engine-owned**: the periodic world-state summary merges narrative fields only and cannot overwrite it (ANT-117). Relations change via auto-registration and `[NPC_UPDATE:]` tags.
+
 ---
 
 ## WorldState Shape (relevant fields)
@@ -187,7 +195,10 @@ On each AI response: server scans for `[NPC:Name]` → if name matches `scenario
   pendingRollResult: { characterIdx, skillName, skillValue, goodThreshold, context } | null
   locationRisk: Record<groupId, { currentChance, incrementRate, eventCycleCount, lastEventAt }>
   activeRandomEvent: { type, event_id } | null
-  npcRelations: Record<npcId, 'friendly'|'neutral'|'hostile'|'unknown'>
+  npcRelations: Record<npcId, 'friendly'|'neutral'|'hostile'|'unknown'>  // engine-owned (ANT-117)
+  npcDetails: Record<npcId, { notes: string }>  // cumulative [NPC_UPDATE:] notes
+  dynamicNpcs: { id: string; name: string }[]   // improvised NPCs not in scenario JSON
+  casePlan: { items: { id, label, status: 'hidden'|'available'|'completed'|'crossed_out', note? }[] }  // living case plan ([CASE_PLAN:] tags)
   sessionImages: Record<msgId, '/scenarios/dynamic/HASH.jpg'>  // persisted image URL cache
   dynamicLocations: Record<locId, { name: string; description: string }>  // situational locations
 }
