@@ -5,6 +5,12 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.21] — 2026-06-09
+
+### Fixed
+- **EN sessions no longer receive a mixed-language Keeper prompt (ANT-116).** All request-time prompt injections are now localized to the session language: the pending-roll / action-nudge / passive-style activity sections, the random-event instruction, the explicit "show me" image instruction, the Gemini split-cache state preamble, and the world-state summarizer prompt (summaries for EN sessions are now written in English instead of Ukrainian). Campaign context labels ("Evening N:") and the campaign close-session summarizer follow the session language too.
+- **Passive-player detection now understands English.** Short English actions like "I run" or "open it" are no longer miscounted as passive turns (which previously skewed the balanced Keeper into nudging active players); English confirmations ("ok", "go on") are correctly counted as passive.
+
 ## [0.4.20] — 2026-06-09
 
 ### Added
