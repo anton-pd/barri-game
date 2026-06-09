@@ -31,6 +31,11 @@ export function mergeSummarizedWorldState(
     pendingRollResult: current.pendingRollResult,
     activeRandomEvent: current.activeRandomEvent,
     npcDetails: current.npcDetails,
+    // NPC relations — owned by the engine ([NPC:] auto-registration and
+    // [NPC_UPDATE:] tags use real scenario ids). The summary LLM only sees the
+    // transcript and invents ids, so letting it win pollutes the dossier and
+    // drops deterministically tracked relations (ANT-117).
+    npcRelations: current.npcRelations,
     // Caches / per-session metadata the summary never owns.
     sessionImages: current.sessionImages,
     dynamicNpcs: current.dynamicNpcs,
