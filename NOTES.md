@@ -2278,3 +2278,21 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 - `npm run lint -- src/components/GameChat.tsx src/components/DiceRoller.tsx` — passed with only existing `@next/next/no-img-element` warnings in `GameChat`.
 - `npm test` — 68/68 passed.
 - `npm run build` — passed.
+
+## [2026-06-09 · Claude] — ANT-116: localize injected prompt sections for EN sessions
+
+### Problem
+Аудит core engine показав: ANT-64 локалізував основні блоки промпта, але все, що інжектиться в момент запиту, лишалось хардкод-українським незалежно від `session.language`. EN-сесії отримували змішаний промпт: `## ОЧІКУВАНИЙ КИДОК` / `## ПІДКАЗКА ДІЙ` (keeper activity), вся інструкція random events, інструкція "покажи" → [IMAGE:], Gemini split-cache преамбула (`[СТАН СЕСІЇ]` / `Зрозумів.`), summarize-промпт (Haiku писав український summary, який потім інжектився в англомовний dynamic block), кампанійний контекст (`Вечір N:`) і close-session summarizer. Додатково `isPassiveMessage()` мав лише українські active-патерни — будь-яка коротка англійська дія ("I run", "open it") < 20 символів рахувалась пасивною і збивала balanced Keeper на недоречні nudges.
+
+### Solution
+- `prompts.ts`: `buildSummarizePrompt(messages, lang)` — EN-варіант з вимогою "All text values must be in English".
+- `randomEvents.ts`: `buildEventInstruction(..., lang)` — повний EN-варіант (4 типи подій + правила введення, тег-протокол незмінний).
+- `route.ts` (api/ai): `buildKeeperActivitySection(..., lang)` — EN для pending-roll / action-nudge / passive-style; EN-варіант imageRequestInstruction; Gemini преамбула `[SESSION STATE]` / `Understood.`; `summarizeAndUpdateWorldState(..., lang)`; EN active/passive патерни в `isPassiveMessage()`.
+- `campaigns.ts`: `getCampaignContext(campaignId, lang)` (`Evening N:`), `closeSession(..., lang)` + `buildCloseSessionPrompt(messages, lang)` + локалізований fallback summary.
+- `complete/route.ts`: передає `session.language` у `closeSession`, локалізований fallback `'Session completed.'`.
+
+### Key decisions
+- Всі нові параметри мають дефолт `'uk'` — зворотна сумісність, жоден існуючий виклик не ламається.
+- Тег-протокол ([SET_PENDING_ROLL], [RANDOM_EVENT], [IMAGE], [CLEAR_PENDING_ROLL]) не змінювався — тільки мова навколишніх інструкцій.
+- Verification: tsc clean; tsx smoke-test — EN-варіанти не містять кирилиці, зберігають тег-інструкції, UK-дефолти незмінні; staging контейнер перезібрано (env -u ANTHROPIC_API_KEY), 200 OK.
+- Це фікс №1 з аудиту консистентності кіпера (топ-5). Наступні: summarizer vs npcRelations race, matchAll для DELTA/LOCATION, dice-контракт, ruleset-aware roll protocol.

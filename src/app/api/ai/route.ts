@@ -66,12 +66,13 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 async function summarizeAndUpdateWorldState(
   sessionId: string,
   aiProvider: AiProvider,
-  currentWorldState: WorldState
+  currentWorldState: WorldState,
+  lang: 'uk' | 'en'
 ): Promise<void> {
   try {
     const { getAllMessages } = await import('@/lib/queries');
     const allMessages = await getAllMessages(sessionId);
-    const summarizePrompt = buildSummarizePrompt(allMessages);
+    const summarizePrompt = buildSummarizePrompt(allMessages, lang);
 
     let text = '';
 
@@ -216,9 +217,12 @@ function isPassiveMessage(message: string): boolean {
   const activePatterns = [
     /оглядаю|шукаю|іду|беру|кажу|питаю|відкриваю|перевіряю|досліджую/i,
     /використовую|дістаю|показую|читаю|слухаю|торкаюсь|намагаюсь/i,
+    // EN sessions (ANT-116): without these, any short English action counted as passive
+    /\b(look|search|examine|investigate|check|open|take|grab|pick|use|read|listen|ask|say|tell|talk|go|walk|run|climb|try|show|pull|touch|attack|follow|inspect)\b/i,
   ];
   const passivePatterns = [
     /^(так|ні|добре|окей|гаразд|зрозуміло|продовжуй|далі)$/i,
+    /^(yes|no|ok|okay|sure|fine|alright|got it|go on|continue|next)$/i,
   ];
   const isActive = activePatterns.some((p) => p.test(message));
   const isPassive = !isActive && (passivePatterns.some((p) => p.test(message)) || message.length < 20);
@@ -227,13 +231,21 @@ function isPassiveMessage(message: string): boolean {
 
 function buildKeeperActivitySection(
   keeperStyle: 'passive' | 'balanced' | 'active',
-  worldState: WorldState
+  worldState: WorldState,
+  lang: 'uk' | 'en'
 ): string {
   const passive = worldState.passiveMessageCount ?? 0;
   const hasPendingRoll = !!worldState.pendingRollResult;
 
   if (hasPendingRoll) {
     const pending = worldState.pendingRollResult!;
+    if (lang === 'en') {
+      return `\n\n## AWAITING ROLL
+Player ${pending.characterIdx} has not reported the result of the "${pending.skillName}" roll yet.
+If the message contains a number — that is the roll result.
+Compare with threshold ${pending.goodThreshold}: ≤ threshold → success, > threshold → failure.
+After the result — clear it with [CLEAR_PENDING_ROLL].`;
+    }
     return `\n\n## ОЧІКУВАНИЙ КИДОК
 Гравець ${pending.characterIdx} ще не повідомив результат кидка "${pending.skillName}".
 Якщо повідомлення містить число — це результат кидка.
@@ -242,6 +254,12 @@ function buildKeeperActivitySection(
   }
 
   if (keeperStyle === 'active' || (keeperStyle === 'balanced' && passive >= 3)) {
+    if (lang === 'en') {
+      return `\n\n## ACTION NUDGE (passive turns: ${passive})
+The players have gone quiet. Weave in a new detail that provokes a reaction:
+- A new sensory detail, NPC behavior, a reminder of the threat
+Do NOT enumerate options as a list — describe a situation that demands a response by itself.`;
+    }
     return `\n\n## ПІДКАЗКА ДІЙ (пасивних ходів: ${passive})
 Гравці затихли. Вплітай нову деталь що провокує реакцію:
 - Нова сенсорна деталь, поведінка NPC, нагадування про загрозу
@@ -249,6 +267,9 @@ function buildKeeperActivitySection(
   }
 
   if (keeperStyle === 'passive') {
+    if (lang === 'en') {
+      return `\n\n## KEEPER STYLE: PASSIVE\nWait for the players' actions. Describe only the current moment.`;
+    }
     return `\n\n## СТИЛЬ KEEPER: ПАСИВНИЙ\nЧекай дій гравців. Описуй лише поточний момент.`;
   }
 
@@ -360,16 +381,18 @@ export async function POST(request: Request) {
   worldState = applyEventDecision(worldState, eventDecision, currentLocation, scenario);
 
   const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
-  const activitySection = buildKeeperActivitySection(keeperStyle, worldState);
+  const activitySection = buildKeeperActivitySection(keeperStyle, worldState, sessionLang);
   const imageRequestInstruction = !isIntro && isExplicitImageRequest(message)
-    ? 'Гравець прямо просить щось ПОКАЗАТИ. У цій відповіді ОБОВʼЯЗКОВО додай рівно один тег [IMAGE:type:short English description] для найрелевантнішого обʼєкта або сцени, яку він просить побачити. Обирай type змістовно: map / letter / photo / artifact / scene / newspaper. Опис у тегі має бути коротким, конкретним і англійською.'
+    ? (sessionLang === 'en'
+        ? 'The player explicitly asks to SEE something. In this response you MUST add exactly one [IMAGE:type:short English description] tag for the most relevant object or scene they ask to see. Pick the type meaningfully: map / letter / photo / artifact / scene / newspaper. The description in the tag must be short, specific, and in English.'
+        : 'Гравець прямо просить щось ПОКАЗАТИ. У цій відповіді ОБОВʼЯЗКОВО додай рівно один тег [IMAGE:type:short English description] для найрелевантнішого обʼєкта або сцени, яку він просить побачити. Обирай type змістовно: map / letter / photo / artifact / scene / newspaper. Опис у тегі має бути коротким, конкретним і англійською.')
     : '';
   const eventInstruction =
     eventDecision.shouldFire && eventDecision.eventType
-      ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario)
+      ? buildEventInstruction(eventDecision.eventType, eventDecision.isTransitionEvent, scenario, sessionLang)
       : '';
   const campaignContext = session.campaign_id
-    ? await getCampaignContext(session.campaign_id)
+    ? await getCampaignContext(session.campaign_id, sessionLang)
     : undefined;
   const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
     campaignContext,
@@ -406,8 +429,11 @@ export async function POST(request: Request) {
   const geminiHistory: GeminiMessage[] = [
     ...(geminiCacheEnabled
       ? [
-          { role: 'user'  as const, parts: [{ text: `[СТАН СЕСІЇ]\n${blocks.dynamic}` }] },
-          { role: 'model' as const, parts: [{ text: 'Зрозумів.' }] },
+          {
+            role: 'user' as const,
+            parts: [{ text: `${sessionLang === 'en' ? '[SESSION STATE]' : '[СТАН СЕСІЇ]'}\n${blocks.dynamic}` }],
+          },
+          { role: 'model' as const, parts: [{ text: sessionLang === 'en' ? 'Understood.' : 'Зрозумів.' }] },
         ]
       : []),
     ...recentMessages.map((m) => {
@@ -786,7 +812,7 @@ export async function POST(request: Request) {
 
         const msgCount = await countMessages(sessionId);
         if (msgCount % 20 === 0) {
-          summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState);
+          summarizeAndUpdateWorldState(sessionId, aiProvider, updatedWorldState, sessionLang);
         }
 
         const updatedSession = await getSession(sessionId);
