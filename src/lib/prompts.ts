@@ -59,6 +59,32 @@ function formatInventory(inventory: InventoryItem[], lang: Lang): string {
     .join('\n    ');
 }
 
+function formatCasePlan(worldState: WorldState, lang: Lang): string {
+  const items = worldState.casePlan?.items ?? [];
+  if (!items.length) return COPY[lang].curNoneM;
+
+  const statusLabel: Record<string, string> = lang === 'en'
+    ? {
+        hidden: 'hidden',
+        available: 'available',
+        completed: 'completed',
+        crossed_out: 'crossed out',
+      }
+    : {
+        hidden: 'приховано',
+        available: 'активно',
+        completed: 'виконано',
+        crossed_out: 'закреслено',
+      };
+
+  return items
+    .map((item) => {
+      const note = item.note ? ` — ${item.note}` : '';
+      return `${item.id}: ${item.label} [${statusLabel[item.status] ?? item.status}]${note}`;
+    })
+    .join('\n');
+}
+
 // ── Localized copy ─────────────────────────────────────────────────────────────
 const COPY = {
   uk: {
@@ -143,6 +169,17 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - нотатки — 1–2 речення: що нового стало відомо (характер, мотив, секрет, ставлення до гравців).
 - Нотатки накопичуються: кожна нова деталь додається до попередніх.
 Приклад: [NPC_UPDATE:Ганна Василенко:neutral:Знає про зникнення Корбітта, але боїться говорити відкрито.]`,
+    hCasePlan: '## ЖИВИЙ ПЛАН СПРАВИ',
+    casePlanTagLine: `План справи — це короткі дії в боковому досьє. Оновлюй його тільки коли в fiction справді змінився шлях розслідування.
+Тег: [CASE_PLAN:{"id":"snake_case_id","label":"коротка дія","status":"available|completed|crossed_out|hidden","note":"опційна коротка причина"}]
+Правила:
+- available — нова дія/напрям відкрилась після підказки, розмови, предмета або переходу.
+- completed — гравці виконали дію або закрили цей напрям.
+- crossed_out — гравці пішли іншим шляхом, можливість втрачена, або цей напрям виявився хибним.
+- hidden — заготовка ще не має показуватись гравцям.
+- id стабільний: якщо оновлюєш пункт, використовуй той самий id.
+- label має бути дією, не описом факту: "Перевірити архіви мерії", "Допитати доглядача".
+- Не дублюй пункти і не перераховуй всі можливі дії наперед. Пункти мають з'являтися поступово.`,
     hComplete: '## ЗАВЕРШЕННЯ СЕСІЇ',
     completeBody: `Коли розслідування або місія СПРАВДІ завершені, а головна загроза усунута, стримана або доля героїв остаточно вирішена:
 - one-shot / фінал сценарію: [COMPLETE_SESSION]
@@ -163,6 +200,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     curClues: 'Підказки',
     curSummary: 'Summary',
     curOpen: 'Відкриті питання',
+    curPlan: 'План справи',
     curUnknown: 'невідома',
     curNone: 'жодної',
     curNoneM: 'жодного',
@@ -261,6 +299,17 @@ RULES:
 - notes — 1–2 sentences: what was newly learned (personality, motive, secret, attitude toward players).
 - Notes are cumulative: each new detail is appended to previous ones.
 Example: [NPC_UPDATE:Hannah Vasilenko:neutral:Knows about Corbitt's disappearance but is afraid to speak openly.]`,
+    hCasePlan: '## LIVING CASE PLAN',
+    casePlanTagLine: `The case plan is a short action list in the side dossier. Update it only when the investigation path changes in fiction.
+Tag: [CASE_PLAN:{"id":"snake_case_id","label":"short action","status":"available|completed|crossed_out|hidden","note":"optional short reason"}]
+Rules:
+- available — a new lead/action opens after a clue, conversation, item, or location change.
+- completed — the players performed the action or closed that lead.
+- crossed_out — the players chose another route, lost the opportunity, or proved the lead false.
+- hidden — a prepared step should not be visible to players yet.
+- id is stable: when updating an item, reuse the same id.
+- label must be an action, not a fact: "Check city hall archives", "Question the caretaker".
+- Do not duplicate items and do not list every possible action in advance. Items should appear progressively.`,
     hComplete: '## SESSION COMPLETION',
     completeBody: `When the investigation or mission is TRULY finished, the main threat is removed, contained, or the heroes' fate is resolved once and for all:
 - one-shot / scenario finale: [COMPLETE_SESSION]
@@ -280,6 +329,7 @@ Use these tags only for a real finale. Do not set them for a temporary pause, a 
     curClues: 'Clues',
     curSummary: 'Summary',
     curOpen: 'Open threads',
+    curPlan: 'Case plan',
     curUnknown: 'unknown',
     curNone: 'none',
     curNoneM: 'none',
@@ -409,6 +459,9 @@ ${C.npcVoiceLine}
 ${C.hNpcUpdate}
 ${C.npcUpdateTagLine}
 
+${C.hCasePlan}
+${C.casePlanTagLine}
+
 ${C.hComplete}
 ${C.completeBody}
 
@@ -459,7 +512,8 @@ ${C.curLocation}: ${worldState.currentLocation ?? C.curUnknown}
 ${C.curVisited}: ${worldState.visitedLocations.join(', ') || C.curNone}${dynLocSection}
 ${C.curClues}: ${worldState.discoveredClues.join(', ') || C.curNone}
 ${C.curSummary}: ${worldState.summary || C.curStart}
-${C.curOpen}: ${worldState.openThreads.join(', ') || C.curNoneM}${npcDetailSection}
+${C.curOpen}: ${worldState.openThreads.join(', ') || C.curNoneM}
+${C.curPlan}: ${formatCasePlan(worldState, lang)}${npcDetailSection}
 ${campaignSection}
 ${C.hPlayers}
 ${players

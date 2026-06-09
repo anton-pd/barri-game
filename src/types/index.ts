@@ -47,10 +47,25 @@ export interface WorldState {
   sessionImages?: Record<string, string>;
   // Situational locations created by LLM during play (persisted, no audio)
   dynamicLocations?: Record<string, DynamicLocation>;
+  // Keeper-maintained living investigation plan for the dossier sidebar
+  casePlan?: CasePlan;
   // Scenario variant chosen at session creation
   variantId?: string;
   // One-time hint for the Keeper about this variant's entry point (cleared after intro)
   variantHint?: string;
+}
+
+export type CasePlanItemStatus = 'hidden' | 'available' | 'completed' | 'crossed_out';
+
+export interface CasePlanItem {
+  id: string;
+  label: string;
+  status: CasePlanItemStatus;
+  note?: string;
+}
+
+export interface CasePlan {
+  items: CasePlanItem[];
 }
 
 export interface DynamicLocation {

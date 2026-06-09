@@ -35,6 +35,21 @@ describe('buildSystemPromptBlocks', () => {
     expect(blocks.dynamic).toContain('лист від матері');
   });
 
+  it('documents and renders the living case plan', () => {
+    const ws = makeWorldState({
+      casePlan: {
+        items: [
+          { id: 'check_archives', label: 'Перевірити міські архіви', status: 'available' },
+        ],
+      },
+    });
+    const blocks = buildSystemPromptBlocks(scenario, ws, players);
+
+    expect(blocks.static).toContain('[CASE_PLAN:');
+    expect(blocks.dynamic).toContain('План справи');
+    expect(blocks.dynamic).toContain('check_archives: Перевірити міські архіви [активно]');
+  });
+
   it('produces an English ruleset/static when language is en', () => {
     const blocks = buildSystemPromptBlocks(scenario, makeWorldState(), players, { language: 'en' });
     expect(blocks.dynamic.length).toBeGreaterThan(0);

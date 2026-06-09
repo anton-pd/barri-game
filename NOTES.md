@@ -2174,3 +2174,50 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
   - stats, inventory strip, composer, and Keeper response visible in the active session;
   - settings panel still exposes Keeper style, autovoice, ambient, virtual dice, and volume controls.
 - Mobile/narrow viewport still keeps the main chat focused and uses the existing sheet-style dossier behavior.
+
+## 2026-06-09 — ANT-115 implementation: living case plan sidebar
+
+**Ask:** Anton asked to remove the game-chat vignette and start the next task: dynamic side hints that behave like the demo plan, where items appear, complete, or get crossed out based on play.
+
+**Implementation:**
+- Created branch `feature/ANT-115` from current `origin/staging`.
+- Moved Linear `ANT-115` to `In Progress`, assigned to Codex, and added an implementation-start comment.
+- Removed the heavy radial vignette from the ANT-114 `chat-root::after` overlay while keeping the subtle dossier split-line texture.
+- Added a backward-compatible `world_state.casePlan` shape:
+  - `items: { id, label, status, note? }[]`
+  - `status`: `hidden | available | completed | crossed_out`
+- Added pure `src/lib/casePlanTags.ts`:
+  - parses `[CASE_PLAN:{...}]` tags;
+  - strips plan tags from narration;
+  - upserts existing items by stable `id`;
+  - ignores malformed/incomplete tags without leaking service text to players.
+- Added prompt protocol in `buildSystemPromptBlocks()`:
+  - Keeper should emit `[CASE_PLAN:{"id":"snake_case_id","label":"short action","status":"available|completed|crossed_out|hidden","note":"optional short reason"}]`;
+  - available = newly revealed action/lead;
+  - completed = players performed or closed the lead;
+  - crossed_out = route lost, false, or bypassed;
+  - hidden = prepared but not visible yet.
+- Added current case-plan state to the dynamic prompt block so the Keeper can update existing ids instead of duplicating items.
+- Preserved `casePlan` through periodic world-state summary merges so Haiku/Gemini summaries cannot clobber the authoritative plan.
+- Rendered non-hidden plan items as the first section in the side dossier:
+  - active items appear as open tasks;
+  - completed items get a checked dossier marker;
+  - crossed-out items are visibly struck through with a red mark;
+  - collapsed rail now includes a plan count.
+
+**Verification so far:**
+- Read relevant Next.js 16.2 docs:
+  - App Router CSS guide;
+  - Route Handlers guide.
+- `npm test -- tests/casePlanTags.test.ts tests/worldStateMerge.test.ts tests/prompts.test.ts` — 17/17 passed.
+- `npm run lint -- src/components/GameChat.tsx src/app/api/ai/route.ts src/lib/casePlanTags.ts src/lib/prompts.ts src/lib/worldStateMerge.ts src/types/index.ts tests/casePlanTags.test.ts tests/prompts.test.ts tests/worldStateMerge.test.ts` — passed with only existing `@next/next/no-img-element` warnings in `GameChat`.
+- `npm test` — 68/68 passed.
+- `npm run build` — passed.
+
+**Staging QA still needed:**
+- Deploy to staging.
+- Seed or generate a session with visible `casePlan` items and verify:
+  - no vignette on desktop;
+  - plan appears in the left dossier;
+  - completed/crossed-out/hidden statuses render correctly;
+  - mobile bottom-sheet dossier remains usable.

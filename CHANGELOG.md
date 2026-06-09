@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.20] — 2026-06-09
+
+### Added
+- **Living case plan sidebar (ANT-115).** GameChat now supports a Keeper-maintained `world_state.casePlan` with `available`, `completed`, `crossed_out`, and `hidden` plan items. The Keeper can update it through `[CASE_PLAN:{...}]` tags, and the side dossier renders visible plan items as an evolving investigation checklist.
+
+### Changed
+- **GameChat vignette removed.** The demo-style full chat keeps the dossier/console visual language but no longer darkens the edges with the heavy radial vignette overlay.
+
 ## [0.4.19] — 2026-06-08
 
 ### Changed

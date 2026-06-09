@@ -8,6 +8,7 @@ import { evaluateAccessGate } from '@/lib/accessGate';
 import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { parseInventoryTags } from '@/lib/inventoryTags';
+import { applyCasePlanTags } from '@/lib/casePlanTags';
 import { detectCompletionAction } from '@/lib/completionTags';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
@@ -623,6 +624,10 @@ export async function POST(request: Request) {
           }
         );
 
+        const planResult = applyCasePlanTags(textAfterRollTags, updatedWorldState);
+        textAfterRollTags = planResult.cleanText;
+        updatedWorldState = planResult.worldState;
+
         // ── Guard: strip [NPC:<PlayerName>]...[/NPC] (ANT-71) ───────────────
         // LLM occasionally voices a player character as if an NPC. Such tags
         // render as an NPC bubble and, worse, auto-register the player into
@@ -653,6 +658,7 @@ export async function POST(request: Request) {
           .replace(/\s*\[LOCATION:[\w-]+\]/g, '')
           .replace(/\s*\[NEW_LOCATION:\w+:[^:]+:[^\]]+\]/g, '')
           .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
+          .replace(/\s*\[CASE_PLAN:[^\]]*\]/g, '')
           .replace(/\s*\[COMPLETE_SESSION\]/g, '')
           .replace(/\s*\[FINISH_EVENING\]/g, '')
           .trim();

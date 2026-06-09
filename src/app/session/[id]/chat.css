@@ -1389,8 +1389,7 @@
   z-index: 0;
   background:
     linear-gradient(90deg, transparent 24%, rgba(216, 200, 166, 0.08) 24.1%, transparent 24.25%),
-    linear-gradient(88deg, transparent 66%, rgba(216, 200, 166, 0.07) 66.1%, transparent 66.24%),
-    radial-gradient(circle at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.7) 100%);
+    linear-gradient(88deg, transparent 66%, rgba(216, 200, 166, 0.07) 66.1%, transparent 66.24%);
 }
 
 .chat-game-column {
@@ -1842,6 +1841,105 @@
 
 .chat-dossier__sec-body {
   padding: 0 22px 16px;
+}
+
+.chat-case-plan {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0 22px 16px;
+}
+
+.chat-case-plan__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(107, 90, 62, 0.24);
+}
+
+.chat-case-plan__item:last-child {
+  border-bottom: 0;
+}
+
+.chat-case-plan__marker {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border: 1px solid rgba(107, 90, 62, 0.62);
+  background: rgba(216, 200, 166, 0.24);
+  box-shadow: inset 0 0 0 2px rgba(216, 200, 166, 0.32);
+}
+
+.chat-case-plan__item--completed .chat-case-plan__marker {
+  border-color: rgba(47, 87, 64, 0.9);
+  background:
+    linear-gradient(135deg, transparent 0 38%, rgba(47, 87, 64, 0.92) 39% 56%, transparent 57%),
+    linear-gradient(45deg, transparent 0 44%, rgba(47, 87, 64, 0.92) 45% 60%, transparent 61%),
+    rgba(216, 200, 166, 0.28);
+}
+
+.chat-case-plan__item--crossed .chat-case-plan__marker {
+  border-color: rgba(139, 26, 20, 0.82);
+  background:
+    linear-gradient(45deg, transparent 0 43%, rgba(139, 26, 20, 0.9) 44% 56%, transparent 57%),
+    linear-gradient(-45deg, transparent 0 43%, rgba(139, 26, 20, 0.9) 44% 56%, transparent 57%),
+    rgba(216, 200, 166, 0.22);
+}
+
+.chat-case-plan__copy {
+  min-width: 0;
+}
+
+.chat-case-plan__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chat-case-plan__label {
+  min-width: 0;
+  color: var(--ink-0);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.chat-case-plan__item--completed .chat-case-plan__label,
+.chat-case-plan__item--crossed .chat-case-plan__label {
+  color: rgba(55, 43, 30, 0.62);
+}
+
+.chat-case-plan__item--crossed .chat-case-plan__label {
+  text-decoration: line-through;
+  text-decoration-color: rgba(139, 26, 20, 0.72);
+  text-decoration-thickness: 2px;
+}
+
+.chat-case-plan__status {
+  flex: 0 0 auto;
+  color: var(--blood-1);
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.chat-case-plan__item--completed .chat-case-plan__status {
+  color: #2f5740;
+}
+
+.chat-case-plan__item--crossed .chat-case-plan__status {
+  color: var(--blood-1);
+}
+
+.chat-case-plan__note {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .chat-dossier-card,

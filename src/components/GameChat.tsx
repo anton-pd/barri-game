@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useRef } from 'react';
-import type { GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
+import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags } from '@/lib/segments';
 import { resolvePlayerStats } from '@/lib/statUtils';
@@ -275,6 +275,7 @@ function CaseFilesPanel({
   onClose,
   statusLabel,
   currentLocationName,
+  casePlan,
   counts,
 }: {
   scenarioId: string;
@@ -292,7 +293,8 @@ function CaseFilesPanel({
   onClose?: () => void;
   statusLabel: string;
   currentLocationName?: string | null;
-  counts: { evidence: number; npcs: number; locations: number };
+  casePlan?: CasePlan;
+  counts: { evidence: number; npcs: number; locations: number; plan: number };
 }) {
   const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
   const [imagesScenarioId, setImagesScenarioId] = useState<string | null>(null);
@@ -315,6 +317,7 @@ function CaseFilesPanel({
     ...metNpcs.map((n) => ({ id: n.id, name: n.name, description: n.description })),
     ...(dynamicNpcs ?? []).filter((d) => !(metNpcs.some((n) => n.id === d.id))).map((d) => ({ ...d, isDynamic: true })),
   ];
+  const planItems = (casePlan?.items ?? []).filter((item) => item.status !== 'hidden');
 
   const fullscreenOverlay = fullscreen && typeof document !== 'undefined'
     ? createPortal(
@@ -334,6 +337,14 @@ function CaseFilesPanel({
       case 'hostile':  return { mod: 'hostile',  label: 'Ворожий' };
       case 'neutral':  return { mod: 'neutral',  label: 'Нейтральний' };
       default:         return { mod: 'unknown',  label: 'Невідомо' };
+    }
+  };
+
+  const planMeta = (item: CasePlanItem) => {
+    switch (item.status) {
+      case 'completed': return { label: 'Виконано', mod: 'completed' };
+      case 'crossed_out': return { label: 'Закреслено', mod: 'crossed' };
+      default: return { label: 'Активно', mod: 'available' };
     }
   };
 
@@ -368,6 +379,29 @@ function CaseFilesPanel({
 
         {/* Collapsible sections (native <details>) instead of mutually-exclusive tabs */}
         <div className="chat-dossier__sections">
+
+          {planItems.length > 0 && (
+            <details className="chat-dossier__sec" open>
+              <summary>План справи ({planItems.length})</summary>
+              <ol className="chat-case-plan" aria-label="План справи">
+                {planItems.map((item) => {
+                  const meta = planMeta(item);
+                  return (
+                    <li key={item.id} className={`chat-case-plan__item chat-case-plan__item--${meta.mod}`}>
+                      <span className="chat-case-plan__marker" aria-hidden />
+                      <div className="chat-case-plan__copy">
+                        <div className="chat-case-plan__line">
+                          <span className="chat-case-plan__label">{item.label}</span>
+                          <span className="chat-case-plan__status">{meta.label}</span>
+                        </div>
+                        {item.note && <p className="chat-case-plan__note">{item.note}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </details>
+          )}
 
           {/* ── Опис ── */}
           {briefing && (
@@ -1945,6 +1979,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         >
           <span className="chat-rail-strip__chevron" aria-hidden>‹</span>
           <span className="chat-rail-strip__icon" aria-hidden>📋</span>
+          <span className="chat-rail-strip__count" title="План">{(session.world_state?.casePlan?.items ?? []).filter((item) => item.status !== 'hidden').length}</span>
           <span className="chat-rail-strip__count" title="Матеріали">{Object.keys(dynamicImages).length}</span>
           <span className="chat-rail-strip__count" title="Персонажі">{Object.keys(session.world_state?.npcRelations ?? {}).length}</span>
           <span className="chat-rail-strip__count" title="Локації">{(session.world_state?.visitedLocations ?? []).length}</span>
@@ -1965,10 +2000,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           onClose={toggleCaseFiles}
           statusLabel={session.status === 'completed' ? 'Завершено' : session.status === 'paused' ? 'Пауза' : 'Активна'}
           currentLocationName={currentLocationName}
+          casePlan={session.world_state?.casePlan}
           counts={{
             evidence: Object.keys(dynamicImages).length,
             npcs: Object.keys(session.world_state?.npcRelations ?? {}).length,
             locations: (session.world_state?.visitedLocations ?? []).length,
+            plan: (session.world_state?.casePlan?.items ?? []).filter((item) => item.status !== 'hidden').length,
           }}
         />
       </aside>

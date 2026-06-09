@@ -34,6 +34,7 @@ export function mergeSummarizedWorldState(
     // Caches / per-session metadata the summary never owns.
     sessionImages: current.sessionImages,
     dynamicNpcs: current.dynamicNpcs,
+    casePlan: current.casePlan,
     variantId: current.variantId,
     variantHint: current.variantHint,
   };

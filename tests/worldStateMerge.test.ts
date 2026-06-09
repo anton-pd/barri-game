@@ -72,6 +72,19 @@ describe('mergeSummarizedWorldState (ANT-68)', () => {
     });
   });
 
+  it('preserves the Keeper-maintained case plan', () => {
+    const current = makeWorldState({
+      casePlan: {
+        items: [
+          { id: 'check_archives', label: 'Перевірити міські архіви', status: 'available' },
+        ],
+      },
+    });
+    const parsed = { casePlan: { items: [] } } as Partial<WorldState>;
+
+    expect(mergeSummarizedWorldState(current, parsed).casePlan).toEqual(current.casePlan);
+  });
+
   it('preserves engine fields (pendingRollResult, activeRandomEvent, locationRisk)', () => {
     const current = makeWorldState({
       pendingRollResult: { characterIdx: 0, skillName: 'Spot', skillValue: 50, context: 'c', goodThreshold: 25 },
