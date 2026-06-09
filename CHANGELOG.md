@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.27] — 2026-06-09
+
+### Fixed
+- **Optimistic message ID collision on multi-player queued sends (ANT-122).** User bubbles used ids `now + i` while the assistant bubble used `Date.now() + 1` — with 2+ queued actions in the same millisecond the ids collided and streaming text was appended into a player's bubble (plus duplicate React keys). Local ids are now namespaced (`local-<ts>-u<i>` / `local-<ts>-a` / `local-<ts>-intro`); the done event still remaps to the real DB id.
+
 ## [0.4.26] — 2026-06-09
 
 ### Fixed
