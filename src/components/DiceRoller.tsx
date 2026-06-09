@@ -18,10 +18,6 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
 
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
-  useEffect(() => {
-    setPhase('idle');
-  }, [pendingRoll.skillName, pendingRoll.goodThreshold]);
-
   function roll() {
     if (phase !== 'idle') return;
 
@@ -70,52 +66,43 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
   const isSuccess = phase === 'done' && total <= pendingRoll.goodThreshold;
 
   return (
-    <div className="px-4 pt-3 pb-3 bg-stone-900 border-t border-stone-800">
-      {/* Skill context */}
-      <p className="text-xs text-center text-stone-500 mb-3">
-        <span className="text-amber-400 font-medium">{pendingRoll.skillName}</span>
-        {' — кинь ≤ '}
-        <span className="text-amber-300 font-mono font-semibold">{pendingRoll.goodThreshold}</span>
+    <div className="dice-roller" role="group" aria-label="Активний кидок d100">
+      <div className="dice-roller__brief">
+        <span className="dice-roller__stamp">D100</span>
+        <span className="dice-roller__skill">{pendingRoll.skillName}</span>
+        <span className="dice-roller__target">≤ {pendingRoll.goodThreshold}</span>
         {pendingRoll.context && (
-          <span className="text-stone-600">{' · '}{pendingRoll.context}</span>
+          <span className="dice-roller__context">{pendingRoll.context}</span>
         )}
-      </p>
+      </div>
 
-      {/* Dice row */}
-      <div className="flex items-center justify-center gap-3">
-        {/* Tens */}
-        <div className="flex flex-col items-center gap-1">
-          <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center bg-stone-800 transition-colors ${phase === 'rolling' ? 'border-amber-600' : phase === 'done' ? 'border-stone-500' : 'border-stone-700'}`}>
-            <span className="font-mono text-2xl font-bold text-stone-100">
+      <div className="dice-roller__reels">
+        <div className="dice-roller__slot">
+          <div className={`dice-roller__die dice-roller__die--${phase}`}>
+            <span>
               {phase === 'idle' ? '–' : (tensDisplay * 10).toString().padStart(2, '0')}
             </span>
           </div>
-          <span className="text-[10px] text-stone-600 uppercase tracking-wider">десятки</span>
+          <span className="dice-roller__die-label">десятки</span>
         </div>
 
-        <span className="text-stone-700 text-lg pb-5">+</span>
+        <span className="dice-roller__operator">+</span>
 
-        {/* Units */}
-        <div className="flex flex-col items-center gap-1">
-          <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center bg-stone-800 transition-colors ${phase === 'rolling' ? 'border-amber-600' : phase === 'done' ? 'border-stone-500' : 'border-stone-700'}`}>
-            <span className="font-mono text-2xl font-bold text-stone-100">
-              {phase === 'idle' ? '–' : unitsDisplay}
-            </span>
+        <div className="dice-roller__slot">
+          <div className={`dice-roller__die dice-roller__die--${phase}`}>
+            <span>{phase === 'idle' ? '–' : unitsDisplay}</span>
           </div>
-          <span className="text-[10px] text-stone-600 uppercase tracking-wider">одиниці</span>
+          <span className="dice-roller__die-label">одиниці</span>
         </div>
 
-        {/* Result */}
         {phase === 'done' && (
           <>
-            <span className="text-stone-700 text-lg pb-5">=</span>
-            <div className="flex flex-col items-center gap-1">
-              <div className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center ${isSuccess ? 'bg-green-900/30 border-green-600' : 'bg-red-900/20 border-red-700'}`}>
-                <span className={`font-mono text-2xl font-bold ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
-                  {total}
-                </span>
+            <span className="dice-roller__operator">=</span>
+            <div className="dice-roller__slot">
+              <div className={`dice-roller__result dice-roller__result--${isSuccess ? 'success' : 'fail'}`}>
+                <span>{total}</span>
               </div>
-              <span className={`text-[10px] uppercase tracking-wider font-medium ${isSuccess ? 'text-green-500' : 'text-red-500'}`}>
+              <span className={`dice-roller__outcome dice-roller__outcome--${isSuccess ? 'success' : 'fail'}`}>
                 {isSuccess ? 'успіх' : 'провал'}
               </span>
             </div>
@@ -123,25 +110,26 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
         )}
       </div>
 
-      {/* Action */}
-      <div className="flex justify-center mt-4">
+      <div className="dice-roller__actions">
         {phase === 'idle' && (
           <button
+            type="button"
             onClick={roll}
-            className="px-6 py-2 bg-amber-900 hover:bg-amber-800 active:bg-amber-950 rounded-xl text-sm font-medium text-amber-100 border border-amber-700/50 transition-colors"
+            className="dice-roller__button dice-roller__button--primary"
           >
-            🎲 Кинути
+            Кинути d100
           </button>
         )}
         {phase === 'rolling' && (
-          <span className="text-xs text-stone-600 tracking-widest animate-pulse">котяться...</span>
+          <span className="dice-roller__rolling">котяться...</span>
         )}
         {phase === 'done' && (
           <button
+            type="button"
             onClick={() => onResult(total)}
-            className={`px-6 py-2 rounded-xl text-sm font-medium text-white border transition-colors ${isSuccess ? 'bg-green-800 hover:bg-green-700 border-green-600/50' : 'bg-red-900 hover:bg-red-800 border-red-700/50'}`}
+            className={`dice-roller__button dice-roller__button--${isSuccess ? 'success' : 'fail'}`}
           >
-            {isSuccess ? '✓ Успіх' : '✗ Провал'} — надіслати {total}
+            {isSuccess ? 'Успіх' : 'Провал'} — надіслати {total}
           </button>
         )}
       </div>

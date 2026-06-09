@@ -636,6 +636,12 @@
   display: flex;
   justify-content: center;
 }
+.composer-rail--roll-locked {
+  border-top-color: rgba(212,161,83,0.35);
+}
+.composer-rail__roll-lock {
+  padding: 12px 14px;
+}
 .composer-rail__dice-hint {
   margin: 0 14px 4px;
   border-radius: 4px;
@@ -723,6 +729,259 @@
 }
 .chat-dice-hint__skill     { color: var(--amber-1); font-weight: 600; }
 .chat-dice-hint__threshold { color: var(--amber-0); font-family: var(--font-typewriter); }
+
+/* ── Pending roll lock ─────────────────────────────────────── */
+.dice-roller,
+.chat-physical-roll {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  border: 1px solid rgba(168,147,106,0.42);
+  background:
+    linear-gradient(180deg, rgba(13,11,16,0.96), rgba(7,6,10,0.98)),
+    linear-gradient(112deg, rgba(240,199,122,0.09), transparent 48%);
+  color: var(--paper-0);
+  padding: 14px;
+}
+
+.dice-roller__brief,
+.chat-physical-roll__brief {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(168,147,106,0.28);
+}
+
+.dice-roller__stamp,
+.chat-physical-roll__stamp {
+  flex: 0 0 auto;
+  border: 2px solid var(--blood-1);
+  color: var(--blood-1);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  padding: 5px 7px;
+  text-transform: uppercase;
+  transform: rotate(-4deg);
+}
+
+.dice-roller__skill,
+.chat-physical-roll__skill {
+  min-width: 0;
+  color: var(--paper-0);
+  font-family: var(--font-typewriter);
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dice-roller__target,
+.chat-physical-roll__target {
+  color: var(--amber-0);
+  font-family: var(--font-typewriter);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dice-roller__context,
+.chat-physical-roll__context {
+  flex-basis: 100%;
+  color: var(--paper-3);
+  font-family: var(--font-oldprint);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.dice-roller__reels {
+  display: flex;
+  align-items: start;
+  justify-content: center;
+  gap: clamp(8px, 2vw, 16px);
+  padding: 18px 0 12px;
+}
+
+.dice-roller__slot {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.dice-roller__die,
+.dice-roller__result {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border: 1px solid rgba(168,147,106,0.54);
+  background: rgba(7,6,10,0.82);
+  box-shadow: inset 0 0 0 2px rgba(216,200,166,0.08);
+}
+
+.dice-roller__die span,
+.dice-roller__result span {
+  color: var(--paper-0);
+  font-family: var(--font-typewriter);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.dice-roller__die--rolling {
+  border-color: var(--amber-1);
+  box-shadow:
+    inset 0 0 0 2px rgba(216,200,166,0.1),
+    0 0 24px rgba(212,161,83,0.16);
+}
+
+.dice-roller__operator {
+  color: var(--paper-3);
+  font-family: var(--font-typewriter);
+  font-size: 20px;
+  line-height: 64px;
+}
+
+.dice-roller__die-label,
+.dice-roller__outcome {
+  color: var(--paper-3);
+  font-family: var(--font-typewriter);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dice-roller__result--success {
+  border-color: rgba(72,116,81,0.9);
+  background: rgba(47,87,64,0.28);
+}
+
+.dice-roller__result--fail {
+  border-color: rgba(181,50,31,0.8);
+  background: rgba(139,26,20,0.24);
+}
+
+.dice-roller__outcome--success { color: #8fbd93; }
+.dice-roller__outcome--fail { color: var(--blood-0); }
+
+.dice-roller__actions {
+  display: flex;
+  justify-content: center;
+  padding-top: 4px;
+}
+
+.dice-roller__button,
+.chat-physical-roll__submit {
+  min-height: 40px;
+  border: 1px solid rgba(168,147,106,0.58);
+  background: var(--paper-0);
+  color: var(--ink-0);
+  cursor: pointer;
+  font-family: var(--font-typewriter);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  padding: 0 16px;
+  text-transform: uppercase;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.dice-roller__button:hover:not(:disabled),
+.chat-physical-roll__submit:hover:not(:disabled) {
+  background: var(--amber-0);
+  border-color: var(--amber-0);
+}
+
+.dice-roller__button--success {
+  background: #8fbd93;
+  border-color: #8fbd93;
+}
+
+.dice-roller__button--fail {
+  background: var(--blood-0);
+  border-color: var(--blood-0);
+  color: var(--paper-0);
+}
+
+.dice-roller__rolling {
+  color: var(--paper-3);
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.chat-physical-roll__entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px auto;
+  gap: 10px;
+  align-items: end;
+  padding-top: 14px;
+}
+
+.chat-physical-roll__label {
+  color: var(--paper-3);
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.chat-physical-roll__input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid rgba(168,147,106,0.54);
+  background: rgba(7,6,10,0.82);
+  color: var(--paper-0);
+  font-family: var(--font-typewriter);
+  font-size: 20px;
+  font-weight: 800;
+  outline: none;
+  padding: 0 12px;
+}
+
+.chat-physical-roll__input:focus {
+  border-color: var(--amber-1);
+}
+
+.chat-physical-roll__submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+@media (max-width: 640px) {
+  .composer-rail__roll-lock {
+    padding: 10px;
+  }
+  .dice-roller,
+  .chat-physical-roll {
+    padding: 12px;
+  }
+  .dice-roller__reels {
+    gap: 8px;
+  }
+  .dice-roller__die,
+  .dice-roller__result {
+    width: 52px;
+    height: 52px;
+  }
+  .dice-roller__die span,
+  .dice-roller__result span {
+    font-size: 20px;
+  }
+  .dice-roller__operator {
+    line-height: 52px;
+  }
+  .chat-physical-roll__entry {
+    grid-template-columns: 1fr;
+  }
+  .chat-physical-roll__submit {
+    width: 100%;
+  }
+}
 
 /* ── Input zone ─────────────────────────────────────────────── */
 .chat-input-zone {

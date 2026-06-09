@@ -2258,3 +2258,23 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
 **Cause:** ANT-115 removed the radial vignette from `.chat-root::after`, but the session page is wrapped in `.landing-root`. The global landing overlay `.landing-root::after` from `landing.css` still applied the landing-page "vignette + smoke wash" over the chat.
 
 **Fix:** Added `.landing-root:has(.chat-root)::after { content: none; }` in `src/app/session/[id]/chat.css` so game-chat pages disable the landing overlay while keeping the landing page visuals intact.
+
+## 2026-06-09 — ANT-115 follow-up: dice roller visual + pending roll lock
+
+**Issue:** Anton noticed two GameChat bugs on staging:
+- the d100 dice roller still used the old rounded stone-card design;
+- while a roll was pending, the normal chat composer was still available, so a user could submit arbitrary text before resolving the roll.
+
+**Fix:**
+- Rebuilt `DiceRoller` markup around semantic `dice-roller__*` classes and styled it in `chat.css` to match the dossier/console visual language: square file-machine panels, typewriter labels, D100 stamp, dark console surface, and success/fail states.
+- Added `composer-rail--roll-locked` / `composer-rail__roll-lock` state in `GameChat`.
+- When `world_state.pendingRollResult` exists, GameChat now replaces the normal composer with the roll UI:
+  - virtual dice mode shows only the d100 roller;
+  - physical dice mode shows a dedicated numeric result form (`1–100`) and submit button;
+  - textarea, voice input, queue button, send button, and inventory chips do not render during the pending roll.
+- Added `submitRollResult()` / `submitPhysicalRoll()` helpers so both virtual and physical dice resolve through the same `sendMessage(result)` path and clear `pendingRollResult` locally.
+
+**Verification:**
+- `npm run lint -- src/components/GameChat.tsx src/components/DiceRoller.tsx` — passed with only existing `@next/next/no-img-element` warnings in `GameChat`.
+- `npm test` — 68/68 passed.
+- `npm run build` — passed.

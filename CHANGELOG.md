@@ -12,6 +12,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Changed
 - **GameChat vignette removed.** The demo-style full chat keeps the dossier/console visual language but no longer darkens the edges with the heavy radial vignette overlay.
+- **Pending dice rolls now lock the composer.** While a roll is active, the normal chat composer, voice input, queue, and inventory actions are replaced by the roll UI so players cannot submit arbitrary text before resolving the roll.
+- **Dice roller restyled.** The d100 roller now matches the dossier/console visual language instead of the old rounded stone-card styling.
 
 ## [0.4.19] — 2026-06-08
 

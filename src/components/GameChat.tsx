@@ -628,6 +628,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [msgSegments, setMsgSegments]         = useState<Record<string, Segment[]>>({});
   const [dynamicImages, setDynamicImages]     = useState<Record<string, DynamicImageMeta>>({});
   const [input, setInput]       = useState('');
+  const [physicalRollInput, setPhysicalRollInput] = useState('');
   const [isLoading, setIsLoading]             = useState(false);
   const [speakingId, setSpeakingId]           = useState<string | null>(null);
   const [loadingAudioIds, setLoadingAudioIds] = useState<Set<string>>(new Set());
@@ -645,6 +646,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const statusMeta = getStatusMeta(session);
   const sessionIsReadOnly = statusMeta.isReadOnly;
   const canManuallyEndSession = !sessionIsReadOnly;
+  const pendingRoll = session.world_state?.pendingRollResult;
 
   // ANT-102: restore persisted desktop rail collapse state.
   useEffect(() => {
@@ -748,6 +750,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    setPhysicalRollInput('');
+  }, [
+    pendingRoll?.characterIdx,
+    pendingRoll?.skillName,
+    pendingRoll?.goodThreshold,
+  ]);
 
   useEffect(() => {
     if (!isSessionReadOnly(session.status)) return;
@@ -979,6 +989,21 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       localStorage.setItem('diceMode', next);
       return next;
     });
+  }
+
+  function submitRollResult(result: number) {
+    setSession((s) => ({
+      ...s,
+      world_state: { ...s.world_state, pendingRollResult: undefined },
+    }));
+    setPhysicalRollInput('');
+    sendMessage(result.toString());
+  }
+
+  function submitPhysicalRoll() {
+    const result = Number(physicalRollInput);
+    if (!pendingRoll || !Number.isInteger(result) || result < 1 || result > 100) return;
+    submitRollResult(result);
   }
 
   async function exportChatLog() {
@@ -1829,131 +1854,165 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           </div>
         </div>
       ) : (
-        <div className="composer-rail">
-          {/* Meta row: active player marker + multi-player tabs + queued actions */}
-          {(session.players.length > 1 || pendingActions.length > 0) && (
-            <div className="composer-rail__meta">
-              {session.players.length > 1 && (
-                <div className="composer-rail__players" role="tablist" aria-label="Активний гравець">
-                  <span className="composer-rail__label">Хід</span>
-                  {session.players.map((p, i) => (
+        <div className={`composer-rail${pendingRoll ? ' composer-rail--roll-locked' : ''}`}>
+          {pendingRoll ? (
+            <div className="composer-rail__roll-lock">
+              {diceMode === 'virtual' ? (
+                <DiceRoller
+                  key={`${pendingRoll.skillName}-${pendingRoll.goodThreshold}-${pendingRoll.characterIdx}`}
+                  pendingRoll={pendingRoll}
+                  onResult={submitRollResult}
+                />
+              ) : (
+                <form
+                  className="chat-physical-roll"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    submitPhysicalRoll();
+                  }}
+                >
+                  <div className="chat-physical-roll__brief">
+                    <span className="chat-physical-roll__stamp">D100</span>
+                    <span className="chat-physical-roll__skill">{pendingRoll.skillName}</span>
+                    <span className="chat-physical-roll__target">≤ {pendingRoll.goodThreshold}</span>
+                    {pendingRoll.context && (
+                      <span className="chat-physical-roll__context">{pendingRoll.context}</span>
+                    )}
+                  </div>
+                  <div className="chat-physical-roll__entry">
+                    <label className="chat-physical-roll__label" htmlFor="physical-roll-result">
+                      Результат кидка
+                    </label>
+                    <input
+                      id="physical-roll-result"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={100}
+                      value={physicalRollInput}
+                      onChange={(event) => {
+                        setPhysicalRollInput(event.target.value.replace(/[^\d]/g, '').slice(0, 3));
+                      }}
+                      className="chat-physical-roll__input"
+                      placeholder="1-100"
+                      disabled={isLoading}
+                    />
                     <button
-                      key={i}
-                      type="button"
-                      onClick={() => setActivePlayer(i)}
-                      className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
-                      role="tab"
-                      aria-selected={activePlayer === i}
+                      type="submit"
+                      className="chat-physical-roll__submit"
+                      disabled={
+                        isLoading ||
+                        !Number.isInteger(Number(physicalRollInput)) ||
+                        Number(physicalRollInput) < 1 ||
+                        Number(physicalRollInput) > 100
+                      }
                     >
-                      {p.name}
+                      Надіслати результат
                     </button>
-                  ))}
+                  </div>
+                </form>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Meta row: active player marker + multi-player tabs + queued actions */}
+              {(session.players.length > 1 || pendingActions.length > 0) && (
+                <div className="composer-rail__meta">
+                  {session.players.length > 1 && (
+                    <div className="composer-rail__players" role="tablist" aria-label="Активний гравець">
+                      <span className="composer-rail__label">Хід</span>
+                      {session.players.map((p, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setActivePlayer(i)}
+                          className={`chat-player-btn${activePlayer === i ? ' chat-player-btn--active' : ''}`}
+                          role="tab"
+                          aria-selected={activePlayer === i}
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {pendingActions.length > 0 && (
+                    <div className="composer-rail__queue" aria-label="Черга дій">
+                      {pendingActions.map((a, i) => (
+                        <span key={i} className="chat-pending-pill">
+                          <span className="chat-pending-pill__name">{session.players[a.playerIdx]?.name}</span>
+                          <span className="chat-pending-pill__text">{a.text}</span>
+                          <button
+                            type="button"
+                            onClick={() => removePending(i)}
+                            className="chat-pending-pill__remove"
+                            aria-label="Прибрати з черги"
+                          >✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
-              {pendingActions.length > 0 && (
-                <div className="composer-rail__queue" aria-label="Черга дій">
-                  {pendingActions.map((a, i) => (
-                    <span key={i} className="chat-pending-pill">
-                      <span className="chat-pending-pill__name">{session.players[a.playerIdx]?.name}</span>
-                      <span className="chat-pending-pill__text">{a.text}</span>
+
+              {/* Inventory chips for active player */}
+              {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
+                <div className="composer-rail__inventory chat-inventory-strip" aria-label="Інвентар">
+                  {session.players[activePlayer].inventory
+                    .filter(item => !item.broken && item.uses !== 0)
+                    .map(item => (
                       <button
+                        key={item.id}
                         type="button"
-                        onClick={() => removePending(i)}
-                        className="chat-pending-pill__remove"
-                        aria-label="Прибрати з черги"
-                      >✕</button>
-                    </span>
-                  ))}
+                        onClick={() => handleUseItem(activePlayer, item.id, item.name)}
+                        title={item.description}
+                        className="chat-inventory-item"
+                      >
+                        {item.equipped ? '⚔' : '📦'} {item.name}
+                        {item.uses > 0 && <span className="chat-inventory-item__uses">×{item.uses}</span>}
+                        {item.uses === -1 && <span className="chat-inventory-item__uses">∞</span>}
+                      </button>
+                    ))}
                 </div>
               )}
-            </div>
-          )}
 
-          {/* Inventory chips for active player */}
-          {(session.players[activePlayer]?.inventory ?? []).filter(item => !item.broken && item.uses !== 0).length > 0 && (
-            <div className="composer-rail__inventory chat-inventory-strip" aria-label="Інвентар">
-              {session.players[activePlayer].inventory
-                .filter(item => !item.broken && item.uses !== 0)
-                .map(item => (
+              {/* Input row */}
+              <div className="composer-rail__input">
+                <div className="chat-input-wrap">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`${playerName}: дія або слова...`}
+                    rows={2}
+                    className="chat-textarea"
+                    style={{ fontSize: 16 }}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="composer-rail__actions">
+                  <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
+                  {session.players.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={queueAction}
+                      disabled={isLoading || !input.trim()}
+                      title="Додати в чергу (наступний гравець)"
+                      className="chat-icon-btn"
+                      aria-label="Додати в чергу"
+                    >+</button>
+                  )}
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => handleUseItem(activePlayer, item.id, item.name)}
-                    title={item.description}
-                    className="chat-inventory-item"
-                  >
-                    {item.equipped ? '⚔' : '📦'} {item.name}
-                    {item.uses > 0 && <span className="chat-inventory-item__uses">×{item.uses}</span>}
-                    {item.uses === -1 && <span className="chat-inventory-item__uses">∞</span>}
-                  </button>
-                ))}
-            </div>
+                    onClick={() => sendMessage()}
+                    disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
+                    className="chat-send-btn"
+                    aria-label="Надіслати"
+                  >➤</button>
+                </div>
+              </div>
+            </>
           )}
-
-          {/* Dice — virtual roller or physical hint */}
-          {session.world_state?.pendingRollResult && diceMode === 'virtual' && (
-            <div className="composer-rail__dice">
-              <DiceRoller
-                key={`${session.world_state.pendingRollResult.skillName}-${session.world_state.pendingRollResult.goodThreshold}-${session.world_state.pendingRollResult.characterIdx}`}
-                pendingRoll={session.world_state.pendingRollResult}
-                onResult={(result) => {
-                  setSession((s) => ({
-                    ...s,
-                    world_state: { ...s.world_state, pendingRollResult: undefined },
-                  }));
-                  sendMessage(result.toString());
-                }}
-              />
-            </div>
-          )}
-          {session.world_state?.pendingRollResult && diceMode === 'physical' && (
-            <div className="composer-rail__dice-hint chat-dice-hint">
-              <span aria-hidden>🎲</span>
-              <span>
-                <span className="chat-dice-hint__skill">{session.world_state.pendingRollResult.skillName}</span>
-                {' — кинь ≤ '}
-                <span className="chat-dice-hint__threshold">{session.world_state.pendingRollResult.goodThreshold}</span>
-                {' і введи результат'}
-              </span>
-            </div>
-          )}
-
-          {/* Input row */}
-          <div className="composer-rail__input">
-            <div className="chat-input-wrap">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={`${playerName}: дія або слова...`}
-                rows={2}
-                className="chat-textarea"
-                style={{ fontSize: 16 }}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="composer-rail__actions">
-              <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
-              {session.players.length > 1 && (
-                <button
-                  type="button"
-                  onClick={queueAction}
-                  disabled={isLoading || !input.trim()}
-                  title="Додати в чергу (наступний гравець)"
-                  className="chat-icon-btn"
-                  aria-label="Додати в чергу"
-                >+</button>
-              )}
-              <button
-                type="button"
-                onClick={() => sendMessage()}
-                disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
-                className="chat-send-btn"
-                aria-label="Надіслати"
-              >➤</button>
-            </div>
-          </div>
         </div>
       )}
 
