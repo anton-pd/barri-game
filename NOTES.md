@@ -2421,3 +2421,16 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 ### Key decisions
 - Strip-regex у segments.ts (`[^\]]+`) і так толерує двокрапки — правка тільки в парсері.
 - Verification: tsc clean; tsx smoke 4/4 — опис із двокрапкою, простий опис, два теги в одній відповіді, стрипання; staging перезібрано, 200 OK.
+
+## [2026-06-09 · Claude] — ANT-126: Gemini split-cache — [СТАН СЕСІЇ] у хвіст contents
+
+### Problem
+У geminiCacheEnabled-режимі dynamic-блок інжектився як contents[0] (перед до 30 повідомлень історії). Подвійна проблема: (1) Gemini implicit caching матчить стабільний префікс токенів — dynamic змінюється щозапиту і стоїть першим → кешований префікс закінчувався на systemInstruction, режим майже нічого не кешував з того, заради чого створювався; (2) поточний стан і roll-нагадування опинялись максимально далеко від точки відповіді моделі — ймовірна причина, чому Gemini "часто забуває тег" настільки, що знадобився auto-inject fallback.
+
+### Solution
+- `route.ts`: [SESSION STATE]/[СТАН СЕСІЇ] + "Understood." перенесені в КІНЕЦЬ contents, одразу перед останнім user-повідомленням. Префікс тепер = systemInstruction + append-only історія (довгий, стабільний → реальні cache hits), а стан/інструкції — біля точки відповіді.
+- Debug snapshot: `geminiCacheMode: 'split-tail'` замість 'split', щоб у message debug було видно, який layout згенерував відповідь.
+
+### Key decisions
+- Win-win без трейдофу: і кеш, і комплаєнс покращуються одночасно — порядок contents не впливає на жодну іншу логіку (історія для Claude-гілки не змінювалась).
+- Verification: tsc clean; перевірка layout — структурна (push-порядок очевидний з коду); staging перезібрано, 200 OK. Реальні cache-hit метрики видно буде в api_usage після ігрових сесій.

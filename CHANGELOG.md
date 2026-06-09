@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.31] — 2026-06-09
+
+### Changed
+- **Gemini split-cache mode actually caches now (ANT-126).** The [SESSION STATE] turn moved from the start of contents to the end, right before the latest player message. Implicit caching matches a stable token prefix — with the always-changing dynamic block first, the cacheable prefix ended at systemInstruction; now it covers systemInstruction plus the append-only history. Side benefit: the current state and roll instructions sit adjacent to the model's response point instead of behind up to 30 history messages, which should reduce how often Gemini forgets [SET_PENDING_ROLL]. Debug snapshots label the layout as `split-tail`.
+
 ## [0.4.30] — 2026-06-09
 
 ### Fixed

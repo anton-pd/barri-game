@@ -436,28 +436,30 @@ export async function POST(request: Request) {
   // geminiCacheEnabled: separate dynamic block from systemInstruction so the stable
   // ruleset+static prefix qualifies for Gemini implicit caching (75% token discount).
   // Without this, dynamic changes every request → systemInstruction is unique → no cache hit.
+  // ANT-126: the [SESSION STATE] turn goes at the END of contents, right before
+  // the latest user message — implicit caching matches a stable token prefix,
+  // so with the (always-changing) dynamic block as contents[0] the cacheable
+  // prefix ended at systemInstruction. At the tail, the prefix becomes
+  // systemInstruction + append-only history, and the current state/instructions
+  // sit adjacent to the model's response point.
   const modelId = GEMINI_MODELS[aiProvider] ?? '';
   const systemPrompt = geminiCacheEnabled
     ? `${blocks.ruleset}\n\n${blocks.static}`
     : `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
-  const geminiHistory: GeminiMessage[] = [
-    ...(geminiCacheEnabled
-      ? [
-          {
-            role: 'user' as const,
-            parts: [{ text: `${sessionLang === 'en' ? '[SESSION STATE]' : '[СТАН СЕСІЇ]'}\n${blocks.dynamic}` }],
-          },
-          { role: 'model' as const, parts: [{ text: sessionLang === 'en' ? 'Understood.' : 'Зрозумів.' }] },
-        ]
-      : []),
-    ...recentMessages.map((m) => {
-      if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-        const name = session.players[m.player_idx].name;
-        return { role: 'user' as const, parts: [{ text: `[${name}]: ${m.content}` }] };
-      }
-      return { role: m.role === 'assistant' ? 'model' as const : 'user' as const, parts: [{ text: m.content }] };
-    }),
-  ];
+  const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
+    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+      const name = session.players[m.player_idx].name;
+      return { role: 'user' as const, parts: [{ text: `[${name}]: ${m.content}` }] };
+    }
+    return { role: m.role === 'assistant' ? 'model' as const : 'user' as const, parts: [{ text: m.content }] };
+  });
+  if (geminiCacheEnabled) {
+    geminiHistory.push({
+      role: 'user',
+      parts: [{ text: `${sessionLang === 'en' ? '[SESSION STATE]' : '[СТАН СЕСІЇ]'}\n${blocks.dynamic}` }],
+    });
+    geminiHistory.push({ role: 'model', parts: [{ text: sessionLang === 'en' ? 'Understood.' : 'Зрозумів.' }] });
+  }
   geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
 
   // ── SSE stream ────────────────────────────────────────────────────────────
@@ -914,7 +916,7 @@ export async function POST(request: Request) {
             dynamic: blocks.dynamic,
             history: debugProvider === 'anthropic' ? conversationHistory : geminiHistory,
             ...(debugProvider === 'gemini' && {
-              geminiCacheMode: geminiCacheEnabled ? 'split' : 'combined',
+              geminiCacheMode: geminiCacheEnabled ? 'split-tail' : 'combined',
             }),
           },
           rawOutput: assistantText,
