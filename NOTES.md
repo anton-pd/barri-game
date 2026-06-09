@@ -2221,3 +2221,32 @@ Both issues were created in `AI Improvements`, assigned to Codex, and cross-link
   - plan appears in the left dossier;
   - completed/crossed-out/hidden statuses render correctly;
   - mobile bottom-sheet dossier remains usable.
+
+## 2026-06-09 — ANT-115 staging deploy and QA
+
+**Deploy:**
+- Pushed `1435732` (`ANT-115: add living case plan sidebar`) to remote `staging`.
+- Deployed staging from `/opt/apps/barri-dev` with the documented VPS flow:
+  `git pull --ff-only origin staging` and `docker compose --env-file /opt/apps/.env -f docker-compose.yml up -d --build barri-dev`.
+- Verified `https://staging.barrigame.es` returns `200`, `/api/scenarios` returns scenario JSON, `apps-barri-dev-1` is running, and `/opt/apps/barri-dev` is at `1435732`.
+
+**Browser/staging QA:**
+- Seeded the QA session `dcda2b14-8504-4142-855e-7ea8447ea8d7` with test `world_state.casePlan` items:
+  - `available`: "Перевірити креслення Гауді"
+  - `completed`: "Допитати старшого майстра"
+  - `crossed_out`: "Виламати бічну браму"
+  - `hidden`: "Знайти підземний хід"
+- Reloaded `https://staging.barrigame.es/session/dcda2b14-8504-4142-855e-7ea8447ea8d7` in Browser.
+- DOM verification:
+  - `План справи` is visible;
+  - available/completed/crossed-out items render;
+  - hidden item does not render;
+  - `.chat-case-plan__item--completed` and `.chat-case-plan__item--crossed` are present.
+- CSS verification:
+  - `.chat-root::after` contains only the two subtle linear split-line overlays;
+  - the radial vignette is gone.
+
+**Screenshot note:**
+- Browser `Page.captureScreenshot` timed out twice on this session after viewport resize.
+- macOS `screencapture` also failed in this Codex environment with `could not create image from display`.
+- Visual verification was therefore done via Browser DOM snapshot and computed CSS checks rather than an attached screenshot.
