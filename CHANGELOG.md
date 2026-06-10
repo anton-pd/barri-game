@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.33] — 2026-06-10
 
 ### Added
+- **More room for the story on phones (ANT-139).** The player stats card now collapses to a single line on mobile — name plus compact HP/SAN/LUCK numbers — and the full bars, skills and inventory open on tap. Desktop layout unchanged.
 - **Screen-reader and keyboard accessibility (ANT-137).** The new-session modal is a proper dialog (focus trap, Escape to close, focus returns to the trigger), the disabled "Відкрити справу" button now explains what's missing, icon buttons got aria-labels, and the chat announces new messages via `role="log"`.
 
 ### Changed
