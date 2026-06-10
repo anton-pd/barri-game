@@ -14,6 +14,16 @@ import type { Player } from '@/types';
  *
  * Returns the text with all inventory tags stripped, plus the mutated players.
  */
+// ANT-128: the model occasionally emits a technical id as the item name
+// ("case_file", "old_note") despite prompt instructions. The name is the only
+// thing the player sees on the inventory chip, so de-uglify id-shaped names:
+// underscores → spaces, first letter capitalized ("Case file").
+function humanizeItemName(name: string): string {
+  if (!/^[a-z0-9_]+$/.test(name) || !name.includes('_')) return name;
+  const words = name.replace(/_/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export function parseInventoryTags(
   text: string,
   players: Player[]
@@ -32,11 +42,12 @@ export function parseInventoryTags(
     (_, idx, name, desc, uses) => {
       const i = Number(idx);
       if (!mutated[i]) return '';
-      const existing = mutated[i].inventory.find((it) => it.name === name);
+      const displayName = humanizeItemName(name.trim());
+      const existing = mutated[i].inventory.find((it) => it.name === displayName);
       if (!existing) {
         mutated[i].inventory.push({
           id: `item_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`,
-          name: name.trim(),
+          name: displayName,
           description: desc.trim(),
           uses: Number(uses),
         });

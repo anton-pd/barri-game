@@ -133,6 +133,8 @@ const COPY = {
 "Ти дістаєш медичну сумку..." → [USE_ITEM:0:medkit_id]`,
     invTags: `### Теги мутацій інвентаря (додавай в кінці відповіді)
 Додати предмет: [ITEM:idx:Назва:Короткий опис:кількість] (кількість=-1 для нескінченних)
+Назва — людська назва мовою гри, як її бачить гравець ("Пожовкла нотатка").
+ЗАБОРОНЕНО використовувати технічні id як назву (case_file, old_note) — id існують лише для USE_ITEM/REMOVE_ITEM/EQUIP/BREAK_ITEM.
 Використати (зменшує uses на 1): [USE_ITEM:idx:itemId]
 Видалити повністю: [REMOVE_ITEM:idx:itemId]
 Взяти в руки: [EQUIP:idx:itemId]
@@ -263,6 +265,8 @@ If uses > 0 and the item logically helps — mention it in the description:
 "You pull out the medical kit..." → [USE_ITEM:0:medkit_id]`,
     invTags: `### Inventory mutation tags (append at the end of the response)
 Add item: [ITEM:idx:Name:Short description:count] (count=-1 for infinite)
+Name is the human-readable label the player sees ("Yellowed note").
+NEVER use a technical id as the name (case_file, old_note) — ids exist only for USE_ITEM/REMOVE_ITEM/EQUIP/BREAK_ITEM.
 Use (decrements uses by 1): [USE_ITEM:idx:itemId]
 Remove completely: [REMOVE_ITEM:idx:itemId]
 Equip in hand: [EQUIP:idx:itemId]
