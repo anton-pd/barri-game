@@ -650,6 +650,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const [debugData, setDebugData]             = useState<unknown>(null);
   const [debugError, setDebugError]           = useState<string | null>(null);
   const [pendingActions, setPendingActions]   = useState<{ playerIdx: number; text: string }[]>([]);
+  // ANT-129: id of the newest Keeper message that was cut by the token cap —
+  // its bubble gets a "continue" affordance until the next exchange.
+  const [truncatedMsgId, setTruncatedMsgId]   = useState<string | null>(null);
   // ANT-78: for a completed campaign evening, point the player to the next evening.
   const [nextEvening, setNextEvening] = useState<{ id: string; sessionNumber: number } | null>(null);
   const statusMeta = getStatusMeta(session);
@@ -1260,6 +1263,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       setMessages((prev) => prev.map((m) =>
         m.id === optimisticId ? { ...m, id: realId, content: data.response as string } : m
       ));
+      setTruncatedMsgId(data.truncated ? realId : null);
 
       if (data.voiceStyle)  setVoiceStyles((prev) => ({ ...prev, [realId]: data.voiceStyle as string }));
       if (data.segments)    setMsgSegments((prev) => ({ ...prev, [realId]: data.segments as Segment[] }));
@@ -1744,6 +1748,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               >
                 {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
               </button>
+              {msg.id === truncatedMsgId && !isLoading && !sessionIsReadOnly && (
+                <button
+                  onClick={() => sendMessage(session.language === 'en' ? 'Continue.' : 'Продовжуй.')}
+                  className="chat-replay-btn"
+                  title={session.language === 'en'
+                    ? 'The reply was cut short by the length limit — ask the Keeper to continue'
+                    : 'Відповідь обірвалась через ліміт довжини — попросити Кіпера продовжити'}
+                >
+                  {session.language === 'en' ? '⤷ continue' : '⤷ продовжити'}
+                </button>
+              )}
               {isAdmin && !isUser && (
                 <button
                   onClick={() => openDebug(msg.id)}

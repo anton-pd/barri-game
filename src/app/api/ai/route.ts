@@ -130,7 +130,8 @@ async function callGeminiChat(
     contents: history,
     generationConfig: {
       // Intro needs more room for a 4-5 paragraph scene-setter (ANT-60).
-      maxOutputTokens: diag?.isIntro ? 1400 : 900,
+      // ANT-129: main turns 900 → 1200, see the Anthropic branch.
+      maxOutputTokens: diag?.isIntro ? 1400 : 1200,
       temperature: 1.0,
       // Gemini 2.5 thinking tokens consume maxOutputTokens budget but aren't
       // returned as visible text → narrative replies get truncated. Disable
@@ -484,7 +485,9 @@ export async function POST(request: Request) {
           const claudeStream = anthropic.messages.stream(
             {
               model: 'claude-sonnet-4-6',
-              max_tokens: isIntro ? 1400 : 900,
+              // ANT-129: 900 was tight for narration-heavy turns (location
+              // transitions) and produced mid-word cuts; 1200 gives headroom.
+              max_tokens: isIntro ? 1400 : 1200,
               system: systemBlocks,
               messages: conversationHistory,
             },
@@ -740,6 +743,26 @@ export async function POST(request: Request) {
           );
         }
 
+        // ANT-129: a max_tokens cut ends mid-word/mid-sentence (and can orphan
+        // a `**` or a partial tag). Trim back to the last sentence boundary so
+        // the player never reads a reply that just stops, and signal the client
+        // so it can offer a "continue" affordance.
+        const wasTruncated =
+          finishReason === 'max_tokens' || finishReason === 'MAX_TOKENS';
+        if (wasTruncated) {
+          const upToBoundary = textAfterRollTags.match(/[\s\S]*[.!?…»”"\]]/);
+          if (upToBoundary) textAfterRollTags = upToBoundary[0];
+          const boldMarkers = textAfterRollTags.match(/\*\*/g);
+          if (boldMarkers && boldMarkers.length % 2 === 1) {
+            const i = textAfterRollTags.lastIndexOf('**');
+            textAfterRollTags =
+              textAfterRollTags.slice(0, i) + textAfterRollTags.slice(i + 2);
+          }
+          console.warn(
+            `[ANT-129] reply truncated by token cap (session ${sessionId}), trimmed to sentence boundary`
+          );
+        }
+
         const segments = parseSegments(textAfterRollTags, scenario.npcs ?? []);
 
         // textForDB keeps NPC speech tags and IMAGE tags so the client can reconstruct
@@ -906,6 +929,7 @@ export async function POST(request: Request) {
           locationName,
           ambientFile,
           completionAction,
+          truncated: wasTruncated || undefined,
         });
 
         // ── Debug snapshot (admin-only, fire-and-forget) ────────────────────
