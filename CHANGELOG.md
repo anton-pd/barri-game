@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.37] — 2026-06-10
+
+### Added
+- **DeepSeek V4 Flash as a selectable Keeper model (ANT-142).** Admin → Keeper Settings → AI Model now has a third, experimental option. Replies stream live; cost tracking accounts for DeepSeek prompt-cache discounts. Default provider unchanged (Gemini Flash).
+
 ## [0.4.36] — 2026-06-10
 
 ### Added

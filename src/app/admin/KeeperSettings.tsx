@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 
 const AI_OPTIONS = [
-  { value: 'gemini-flash',  label: 'Gemini 2.5 Flash',  note: 'Fast · cheap · default' },
-  { value: 'claude-sonnet', label: 'Claude Sonnet 4.6',  note: 'Slower · premium quality' },
+  { value: 'gemini-flash',   label: 'Gemini 2.5 Flash',   note: 'Fast · cheap · default' },
+  { value: 'claude-sonnet',  label: 'Claude Sonnet 4.6',  note: 'Slower · premium quality' },
+  { value: 'deepseek-flash', label: 'DeepSeek V4 Flash',  note: 'Experimental · cheapest · slow first token' },
 ];
 
 const TTS_OPTIONS = [
