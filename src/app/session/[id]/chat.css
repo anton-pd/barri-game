@@ -126,6 +126,17 @@
   flex-shrink: 0;
 }
 
+/* ANT-136: tiny captions naming each control group in the strip */
+.chat-settings-group-label {
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--smoke-0);
+  opacity: 0.65;
+  flex-shrink: 0;
+}
+
 /* Keeper style toggle group */
 .chat-settings-keeper-group {
   display: flex;
