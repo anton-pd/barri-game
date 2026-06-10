@@ -249,7 +249,16 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
 }
 
 // Bold-text renderer: **text** → <strong>
+// ANT-130: only complete pairs convert, so a half-streamed or
+// truncation-orphaned marker would render as literal asterisks — drop a
+// lone `*` at the buffer edge, then remove the last `**` if unpaired.
 function renderText(text: string) {
+  text = text.replace(/(^|[^*])\*$/, '$1');
+  const markers = text.match(/\*\*/g);
+  if (markers && markers.length % 2 === 1) {
+    const i = text.lastIndexOf('**');
+    text = text.slice(0, i) + text.slice(i + 2);
+  }
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((p, i) =>
     p.startsWith('**') && p.endsWith('**')

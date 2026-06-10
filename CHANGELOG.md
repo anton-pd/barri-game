@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.32] — 2026-06-10
 
 ### Fixed
+- **No more literal `**` asterisks in the chat (ANT-130).** While a reply streamed, an opened bold marker showed as raw asterisks until its pair arrived — and stayed raw forever on token-truncated replies. The renderer now drops a half-received `*` at the buffer edge and the last `**` when unpaired, for live and persisted messages alike.
 - **Inventory no longer shows raw technical ids as item names (ANT-128).** The Keeper occasionally emitted `[ITEM:0:case_file:…]` — and the player saw a literal "case_file" chip. The prompt now forbids id-shaped names in both languages, and the server parser de-uglifies any that slip through (`old_note` → "Old note").
 
 ## [0.4.31] — 2026-06-09
