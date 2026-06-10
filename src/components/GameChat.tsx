@@ -1016,12 +1016,21 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     const rollIdx = pendingRoll?.characterIdx;
     const asPlayerIdx =
       typeof rollIdx === 'number' && session.players[rollIdx] ? rollIdx : undefined;
+    // ANT-134: a bare "62" reads cryptic in history — send a structured roll
+    // line instead. The 🎲 prefix is the contract: the server's dice-result
+    // detector and the chip styling both key off it.
+    const en = session.language === 'en';
+    const rollText = pendingRoll
+      ? `🎲 ${pendingRoll.skillName}: ${result} ${en ? 'vs' : 'проти'} ${pendingRoll.goodThreshold} — ${
+          result <= pendingRoll.goodThreshold ? (en ? 'success' : 'успіх') : (en ? 'failure' : 'провал')
+        }`
+      : result.toString();
     setSession((s) => ({
       ...s,
       world_state: { ...s.world_state, pendingRollResult: undefined },
     }));
     setPhysicalRollInput('');
-    sendMessage(result.toString(), asPlayerIdx);
+    sendMessage(rollText, asPlayerIdx);
   }
 
   function submitPhysicalRoll() {
@@ -1801,13 +1810,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           // ── User message ────────────────────────────────────────────────────
           if (isUser) {
+            // ANT-134: dice results arrive as "🎲 Skill: N проти M — verdict"
+            // and get a distinct chip look instead of a plain chat bubble.
+            const isRoll = displayContent.startsWith('🎲');
+            const rollFailed = isRoll && /провал|failure/.test(displayContent);
             return (
               <div key={msg.id} className={`flex justify-end${rowClass}`}>
                 <div className="max-w-[85%]">
                   {player && !sameAsPrev && (
                     <p className="chat-bubble-label chat-bubble-label--user">{player.name}</p>
                   )}
-                  <div className="chat-bubble--user">
+                  <div className={`chat-bubble--user${isRoll ? ` chat-bubble--roll${rollFailed ? ' chat-bubble--roll-fail' : ''}` : ''}`}>
                     {displayContent}
                   </div>
                 </div>

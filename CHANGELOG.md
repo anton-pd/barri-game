@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.33] — 2026-06-10
+
+### Changed
+- **Dice results land in the chat as a proper roll chip (ANT-134).** Confirming a roll now sends "🎲 Spot Hidden: 62 проти 70 — успіх" instead of a bare "62", styled as an amber (success) or red (failure) chip — readable in history and after reload.
+
 ## [0.4.32] — 2026-06-10
 
 ### Changed
