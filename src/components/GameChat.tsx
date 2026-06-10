@@ -1468,7 +1468,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {speakingId && (
-            <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити">⏹</button>
+            <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити озвучення" aria-label="Зупинити озвучення">⏹</button>
           )}
           <button
             onClick={toggleCaseFiles}
@@ -1480,6 +1480,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             onClick={() => setShowSettings((v) => !v)}
             className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
             title="Налаштування"
+            aria-label="Налаштування"
+            aria-expanded={showSettings}
           >⚙️</button>
         </div>
       </div>
@@ -1735,8 +1737,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
       )}
 
-      {/* Messages */}
-      <div className="chat-messages flex-1 overflow-y-auto">
+      {/* Messages — ANT-137: role="log" announces new entries to screen
+          readers; aria-busy defers announcements while a reply streams */}
+      <div className="chat-messages flex-1 overflow-y-auto" role="log" aria-busy={isLoading}>
         {messages.length === 0 && !isLoading && (
           <div className="chat-empty-state">
             <span className="chat-empty-glyph">ꝏ</span>

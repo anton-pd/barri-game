@@ -2585,3 +2585,18 @@ Idle-лейбл "↻ озвучити" читався як "переозвучи
 ### Key decisions
 - Дефолтний вигляд для звичайних користувачів не чіпав (кадровість зерна — дизайн-рішення); фонова вкладка і так не малюється браузером. Чат уже вимикає зерно (`:has(.chat-root)`).
 - Verification: rebuild + перевірка computed animation-name: none під емуляцією reduce.
+
+## [2026-06-10 · Claude] — ANT-137: a11y чату та модалки нової сесії
+
+### Problem
+Модалка нової сесії — div без dialog-семантики, без focus trap і Escape; disabled CTA "Відкрити справу" не пояснював, чого бракує; іконкові кнопки покладались лише на title; стрімінговий чат не анонсувався скрінрідерам.
+
+### Solution
+- `SessionList.tsx`: nsm-sheet → role="dialog" + aria-modal + aria-labelledby; useEffect-трап — фокус у шит при відкритті, Tab/Shift+Tab циклять усередині, Escape закриває, фокус вертається на тригер; hint під disabled CTA перелічує незаповнене (назва/ім'я/клас) + `.nsm-submit-hint` css.
+- `GameChat.tsx`: список повідомлень → role="log" + aria-busy={isLoading} (анонси після завершення стріму); ⚙️ та ⏹ отримали aria-label (+aria-expanded для ⚙️).
+- `VoiceButton.tsx`: aria-label + aria-pressed; `StatsBar.tsx`: aria-label + aria-expanded на хедері картки гравця.
+
+### Key decisions
+- Легкий ручний focus trap замість бібліотеки — у проєкті немає dialog-залежностей, селектор покриває button/input/tabindex.
+- role="log" замість aria-live на кожній бульбашці — стандарт для чат-стрічок, не спамить на кожен chunk.
+- Verification: tsc clean; e2e Escape/фокус після rebuild.

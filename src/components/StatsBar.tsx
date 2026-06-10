@@ -52,6 +52,8 @@ export default function StatsBar({
                 }}
                 className="stats-card__header"
                 title={isOpen ? 'Згорнути' : 'Розгорнути'}
+                aria-label={`${p.name}: ${isOpen ? 'згорнути' : 'розгорнути'} характеристики та інвентар`}
+                aria-expanded={isOpen}
               >
                 <span className="stats-card__identity">
                   <span className="stats-card__name">{p.name}</span>
