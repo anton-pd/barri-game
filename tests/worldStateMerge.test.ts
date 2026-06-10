@@ -43,13 +43,12 @@ describe('mergeSummarizedWorldState (ANT-68)', () => {
     expect(merged.dynamicNpcs).toEqual(current.dynamicNpcs);
   });
 
-  it('applies narrative summary fields (act, summary, clues, npcRelations, threads, notes)', () => {
+  it('applies narrative summary fields (act, summary, clues, threads, notes)', () => {
     const current = makeWorldState({ act: 1, summary: '', discoveredClues: [] });
     const parsed: Partial<WorldState> = {
       act: 2,
       summary: 'Знайдено лист.',
       discoveredClues: ['letter'],
-      npcRelations: { kovalska: 'friendly' },
       openThreads: ['Хто вбивця?'],
       playerNotes: ['Обшукали стіл'],
     };
@@ -58,9 +57,19 @@ describe('mergeSummarizedWorldState (ANT-68)', () => {
     expect(merged.act).toBe(2);
     expect(merged.summary).toBe('Знайдено лист.');
     expect(merged.discoveredClues).toEqual(['letter']);
-    expect(merged.npcRelations).toEqual({ kovalska: 'friendly' });
     expect(merged.openThreads).toEqual(['Хто вбивця?']);
     expect(merged.playerNotes).toEqual(['Обшукали стіл']);
+  });
+
+  it('keeps engine-owned npcRelations even if the summary LLM returns its own (ANT-117)', () => {
+    const current = makeWorldState({ npcRelations: { knott: 'neutral', corbitt: 'hostile' } });
+    // The summary LLM only sees the transcript and invents ids — must never win.
+    const parsed: Partial<WorldState> = { npcRelations: { kovalska: 'friendly' } };
+
+    expect(mergeSummarizedWorldState(current, parsed).npcRelations).toEqual({
+      knott: 'neutral',
+      corbitt: 'hostile',
+    });
   });
 
   it('never clobbers the sessionImages cache even if the summary includes it', () => {

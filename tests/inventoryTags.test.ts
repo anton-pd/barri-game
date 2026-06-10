@@ -66,6 +66,32 @@ describe('parseInventoryTags', () => {
     expect(players[0].inventory[0].broken).toBeUndefined();
   });
 
+  it('tolerates colons inside the [ITEM] description (ANT-125)', () => {
+    const players = [makePlayer({ inventory: [] })];
+    const { cleanText, mutatedPlayers } = parseInventoryTags(
+      'Ти береш записку. [ITEM:0:Нотатка:Нотатка: стара адреса на Елм-стріт:1]',
+      players
+    );
+    expect(cleanText.trim()).toBe('Ти береш записку.');
+    expect(mutatedPlayers[0].inventory).toHaveLength(1);
+    expect(mutatedPlayers[0].inventory[0]).toMatchObject({
+      name: 'Нотатка',
+      description: 'Нотатка: стара адреса на Елм-стріт',
+      uses: 1,
+    });
+  });
+
+  it('parses two [ITEM] tags in one reply without cross-consuming (ANT-125)', () => {
+    const players = [makePlayer({ inventory: [] })];
+    const { mutatedPlayers } = parseInventoryTags(
+      '[ITEM:0:Ключ:Іржавий ключ: від підвалу:1] і ще [ITEM:0:Свічка:Воскова свічка:2]',
+      players
+    );
+    expect(mutatedPlayers[0].inventory).toHaveLength(2);
+    expect(mutatedPlayers[0].inventory[0]).toMatchObject({ name: 'Ключ', description: 'Іржавий ключ: від підвалу' });
+    expect(mutatedPlayers[0].inventory[1]).toMatchObject({ name: 'Свічка', uses: 2 });
+  });
+
   it('ignores tags pointing at a non-existent player index', () => {
     const players = [makePlayer({ inventory: [] })];
     const { mutatedPlayers } = parseInventoryTags('[ITEM:5:Привид:опис:1]', players);

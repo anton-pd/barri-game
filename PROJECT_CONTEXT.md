@@ -125,7 +125,7 @@ src/
 | `dynamic` | ~400-600 tok | No | Current world_state + players with full inventory (item IDs included) |
 
 Caching via `anthropic-beta: prompt-caching-2024-07-31`.
-Limits: `max_tokens: 900` (main turns), `1400` (intro), `500` (summarize).
+Limits: `max_tokens: 1200` (main turns, raised from 900 in ANT-129), `1400` (intro), `500` (summarize).
 
 ### Model Pricing
 

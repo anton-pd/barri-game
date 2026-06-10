@@ -2614,3 +2614,33 @@ Idle-лейбл "↻ озвучити" читався як "переозвучи
 ### Key decisions
 - CSS-only колапс через існуючий expand-механізм (`stats-card--open`) — без нового стейту і localStorage.
 - Verification: tsc clean; мобільний скріншот після rebuild.
+
+## [2026-06-10 · Claude] — Review pass: engine/tag-protocol group (ANT-68, ANT-116–127)
+
+### Problem
+Anton попросив тест-план по всіх 31 In-Review задачах і самостійну перевірку групи 1 (двигун/протокол тегів): ANT-117…126, ANT-68, ANT-116, ANT-127.
+
+### Solution
+Код-рев'ю diff-ів усіх 11 задач + прогін vitest. Підтверджено по коду:
+- ANT-117: npcRelations захищено в merge, поле прибрано з summarize-промпта (uk/en), fresh re-read перед записом + skip для completed-сесій.
+- ANT-118: matchAll для DELTA, location-переходи в порядку документа (last wins), `[\w-]+` для NEW_LOCATION id (і в strip-регексі), ambient/done/locationGroup від фінального переходу.
+- ANT-119: всі 4 пункти (толерантний fallback-регекс, атрибуція через pendingRoll.characterIdx, валідація тег-значень по листу, dice-результат не пасивний хід).
+- ANT-120: пайплайн загейчено на diceType==='percentile' у 4 точках (rollReminder, тег-handler, auto-inject, ruleset-блоки з явною забороною).
+- ANT-121: stripStreamingArtifacts покриває всі data-теги + trailing partial; регекс не зачіпає завершені [NPC:]-блоки.
+- ANT-122: namespaced local ids (`local-<ts>-u<i>`/`-a`/`-intro`).
+- ANT-123: bare-noun тригери прибрано; бонус — виправлено мертві `\b` навколо кирилиці (ASCII-only в JS).
+- ANT-124: cleanup тепер після force-clear і auto-inject (route.ts:676 проти 638/645).
+- ANT-125: lazy-греedy `(.+?)` з якорем `:uses]`; edge-кейси (два теги в рядку, дужки в описі) обробляються коректно.
+- ANT-126: [СТАН СЕСІЇ] в кінці contents перед фінальним user-повідомленням; cacheMode 'split-tail'.
+- ANT-116: всі 6 інжект-точок локалізовано (activitySection, imageRequestInstruction, buildEventInstruction, buildSummarizePrompt, Gemini-преамбула, isPassiveMessage EN-патерни).
+- ANT-68: navigation-захист у worldStateMerge покритий 3 юніт-тестами, проходять.
+
+### Review findings (виправлено в цьому коміті)
+1. **Stale test**: tests/worldStateMerge.test.ts очікував, що summary перезаписує npcRelations — стара ANT-68-поведінка, яку ANT-117 свідомо змінив (єдиний червоний тест у сюїті). Замінено на тест, що поле engine-owned і не перетирається.
+2. **Відсутній тест ANT-125**: додано 2 кейси (двокрапка в описі, два [ITEM] в одній відповіді).
+3. **Дрейф доки після ANT-127**: PROJECT_CONTEXT.md казав max_tokens 900 (main turns), код після ANT-129 — 1200. Оновлено.
+
+### Key decisions
+- Live-тригер summarize-циклу (20 повідомлень) і EN-сесію не ганяв — логіка покрита юніт-тестами і код-рев'ю; ігрова перевірка локацій/подій відбудеться в групі 3 (ручний прохід Anton).
+- Спостереження (не дефект): Gemini split-tail кеш працює до 30 повідомлень — далі вікно getLastNMessages(30) ковзає і префікс змінюється щоходу. Закладено в дизайн ANT-126.
+- Verification: vitest 71/71 passed (було 67/68).

@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.34] — 2026-06-10
+
+### Fixed
+- **Review pass over the engine/tag-protocol fixes (ANT-117…126, ANT-68, ANT-116, ANT-127).** Code review of all eleven In-Review engine tasks; three review findings fixed: a stale ANT-68-era unit test still expected the summarizer to overwrite `npcRelations` (contradicting ANT-117 — replaced with a test asserting the engine-owned field survives), the ANT-125 colon-in-description fix had no regression test (two cases added, including two `[ITEM]` tags in one reply), and `PROJECT_CONTEXT.md` still said `max_tokens: 900` for main turns after ANT-129 raised it to 1200.
+
 ## [0.4.33] — 2026-06-10
 
 ### Added
