@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **One-click retry after a failed Keeper turn (ANT-133).** A connection error no longer leaves a dead "Помилка зв'язку" bubble: the message is rolled back, your text returns to the input box, and a banner offers "↻ повторити".
 
 ### Fixed
+- **Voice-over button reads naturally and reports failures (ANT-135).** Idle state is now "▶ озвучити" (was a confusing "↻"), and when audio can't load or play, the button briefly shows "⚠ не відтворилось" instead of failing silently.
 - **Login no longer silently wipes the form when clicked too early (ANT-132).** Submitting before the page's JavaScript loaded triggered a native reload that cleared both fields; the button now stays disabled until the form is interactive.
 - **Session cards show real names instead of internal ids (ANT-131).** The resume card on the sessions page printed "THE-HAUNTING · ELM_STREET_EXTERIOR"; it now resolves the scenario title and the current location's display name.
 - **Keeper replies no longer stop mid-word at the token cap (ANT-129).** Main turns get more headroom (900 → 1200 tokens); when a reply still hits the cap, the server trims it back to the last complete sentence before saving, and the bubble shows a "⤷ продовжити" button that asks the Keeper to pick up where it left off.
