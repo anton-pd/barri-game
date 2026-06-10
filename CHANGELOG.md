@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [0.4.32] — 2026-06-10
 
+### Changed
+- **Settings strip is labelled and fully Ukrainian (ANT-136).** The style pills now sit under a "Стиль Кіпера" caption, sound toggles under "Звук" (with "Ambient" → "Ембієнт"), and the dice toggle under "Кубики".
+
 ### Added
 - **One-click retry after a failed Keeper turn (ANT-133).** A connection error no longer leaves a dead "Помилка зв'язку" bubble: the message is rolled back, your text returns to the input box, and a banner offers "↻ повторити".
 

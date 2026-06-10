@@ -1489,6 +1489,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {showSettings && (
         <div className="chat-settings-panel flex flex-wrap items-center gap-2 text-xs">
           {/* KeeperStyle selector */}
+          <span className="chat-settings-group-label">Стиль Кіпера</span>
           <div className="chat-settings-keeper-group">
             {(['passive', 'balanced', 'active'] as const).map((s) => (
               <button
@@ -1508,9 +1509,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           <div className="chat-settings-divider" />
 
+          <span className="chat-settings-group-label">Звук</span>
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
-          <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ambient" />
-          <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні кубики" />
+          <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ембієнт" />
+
+          <div className="chat-settings-divider" />
+
+          <span className="chat-settings-group-label">Кубики</span>
+          <Toggle checked={diceMode === 'virtual'} onChange={toggleDiceMode} label="Віртуальні" />
 
           {isAdmin && (
             <button
@@ -1529,7 +1535,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 value={ambientVolume}
                 onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
                 className="w-20"
-                title="Гучність ambient"
+                title="Гучність ембієнту"
               />
               <span>🔊</span>
             </div>
