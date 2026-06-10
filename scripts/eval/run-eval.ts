@@ -396,6 +396,278 @@ async function callDeepSeek(modelId: string, p: BuiltPrompt): Promise<CallResult
   };
 }
 
+// ── Tool-calling mode (ANT-141) ──────────────────────────────────────────────
+// Hypothesis: state mutations as tool calls are more reliable than inline DSL
+// tags, especially in deep history where inline instructions "wash out".
+// [NPC:] stays inline (positional presentation markup).
+
+interface GameTool {
+  name: string;
+  description: string;
+  schema: Record<string, unknown>; // JSON Schema (object)
+}
+
+const GAME_TOOLS: GameTool[] = [
+  {
+    name: 'request_dice_roll',
+    description:
+      'Запроси у гравця перевірку навички (d100, roll-under). Викликай, коли дія ризикована і її результат невизначений. good_threshold = значення навички для звичайного успіху.',
+    schema: {
+      type: 'object',
+      properties: {
+        character_idx: { type: 'integer', description: 'Індекс гравця (0-based)' },
+        skill_name: { type: 'string', description: 'Назва навички з листа персонажа' },
+        skill_value: { type: 'integer', description: 'Значення навички з листа персонажа' },
+        good_threshold: { type: 'integer', description: 'Поріг успіху (зазвичай = skill_value)' },
+        context: { type: 'string', description: 'Що саме перевіряється, коротко' },
+      },
+      required: ['character_idx', 'skill_name', 'skill_value', 'good_threshold', 'context'],
+    },
+  },
+  {
+    name: 'clear_pending_roll',
+    description: 'Зніми очікуваний кидок після того, як гравець повідомив число-результат.',
+    schema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'show_image',
+    description:
+      'Покажи гравцеві зображення. Викликай ТІЛЬКИ коли гравець прямо просить щось побачити/показати.',
+    schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['map', 'letter', 'photo', 'artifact', 'scene', 'newspaper'] },
+        description_en: { type: 'string', description: 'Short specific English description' },
+      },
+      required: ['type', 'description_en'],
+    },
+  },
+  {
+    name: 'grant_item',
+    description: 'Додай предмет в інвентар гравця, коли він бере щось у фікшні.',
+    schema: {
+      type: 'object',
+      properties: {
+        character_idx: { type: 'integer' },
+        name: { type: 'string', description: 'Людська назва предмета українською' },
+        description: { type: 'string' },
+        uses: { type: 'integer', description: 'Кількість використань, -1 = безліміт' },
+      },
+      required: ['character_idx', 'name', 'description', 'uses'],
+    },
+  },
+  {
+    name: 'apply_stat_change',
+    description: 'Зміни HP/SAN/LUCK гравця після наслідків у фікшні (поранення, жах, удача).',
+    schema: {
+      type: 'object',
+      properties: {
+        character_idx: { type: 'integer' },
+        hp: { type: 'integer', description: 'Дельта HP, може бути відʼємною' },
+        sanity: { type: 'integer', description: 'Дельта SAN' },
+        luck: { type: 'integer', description: 'Дельта LUCK' },
+      },
+      required: ['character_idx'],
+    },
+  },
+  {
+    name: 'move_to_location',
+    description: 'Перемісти гру в іншу локацію, коли партія фактично переходить туди.',
+    schema: {
+      type: 'object',
+      properties: { location_id: { type: 'string', description: 'id локації зі сценарію' } },
+      required: ['location_id'],
+    },
+  },
+];
+
+const TOOLS_MODE_SECTION = `
+
+## РЕЖИМ ІНСТРУМЕНТІВ
+У цій сесії механічні теги ВИМКНЕНО. Замість тегів [SET_PENDING_ROLL], [CLEAR_PENDING_ROLL], [IMAGE:], [ITEM:], [USE_ITEM:], [DELTA:], [LOCATION:], [NEW_LOCATION:] використовуй відповідні інструменти (tools): request_dice_roll, clear_pending_roll, show_image, grant_item, apply_stat_change, move_to_location.
+Виклик інструмента йде ПОРЯД з повноцінною художньою відповіддю — ніколи не замінюй наратив викликом. Теги [NPC:Імʼя]...[/NPC] залишаються в тексті як раніше.`;
+
+interface ToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+// Per-probe expectations in tools mode. npc_talk keeps its inline [NPC:] check.
+const TOOL_EXPECTATIONS: Record<string, { required?: string; forbidden: string[] }> = {
+  'haunting/roll_request': { required: 'request_dice_roll', forbidden: ['show_image'] },
+  'haunting/explicit_image': { required: 'show_image', forbidden: [] },
+  'haunting/dice_result': { required: 'clear_pending_roll', forbidden: ['request_dice_roll'] },
+  'haunting/item_pickup': { required: 'grant_item', forbidden: ['show_image'] },
+  'haunting/neutral_continue': { forbidden: ['show_image', 'grant_item', 'apply_stat_change'] },
+  'telegram/npc_talk': { forbidden: ['show_image'] },
+  'telegram/roll_request_deep': { required: 'request_dice_roll', forbidden: ['show_image'] },
+  'telegram/neutral_deep': { forbidden: ['show_image', 'grant_item', 'apply_stat_change'] },
+};
+
+async function callAnthropicTools(modelId: string, p: BuiltPrompt): Promise<CallResult & { toolCalls: ToolCall[] }> {
+  const start = Date.now();
+  let ttftMs: number | null = null;
+  const stream = anthropic.messages.stream(
+    {
+      model: modelId,
+      max_tokens: MAX_TOKENS,
+      system: [
+        { type: 'text', text: p.ruleset, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: p.static + TOOLS_MODE_SECTION, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: p.dynamic },
+      ],
+      tools: GAME_TOOLS.map((t) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.schema as Anthropic.Tool.InputSchema,
+      })),
+      messages: [...p.history, { role: 'user', content: p.userContent }],
+    },
+    { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } }
+  );
+  let text = '';
+  for await (const ev of stream) {
+    if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
+      if (ttftMs === null) ttftMs = Date.now() - start;
+      text += ev.delta.text;
+    }
+  }
+  const final = await stream.finalMessage();
+  const toolCalls: ToolCall[] = final.content
+    .filter((b): b is Extract<typeof b, { type: 'tool_use' }> => b.type === 'tool_use')
+    .map((b) => ({ name: b.name, args: (b.input ?? {}) as Record<string, unknown> }));
+  return {
+    text,
+    toolCalls,
+    inputTokens: final.usage?.input_tokens ?? 0,
+    outputTokens: final.usage?.output_tokens ?? 0,
+    cacheReadTokens: (final.usage as { cache_read_input_tokens?: number })?.cache_read_input_tokens ?? 0,
+    ttftMs,
+    totalMs: Date.now() - start,
+  };
+}
+
+async function callGeminiTools(modelId: string, p: BuiltPrompt): Promise<CallResult & { toolCalls: ToolCall[] }> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+  const contents = [
+    ...p.history.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+    { role: 'user', parts: [{ text: `[СТАН СЕСІЇ]\n${p.dynamic}` }] },
+    { role: 'model', parts: [{ text: 'Зрозумів.' }] },
+    { role: 'user', parts: [{ text: p.userContent }] },
+  ];
+  const start = Date.now();
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: `${p.ruleset}\n\n${p.static}${TOOLS_MODE_SECTION}` }] },
+        contents,
+        tools: [{ functionDeclarations: GAME_TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: t.schema })) }],
+        generationConfig: { maxOutputTokens: MAX_TOKENS, temperature: 1.0, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    }
+  );
+  if (!res.ok) throw new Error(`Gemini ${modelId}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string; functionCall?: { name: string; args: Record<string, unknown> } }[] } }[];
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number };
+  };
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  return {
+    text: parts.map((x) => x.text ?? '').join(''),
+    toolCalls: parts.filter((x) => x.functionCall).map((x) => ({ name: x.functionCall!.name, args: x.functionCall!.args ?? {} })),
+    inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+    outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    cacheReadTokens: data.usageMetadata?.cachedContentTokenCount ?? 0,
+    ttftMs: null,
+    totalMs: Date.now() - start,
+  };
+}
+
+async function callDeepSeekTools(modelId: string, p: BuiltPrompt): Promise<CallResult & { toolCalls: ToolCall[] }> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
+  const messages = [
+    { role: 'system', content: `${p.ruleset}\n\n${p.static}${TOOLS_MODE_SECTION}` },
+    ...p.history,
+    { role: 'user', content: `[СТАН СЕСІЇ]\n${p.dynamic}` },
+    { role: 'assistant', content: 'Зрозумів.' },
+    { role: 'user', content: p.userContent },
+  ];
+  const start = Date.now();
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages,
+      max_tokens: MAX_TOKENS,
+      temperature: 1.0,
+      tools: GAME_TOOLS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.schema } })),
+    }),
+  });
+  if (!res.ok) throw new Error(`DeepSeek ${modelId}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string; tool_calls?: { function: { name: string; arguments: string } }[] } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number };
+  };
+  const msg = data.choices?.[0]?.message;
+  const toolCalls: ToolCall[] = (msg?.tool_calls ?? []).map((tc) => {
+    try {
+      return { name: tc.function.name, args: JSON.parse(tc.function.arguments || '{}') };
+    } catch {
+      return { name: tc.function.name, args: { __malformed_json: tc.function.arguments?.slice(0, 80) } };
+    }
+  });
+  return {
+    text: msg?.content ?? '',
+    toolCalls,
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+    cacheReadTokens: data.usage?.prompt_cache_hit_tokens ?? 0,
+    ttftMs: null,
+    totalMs: Date.now() - start,
+  };
+}
+
+function scoreToolCalls(
+  probe: Probe,
+  text: string,
+  toolCalls: ToolCall[]
+): { required: string[]; forbidden: string[]; argErrors: string[]; tagLeakage: string[] } {
+  const exp = TOOL_EXPECTATIONS[probe.id] ?? { forbidden: [] };
+  const required: string[] = [];
+  if (exp.required) {
+    const hit = toolCalls.find((c) => c.name === exp.required);
+    required.push(`${exp.required}:${hit ? 'PASS' : 'FAIL'}`);
+  }
+  if (probe.id === 'telegram/npc_talk') {
+    required.push(`NPC dialogue:${RX.npc.test(text) ? 'PASS' : 'FAIL'}`);
+  }
+  const forbidden = exp.forbidden.map(
+    (name) => `${name}:${toolCalls.some((c) => c.name === name) ? 'FIRED' : 'ok'}`
+  );
+  // Schema-required args missing (API usually enforces, but Gemini can be lax).
+  const argErrors: string[] = [];
+  for (const call of toolCalls) {
+    const tool = GAME_TOOLS.find((t) => t.name === call.name);
+    if (!tool) { argErrors.push(`unknown tool: ${call.name}`); continue; }
+    if (call.args.__malformed_json) { argErrors.push(`${call.name}: malformed JSON args`); continue; }
+    for (const req of (tool.schema.required as string[]) ?? []) {
+      if (call.args[req] === undefined) argErrors.push(`${call.name}: missing ${req}`);
+    }
+  }
+  // Inline mechanical tags leaking despite tools mode ([NPC:] is allowed).
+  const tagLeakage = [...text.matchAll(LOOSE_TAG)].map((m) => m[0].slice(0, 40));
+  return { required, forbidden, argErrors, tagLeakage };
+}
+
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
 // Loose pattern: anything that *looks* like one of our tags. Strict parse uses RX.
@@ -489,11 +761,12 @@ async function main() {
   const args = process.argv.slice(2);
   const modelsArg = args.includes('--models') ? args[args.indexOf('--models') + 1] : 'sonnet,haiku,flash,flash-lite';
   const withJudge = args.includes('--judge');
+  const toolsMode = args.includes('--tools');
   const probesArg = args.includes('--probes') ? args[args.indexOf('--probes') + 1] : '';
   const arms = ARMS.filter((a) => modelsArg.split(',').includes(a.key));
   const probes = buildProbes().filter((p) => !probesArg || p.id.includes(probesArg));
 
-  console.log(`Eval: ${arms.length} models × ${probes.length} probes${withJudge ? ' + judge' : ''}\n`);
+  console.log(`Eval${toolsMode ? ' [TOOLS MODE]' : ''}: ${arms.length} models × ${probes.length} probes${withJudge ? ' + judge' : ''}\n`);
 
   const rows: Record<string, unknown>[] = [];
   for (const probe of probes) {
@@ -501,12 +774,20 @@ async function main() {
     for (const arm of arms) {
       process.stdout.write(`${probe.id} × ${arm.key} ... `);
       try {
-        const call =
-          arm.provider === 'anthropic'
+        const call = toolsMode
+          ? arm.provider === 'anthropic'
+            ? await callAnthropicTools(arm.modelId, prompt)
+            : arm.provider === 'deepseek'
+              ? await callDeepSeekTools(arm.modelId, prompt)
+              : await callGeminiTools(arm.modelId, prompt)
+          : arm.provider === 'anthropic'
             ? await callAnthropic(arm.modelId, prompt)
             : arm.provider === 'deepseek'
               ? await callDeepSeek(arm.modelId, prompt)
               : await callGemini(arm.modelId, prompt);
+        const toolScore = toolsMode
+          ? scoreToolCalls(probe, call.text, (call as CallResult & { toolCalls: ToolCall[] }).toolCalls)
+          : null;
         const score = scoreOutput(probe, call.text);
         // Cache-aware cost: cacheReadTokens billed at the hit rate when known.
         // (For DeepSeek prompt_tokens includes hits; for Anthropic input_tokens
@@ -521,10 +802,17 @@ async function main() {
           (call.outputTokens / 1e6) * arm.outPer1M;
         const judgeScores = withJudge ? await judge(probe, call.text) : null;
         rows.push({
-          probe: probe.id, model: arm.key,
-          required: probe.requiredLabels.map((l, i) => `${l}:${score.requiredHit[i] ? 'PASS' : score.rescuedByFallback ? 'RESCUED' : 'FAIL'}`),
-          forbidden: probe.forbiddenLabels.map((l, i) => `${l}:${score.forbiddenFired[i] ? 'FIRED' : 'ok'}`),
-          malformed: score.malformedTags, cyrillicShare: +score.cyrillicShare.toFixed(3), chars: score.chars,
+          probe: probe.id, model: arm.key, mode: toolsMode ? 'tools' : 'tags',
+          required: toolsMode
+            ? toolScore!.required
+            : probe.requiredLabels.map((l, i) => `${l}:${score.requiredHit[i] ? 'PASS' : score.rescuedByFallback ? 'RESCUED' : 'FAIL'}`),
+          forbidden: toolsMode
+            ? toolScore!.forbidden
+            : probe.forbiddenLabels.map((l, i) => `${l}:${score.forbiddenFired[i] ? 'FIRED' : 'ok'}`),
+          malformed: toolsMode ? toolScore!.argErrors : score.malformedTags,
+          tagLeakage: toolsMode ? toolScore!.tagLeakage : undefined,
+          toolCalls: toolsMode ? (call as CallResult & { toolCalls: ToolCall[] }).toolCalls : undefined,
+          cyrillicShare: +score.cyrillicShare.toFixed(3), chars: score.chars,
           ttftMs: call.ttftMs, totalMs: call.totalMs,
           inputTokens: call.inputTokens, outputTokens: call.outputTokens, cacheReadTokens: call.cacheReadTokens,
           costUsd: +costUsd.toFixed(6), judge: judgeScores, text: call.text,

@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.38] — 2026-06-10
+
+### Added
+- **Tool-calling experiment arm in the model eval (ANT-141).** `--tools` mode replays the same probes with state mutations as tool calls instead of inline tags. Verdict: single-pass tool calling cannibalizes the narrative (empty replies next to tool calls) and does not improve tag compliance — inline tags + server fallbacks stay.
+
 ## [0.4.37] — 2026-06-10
 
 ### Added
