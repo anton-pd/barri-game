@@ -1448,3 +1448,23 @@
   .case:nth-child(n) { transform: rotate(0); }
   .hero-title { font-size: clamp(46px, 14vw, 80px); }
 }
+
+/* ============================================================
+   ANT-138: REDUCED MOTION + battery
+   The film grain is a full-viewport repaint with mix-blend-mode
+   every animation step, and the ticker keeps the compositor awake
+   permanently — landing-root is shared by landing, auth and
+   sessions pages, so these ran for the whole visit. Honour the
+   OS-level motion preference: textures stay, movement stops.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .landing-root::before { animation: none; }
+  .ticker-track         { animation: none; padding-left: 0; }
+  .flicker              { animation: none; }
+  .caret                { animation: none; }
+  .reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}

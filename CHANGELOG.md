@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.33] — 2026-06-10
 
 ### Changed
+- **Background effects respect reduced-motion (ANT-138).** The film grain, ticker, lamp flicker and caret on the landing/auth/sessions pages stop animating when the OS asks for reduced motion — textures stay, movement (and the constant repaint cost on battery) goes.
 - **Dice results land in the chat as a proper roll chip (ANT-134).** Confirming a roll now sends "🎲 Spot Hidden: 62 проти 70 — успіх" instead of a bare "62", styled as an amber (success) or red (failure) chip — readable in history and after reload.
 
 ## [0.4.32] — 2026-06-10
