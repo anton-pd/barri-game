@@ -2445,3 +2445,17 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 
 ### Key decisions
 - Doc-only — rebuild staging не потрібен; CHANGELOG-рядок доданий під 0.4.31 без окремого бампа версії.
+
+## [2026-06-10 · Claude] — UX-аудит GameChat на staging (ANT-128…ANT-139)
+
+### Problem
+Антон попросив пройти GameChat очима гравця: логін, створення сесії, нотування всіх UX-проблем чату.
+
+### Solution
+- E2E-прохід на staging.barrigame.es через headless Chromium (Docker `chromedp/headless-shell` + Playwright connectOverCDP; Chrome-розширення недоступне, на VPS немає GUI/sudo). Створено тестового користувача `claude.qa@barrigame.es` (barri_dev, approved/verified) — лишається для майбутніх QA-проходів.
+- Повний цикл: логін → створення сесії (the-haunting, 1 гравець, детектив) → інтро → 3 ходи → Spot Hidden кидок (62 ≤ 70) → переміщення на Елм-стріт → reload-перевірка → мобільний viewport 390px → дострокове закриття сесії.
+- Зафіксовано 12 знахідок, по одній Linear-issue на фікс у `AI Improvements` (ANT-128…ANT-139), assignee Claude. Найкритичніші: сирі item-ids (`case_file`, `old_note`) у інвентарі гравця; обрізання відповіді Кіпера по max_tokens посеред слова без recovery; сирі `**` під час стрімінгу; сирі ids у картці сесії (THE-HAUNTING / ELM_STREET_EXTERIOR); pre-hydration submit логіну.
+
+### Key decisions
+- Без змін коду — аудит-only, CHANGELOG не чіпаю.
+- Позитив зафіксовано в звіті: швидкі ходи (~3 с), typing indicator, автоскрол, NPC-бульбашки, reload відновлює все, мобільний без overflow, флоу закриття сесії з оцінкою.
