@@ -2511,3 +2511,15 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 ### Key decisions
 - Нуль нових запитів — дані вже на клієнті. Сніпет останнього повідомлення не чіпав: CSS уже клампить до 3 рядків.
 - Verification: tsc clean; візуально на staging після батч-rebuild.
+
+## [2026-06-10 · Claude] — ANT-132: pre-hydration submit логін-форми
+
+### Problem
+Клік "Access Archive" до завершення гідрації React запускав нативний GET-submit: сторінка перезавантажувалась на /auth/login?, обидва поля стирались без жодної помилки (відтворено двічі автоматизацією в UX-аудиті; повільний JS у реального користувача — той самий ефект). Витоку креденшелів немає — інпути без name.
+
+### Solution
+- `auth/login/page.tsx`: submit-кнопка `disabled` до mount (`hydrated`-стейт через useEffect). SSR-HTML рендерить кнопку disabled → і клік, і implicit submission по Enter не спрацьовують до гідрації.
+
+### Key decisions
+- Не чіпав register/forgot-password — той самий патерн місцями застосовний, але поза скоупом ANT-132 (можна окремим improvement, якщо Антон захоче).
+- Verification: tsc clean; на staging кнопка активується одразу після завантаження JS.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -12,6 +12,10 @@ export default function LoginPage() {
   const [notVerified, setNotVerified] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendSent, setResendSent] = useState(false);
+  // ANT-132: before hydration the submit button must stay disabled — a click
+  // would fire a native GET submit that reloads the page and wipes both fields.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -123,7 +127,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <button type="submit" disabled={loading} className="auth-submit">
+          <button type="submit" disabled={loading || !hydrated} className="auth-submit">
             <span>{loading ? 'Verifying...' : 'Access Archive'}</span>
             <span>→</span>
           </button>
