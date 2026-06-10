@@ -1349,10 +1349,33 @@
   color: var(--amber-0);
 }
 
+/* ANT-139: compact per-stat numbers shown in the card header on mobile */
+.stats-card__compact { display: none; }
+.stats-card__compact-stat {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.stats-card__compact-stat--blood  { color: #d97e6f; }
+.stats-card__compact-stat--bruise { color: #b69cd0; }
+.stats-card__compact-stat--amber  { color: var(--amber-0); }
+.stats-card__compact-stat--smoke  { color: var(--smoke-0); }
+
 @media (max-width: 640px) {
   .stats-bar { padding: 6px 8px; }
   .stats-card { flex: 1 1 100%; min-width: 0; }
   .stat-row { grid-template-columns: 32px 1fr 50px; gap: 6px; }
+
+  /* ANT-139: collapsed by default — header + inline numbers only; the
+     three-row bar block (a quarter of a phone screen) appears on expand. */
+  .stats-card:not(.stats-card--open) .stats-card__bars { display: none; }
+  .stats-card:not(.stats-card--open) .stats-card__compact {
+    display: inline-flex;
+    gap: 7px;
+    align-items: baseline;
+  }
+  .stats-card__role { max-width: 90px; }
 }
 
 /* ============================================================

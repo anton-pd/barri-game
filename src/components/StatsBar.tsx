@@ -60,6 +60,18 @@ export default function StatsBar({
                   {p.role && <span className="stats-card__role">· {p.role}</span>}
                 </span>
                 <span className="stats-card__meta">
+                  {/* ANT-139: on mobile the full bar block is hidden until the
+                      card opens — these inline numbers keep stats glanceable */}
+                  <span className="stats-card__compact" aria-hidden>
+                    {stats.filter((s) => s.hasMax).map((s) => (
+                      <span
+                        key={s.id}
+                        className={`stats-card__compact-stat stats-card__compact-stat--${STAT_TONE[s.id] ?? 'smoke'}`}
+                      >
+                        {s.value}
+                      </span>
+                    ))}
+                  </span>
                   {usableInventory.length > 0 && (
                     <span className="stats-card__inv-count" title="Предмети">
                       🎒 {usableInventory.length}
