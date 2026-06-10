@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## [0.4.32] — 2026-06-10
 
+### Added
+- **One-click retry after a failed Keeper turn (ANT-133).** A connection error no longer leaves a dead "Помилка зв'язку" bubble: the message is rolled back, your text returns to the input box, and a banner offers "↻ повторити".
+
 ### Fixed
 - **Login no longer silently wipes the form when clicked too early (ANT-132).** Submitting before the page's JavaScript loaded triggered a native reload that cleared both fields; the button now stays disabled until the form is interactive.
 - **Session cards show real names instead of internal ids (ANT-131).** The resume card on the sessions page printed "THE-HAUNTING · ELM_STREET_EXTERIOR"; it now resolves the scenario title and the current location's display name.
