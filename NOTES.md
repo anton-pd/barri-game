@@ -2573,3 +2573,15 @@ Idle-лейбл "↻ озвучити" читався як "переозвучи
 ### Key decisions
 - 🎲-префікс = контракт між клієнтом (стилінг), сервером (детектор) і LLM (бачить і число, і вердикт — промпт "якщо повідомлення містить число" покривається).
 - Verification: tsc clean; е2е з кидком на staging після rebuild.
+
+## [2026-06-10 · Claude] — ANT-138: фонові анімації vs CPU/батарея
+
+### Problem
+`.landing-root::before` (плівкове зерно) — full-viewport елемент з mix-blend-mode: overlay, який grainShift перемальовує ~2 рази/с безкінечно; ticker на лендінгу тримає композитор активним постійно. landing-root спільний для лендінгу, auth і sessions — ефекти крутяться весь візит. У headless-прогоні (software rendering) це давало ~390% CPU; на ноутах/телефонах — фонове споживання батареї. landing.css не мав жодної підтримки prefers-reduced-motion (chat.css і sessions.css — мали).
+
+### Solution
+- `landing.css`: блок `@media (prefers-reduced-motion: reduce)` — зерно статичне (текстура лишається), ticker зупинений, flicker/caret вимкнені, reveal-елементи одразу видимі.
+
+### Key decisions
+- Дефолтний вигляд для звичайних користувачів не чіпав (кадровість зерна — дизайн-рішення); фонова вкладка і так не малюється браузером. Чат уже вимикає зерно (`:has(.chat-root)`).
+- Verification: rebuild + перевірка computed animation-name: none під емуляцією reduce.
