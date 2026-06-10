@@ -28,6 +28,11 @@ const FALLBACK_PRICING: PricingMap = {
     'gemini-2.5-flash-preview-tts': { inputPer1M: 0.50, outputPer1M: 2.00 }, // $0.50 text in + $2.00 audio out per 1M tokens
     'gemini-2.5-flash-image': { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
+  deepseek: {
+    // Cache-miss rates; the /api/ai route already subtracts cache-hit tokens
+    // before tracking, so inputPer1M applies to miss tokens only (ANT-142).
+    'deepseek-v4-flash': { inputPer1M: 0.14, outputPer1M: 0.28 },
+  },
   openai: {
     'tts-1': { perChar: 0.000015 },
     'whisper-1': { perMinute: 0.006 },

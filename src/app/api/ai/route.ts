@@ -21,11 +21,13 @@ import { supportsPendingRollTag } from '@/lib/rulesets';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import type { WorldState } from '@/types';
 
-export type AiProvider = 'claude-sonnet' | 'gemini-flash';
+export type AiProvider = 'claude-sonnet' | 'gemini-flash' | 'deepseek-flash';
 
 const GEMINI_MODELS: Record<string, string> = {
   'gemini-flash': 'gemini-2.5-flash',
 };
+
+const DEEPSEEK_MODEL = 'deepseek-v4-flash';
 
 function extractAnthropicTextContent(
   content: Array<{ type: string; text?: string }>
@@ -107,6 +109,85 @@ async function summarizeAndUpdateWorldState(
   } catch (error) {
     console.error('Error summarizing world state:', error);
   }
+}
+
+// ── DeepSeek (OpenAI-compatible, streaming) ───────────────────────────────────
+// Experimental third provider (ANT-142). Prompt shape mirrors the Gemini
+// split-tail mode (ANT-126): stable system prefix (ruleset+static), dynamic
+// state as a tail turn right before the player message — DeepSeek implicit
+// prefix caching bills the stable prefix at the cache-hit rate (~2% of input).
+
+interface DeepSeekMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+async function callDeepSeekChatStream(
+  messages: DeepSeekMessage[],
+  maxTokens: number,
+  onDelta: (text: string) => void
+): Promise<{
+  text: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheHitTokens: number;
+  finishReason: string | null;
+}> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
+
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages,
+      max_tokens: maxTokens,
+      temperature: 1.0,
+      stream: true,
+      stream_options: { include_usage: true },
+    }),
+  });
+  if (!res.ok || !res.body) {
+    const err = await res.text();
+    console.error('DeepSeek error:', res.status, err.slice(0, 300));
+    throw new Error(`DeepSeek API error: ${res.status}`);
+  }
+
+  let text = '';
+  let finishReason: string | null = null;
+  let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number } = {};
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+      try {
+        const chunk = JSON.parse(line.slice(6));
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+          text += delta;
+          onDelta(delta);
+        }
+        if (chunk.choices?.[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
+        if (chunk.usage) usage = chunk.usage;
+      } catch { /* partial SSE line at buffer edge */ }
+    }
+  }
+  return {
+    text,
+    inputTokens: usage.prompt_tokens ?? 0,
+    outputTokens: usage.completion_tokens ?? 0,
+    cacheHitTokens: usage.prompt_cache_hit_tokens ?? 0,
+    // OpenAI-style 'length' → our truncation marker so the ANT-129 recovery applies.
+    finishReason: finishReason === 'length' ? 'max_tokens' : finishReason,
+  };
 }
 
 // ── Gemini REST helpers ───────────────────────────────────────────────────────
@@ -465,6 +546,23 @@ export async function POST(request: Request) {
   }
   geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
 
+  // DeepSeek history (ANT-142): same split-tail shape, OpenAI roles.
+  const deepseekMessages: DeepSeekMessage[] = [
+    { role: 'system', content: `${blocks.ruleset}\n\n${blocks.static}` },
+    ...recentMessages.map((m): DeepSeekMessage => {
+      if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
+        return { role: 'user', content: `[${session.players[m.player_idx].name}]: ${m.content}` };
+      }
+      return { role: m.role as 'user' | 'assistant', content: m.content };
+    }),
+    {
+      role: 'user',
+      content: `${sessionLang === 'en' ? '[SESSION STATE]' : '[СТАН СЕСІЇ]'}\n${blocks.dynamic}`,
+    },
+    { role: 'assistant', content: sessionLang === 'en' ? 'Understood.' : 'Зрозумів.' },
+    { role: 'user', content: userContent },
+  ];
+
   // ── SSE stream ────────────────────────────────────────────────────────────
 
   const encoder = new TextEncoder();
@@ -480,7 +578,7 @@ export async function POST(request: Request) {
         let outputTokens = 0;
         let finishReason: string | null = null;
         let debugModel = '';
-        let debugProvider: 'anthropic' | 'gemini' = 'gemini';
+        let debugProvider: 'anthropic' | 'gemini' | 'deepseek' = 'gemini';
 
         if (aiProvider === 'claude-sonnet') {
           // CHANGED: Stream response so client sees text as it arrives
@@ -523,6 +621,31 @@ export async function POST(request: Request) {
             type: 'llm',
             model: 'claude-sonnet-4-6',
             inputTokens,
+            outputTokens,
+          }).catch(console.error);
+
+        } else if (aiProvider === 'deepseek-flash') {
+          const dsResult = await callDeepSeekChatStream(
+            deepseekMessages,
+            isIntro ? 1400 : 1200,
+            (delta) => send('chunk', { text: delta })
+          );
+          assistantText = dsResult.text;
+          inputTokens   = dsResult.inputTokens;
+          outputTokens  = dsResult.outputTokens;
+          finishReason  = dsResult.finishReason;
+          debugModel = DEEPSEEK_MODEL;
+          debugProvider = 'deepseek';
+
+          trackAPICall({
+            sessionId,
+            userId: payload.sub,
+            provider: 'deepseek',
+            type: 'llm',
+            model: DEEPSEEK_MODEL,
+            // Cache-hit tokens are billed at ~2% of the input rate — count only
+            // miss tokens against inputPer1M so admin cost stats stay honest.
+            inputTokens: Math.max(0, inputTokens - dsResult.cacheHitTokens),
             outputTokens,
           }).catch(console.error);
 
@@ -940,7 +1063,12 @@ export async function POST(request: Request) {
             ruleset: blocks.ruleset,
             static:  blocks.static,
             dynamic: blocks.dynamic,
-            history: debugProvider === 'anthropic' ? conversationHistory : geminiHistory,
+            history:
+              debugProvider === 'anthropic'
+                ? conversationHistory
+                : debugProvider === 'deepseek'
+                  ? deepseekMessages
+                  : geminiHistory,
             ...(debugProvider === 'gemini' && {
               geminiCacheMode: geminiCacheEnabled ? 'split-tail' : 'combined',
             }),

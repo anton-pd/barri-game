@@ -2685,3 +2685,19 @@ Anton передав DEEPSEEK_API_KEY — збережено в `/opt/apps/.env`
 
 ### Вердикт
 Як третій прод-провайдер — **не рекомендую**: TTFT 5-7s ламає UX живої гри, дисципліна тегів гірша за Sonnet/Flash. Ціна і якість прози чудові — потенційна ніша: офлайнові/фонові задачі (summarize, генерація сценарного контенту), де латентність неважлива. Рішення за Anton.
+
+## [2026-06-10 · Claude] — ANT-142: DeepSeek V4 Flash як третій провайдер (перемикач для Anton)
+
+### Problem
+Anton хоче сам поганяти DeepSeek у реальній грі попри повільний TTFT з еваля — прозa найкраща після Sonnet, по кубиках «подивимось, може знайдемо інше рішення».
+
+### Solution
+- `route.ts`: `AiProvider` + `'deepseek-flash'`; `callDeepSeekChatStream()` — OpenAI-сумісний SSE-стрімінг (живі chunk-події, на відміну від Gemini-гілки), структура промпта = split-tail (ANT-126): system=ruleset+static, динаміка хвостовим turn'ом перед повідомленням гравця. `finish_reason 'length'` мапиться в `max_tokens`, тож ANT-129 truncation-recovery працює. Summarize-цикл для deepseek іде наявною Gemini-гілкою (без змін).
+- Кост-трекінг: provider `deepseek`, model `deepseek-v4-flash`; cache-hit токени (~2% тарифу) віднімаються від input перед trackAPICall — у admin-статистиці чесні miss-токени. Сід цін у queries.ts + fallback у costTracker.ts ($0.14/$0.28 за 1M).
+- Адмінка: третя опція в Keeper Settings → AI Model («Experimental · cheapest · slow first token»).
+- Інфра: `DEEPSEEK_API_KEY` доданий у docker-compose.yml (barri-dev і barri) з /opt/apps/.env.
+
+### Key decisions
+- DeepSeek стрімить по-справжньому — клієнтська бульба наповнюється поступово, це частково компенсує TTFT 5-7s.
+- Дефолт не міняв: ai_provider лишається gemini-flash; перемикання — свідома дія адміна.
+- Verification: tsc clean, vitest 71/71, container rebuild + startup OK, env у контейнері перевірений.

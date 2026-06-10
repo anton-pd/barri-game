@@ -276,6 +276,8 @@ export async function initializeSchema() {
       ('gemini',    'gemini-2.5-flash-preview-tts','outputPer1M', 2.00),
       ('gemini',    'gemini-2.5-flash-image',      'perImage',    0.04),
       ('gemini',    'gemini-2.5-flash-image',      'inputPer1M',  0.30),
+      ('deepseek',  'deepseek-v4-flash',           'inputPer1M',  0.14),
+      ('deepseek',  'deepseek-v4-flash',           'outputPer1M', 0.28),
       ('openai',    'tts-1',                       'perChar',     0.000015),
       ('openai',    'whisper-1',                   'perMinute',   0.006),
       ('openai',    'dall-e-2',                    'perImage',    0.02)
