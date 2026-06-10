@@ -653,6 +653,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // ANT-129: id of the newest Keeper message that was cut by the token cap —
   // its bubble gets a "continue" affordance until the next exchange.
   const [truncatedMsgId, setTruncatedMsgId]   = useState<string | null>(null);
+  // ANT-133: a failed send rolls the exchange back and restores the input;
+  // this banner tells the player their text survived and one more ➤ retries.
+  const [sendError, setSendError]             = useState(false);
   // ANT-78: for a completed campaign evening, point the player to the next evening.
   const [nextEvening, setNextEvening] = useState<{ id: string; sessionNumber: number } | null>(null);
   const statusMeta = getStatusMeta(session);
@@ -1183,6 +1186,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
     setInput('');
     setPendingActions([]);
+    setSendError(false);
     setIsLoading(true);
 
     // Build combined message for AI
@@ -1294,11 +1298,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         speakMsg(realId, data.response as string, data.voiceStyle as string | undefined, data.segments as Segment[] | undefined);
       }
     } catch {
-      setMessages((prev) => prev.map((m) =>
-        m.id === optimisticId
-          ? { ...m, content: 'Помилка зв\'язку. Спробуй ще раз.' }
-          : m
+      // ANT-133: don't leave a dead error bubble the player can't act on —
+      // roll the failed exchange back out of the chat, restore the typed text
+      // and queued actions, and show a banner so one more ➤ retries it.
+      setMessages((prev) => prev.filter(
+        (m) => m.id !== optimisticId && !newUserMsgs.some((u) => u.id === m.id)
       ));
+      if (immediate) {
+        setPendingActions(allActions.slice(0, -1));
+        setInput(immediate);
+      } else {
+        setPendingActions(allActions);
+      }
+      setSendError(true);
     } finally {
       setIsLoading(false);
       textareaRef.current?.focus();
@@ -2009,6 +2021,22 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                         {item.uses === -1 && <span className="chat-inventory-item__uses">∞</span>}
                       </button>
                     ))}
+                </div>
+              )}
+
+              {/* ANT-133: failed send — text was restored, one more ➤ retries */}
+              {sendError && (
+                <div className="chat-status-error" role="alert">
+                  Помилка зв&apos;язку — повідомлення не надіслано. Текст збережено, натисни{' '}
+                  <button
+                    type="button"
+                    onClick={() => sendMessage()}
+                    className="underline"
+                    style={{ font: 'inherit', color: 'inherit' }}
+                  >
+                    ↻ повторити
+                  </button>
+                  {' '}або ➤ ще раз.
                 </div>
               )}
 
