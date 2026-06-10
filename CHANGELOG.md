@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.4.32] — 2026-06-10
 
 ### Fixed
+- **Login no longer silently wipes the form when clicked too early (ANT-132).** Submitting before the page's JavaScript loaded triggered a native reload that cleared both fields; the button now stays disabled until the form is interactive.
 - **Session cards show real names instead of internal ids (ANT-131).** The resume card on the sessions page printed "THE-HAUNTING · ELM_STREET_EXTERIOR"; it now resolves the scenario title and the current location's display name.
 - **Keeper replies no longer stop mid-word at the token cap (ANT-129).** Main turns get more headroom (900 → 1200 tokens); when a reply still hits the cap, the server trims it back to the last complete sentence before saving, and the bubble shows a "⤷ продовжити" button that asks the Keeper to pick up where it left off.
 - **No more literal `**` asterisks in the chat (ANT-130).** While a reply streamed, an opened bold marker showed as raw asterisks until its pair arrived — and stayed raw forever on token-truncated replies. The renderer now drops a half-received `*` at the buffer edge and the last `**` when unpaired, for live and persisted messages alike.
