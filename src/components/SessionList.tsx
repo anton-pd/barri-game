@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GameSession, Scenario, Player, WorldState } from '@/types';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
@@ -284,6 +284,10 @@ export default function SessionList() {
   const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
   const [language,          setLanguage]            = useState<'uk' | 'en'>('uk');
   const [isCreating,        setIsCreating]          = useState(false);
+  // ANT-137: dialog semantics — focus moves into the sheet on open, Tab cycles
+  // inside it, Escape closes, and focus returns to the trigger on close.
+  const modalRef = useRef<HTMLDivElement>(null);
+  const modalReturnFocusRef = useRef<HTMLElement | null>(null);
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
@@ -340,6 +344,42 @@ export default function SessionList() {
     setSelectedScenario(null);
     setPickingRoleFor(null);
   }
+
+  // ANT-137: focus management for the new-session dialog.
+  useEffect(() => {
+    if (!selectedScenario) {
+      modalReturnFocusRef.current?.focus();
+      modalReturnFocusRef.current = null;
+      return;
+    }
+    modalReturnFocusRef.current = document.activeElement as HTMLElement | null;
+    modalRef.current?.focus();
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeModal();
+        return;
+      }
+      if (e.key !== 'Tab' || !modalRef.current) return;
+      const focusables = modalRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === modalRef.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [selectedScenario]);
 
   function addDraft() {
     if (drafts.length < 4) setDrafts((p) => [...p, emptyDraft()]);
@@ -638,7 +678,14 @@ export default function SessionList() {
       {/* ── New-session modal ── */}
       {selectedScenario && (
         <div className="nsm-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-          <div className="nsm-sheet">
+          <div
+            className="nsm-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="nsm-title"
+            ref={modalRef}
+            tabIndex={-1}
+          >
             {/* Drag handle (mobile) */}
             <div className="nsm-drag-handle">
               <div className="nsm-drag-bar" />
@@ -649,7 +696,7 @@ export default function SessionList() {
               <div className="nsm-header">
                 <div>
                   <div className="nsm-scenario-label">Справа</div>
-                  <div className="nsm-scenario-title">{selectedScenario.titleUk}</div>
+                  <div className="nsm-scenario-title" id="nsm-title">{selectedScenario.titleUk}</div>
                 </div>
                 <button className="nsm-close" onClick={closeModal} aria-label="Закрити">✕</button>
               </div>
@@ -811,6 +858,17 @@ export default function SessionList() {
                     <span>{isCreating ? 'Відкриваємо справу...' : 'Відкрити справу'}</span>
                     {!isCreating && <span aria-hidden="true">→</span>}
                   </button>
+                  {/* ANT-137: a disabled button must say why */}
+                  {!canCreate && !isCreating && (
+                    <p className="nsm-submit-hint">
+                      Щоб відкрити справу, заповніть:{' '}
+                      {[
+                        !sessionName.trim() && 'назву справи',
+                        drafts.some((d) => !d.name.trim()) && "ім'я гравця",
+                        drafts.some((d) => !d.preset) && 'клас гравця',
+                      ].filter(Boolean).join(', ')}
+                    </p>
+                  )}
                 </div>
               )}
             </div>

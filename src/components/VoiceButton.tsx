@@ -77,6 +77,7 @@ export default function VoiceButton({ onTranscript, disabled, sessionId }: Voice
         disabled
         className="w-9 h-9 rounded-xl bg-stone-700 text-amber-600 animate-pulse flex items-center justify-center"
         title="Розпізнавання..."
+        aria-label="Розпізнавання..."
       >⏳</button>
     );
   }
@@ -91,6 +92,8 @@ export default function VoiceButton({ onTranscript, disabled, sessionId }: Voice
           : 'bg-stone-700 hover:bg-stone-600 active:bg-stone-500 text-stone-300'
       } disabled:opacity-50 disabled:cursor-not-allowed`}
       title={isListening ? 'Зупинити запис' : 'Говорити'}
+      aria-label={isListening ? 'Зупинити запис' : 'Говорити'}
+      aria-pressed={isListening}
     >
       {isListening ? '⏹' : '🎤'}
     </button>

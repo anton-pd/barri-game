@@ -1003,6 +1003,16 @@
   box-shadow: none;
 }
 
+/* ANT-137: explains what the disabled submit is waiting for */
+.nsm-submit-hint {
+  margin-top: 8px;
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  color: var(--ink-2);
+  opacity: 0.75;
+  text-align: center;
+}
+
 /* Role picker overlay */
 .nsm-role-picker-back {
   display: flex;
