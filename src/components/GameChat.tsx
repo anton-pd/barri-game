@@ -656,6 +656,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // ANT-133: a failed send rolls the exchange back and restores the input;
   // this banner tells the player their text survived and one more ➤ retries.
   const [sendError, setSendError]             = useState(false);
+  // ANT-135: message whose voice-over failed — its button shows a transient
+  // warning instead of silently reverting to the idle label.
+  const [ttsErrorId, setTtsErrorId]           = useState<string | null>(null);
   // ANT-78: for a completed campaign evening, point the player to the next evening.
   const [nextEvening, setNextEvening] = useState<{ id: string; sessionNumber: number } | null>(null);
   const statusMeta = getStatusMeta(session);
@@ -1112,10 +1115,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       audioCacheRef.current.set(msgId, url);
       playUrl(msgId, url);
     } catch {
-      fallbackTTS(text);
+      if (!fallbackTTS(text)) flagTtsError(msgId);
     } finally {
       setLoadingAudioIds((prev) => { const s = new Set(prev); s.delete(msgId); return s; });
     }
+  }
+
+  // ANT-135: surface playback failures on the button itself for a few seconds.
+  function flagTtsError(msgId: string) {
+    setTtsErrorId(msgId);
+    window.setTimeout(() => setTtsErrorId((cur) => (cur === msgId ? null : cur)), 4000);
   }
 
   function playUrl(msgId: string, url: string) {
@@ -1123,16 +1132,17 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     audioRef.current = audio;
     setSpeakingId(msgId);
     audio.onended = () => setSpeakingId(null);
-    audio.onerror = () => setSpeakingId(null);
-    audio.play().catch(() => setSpeakingId(null));
+    audio.onerror = () => { setSpeakingId(null); flagTtsError(msgId); };
+    audio.play().catch(() => { setSpeakingId(null); flagTtsError(msgId); });
   }
 
-  function fallbackTTS(text: string) {
-    if (!window.speechSynthesis) return;
+  function fallbackTTS(text: string): boolean {
+    if (!window.speechSynthesis) return false;
     const utt = new SpeechSynthesisUtterance(text);
     utt.lang = 'uk-UA'; utt.rate = 0.85; utt.pitch = 0.9;
     utt.onend = () => setSpeakingId(null);
     window.speechSynthesis.speak(utt);
+    return true;
   }
 
   function handleReplay(msgId: string, text: string) {
@@ -1758,7 +1768,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 disabled={isLoadingA}
                 className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : isLoadingA ? ' chat-replay-btn--loading' : ''}`}
               >
-                {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : '↻ озвучити'}
+                {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : msg.id === ttsErrorId ? '⚠ не відтворилось' : '▶ озвучити'}
               </button>
               {msg.id === truncatedMsgId && !isLoading && !sessionIsReadOnly && (
                 <button
