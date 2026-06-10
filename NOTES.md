@@ -2499,3 +2499,15 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 - Без auto-continue: другий LLM-виклик у тому ж ході — подвійна вартість і ризик каскадних обрізань; явна кнопка дає контроль гравцю.
 - Трім перед parseSegments — обірвані NPC-блоки без [/NPC] не реєструють NPC і не лишають сирих маркерів.
 - Verification: tsc clean; е2е перевірка на staging нижче (батч-rebuild).
+
+## [2026-06-10 · Claude] — ANT-131: сирі ids у картках сесій
+
+### Problem
+Картка активної сесії на /sessions друкувала `scenario_id` і `world_state.currentLocation` як є: "THE-HAUNTING · ELM_STREET_EXTERIOR".
+
+### Solution
+- `SessionList.tsx`: батько будує `scenarioById` (сценарії вже завантажені для секції "Доступні справи") і передає `scenario` у SessionCard; картка резолвить `titleUk || title` та назву локації через `scenario.locations` → `world_state.dynamicLocations` → raw id як останній фолбек.
+
+### Key decisions
+- Нуль нових запитів — дані вже на клієнті. Сніпет останнього повідомлення не чіпав: CSS уже клампить до 3 рядків.
+- Verification: tsc clean; візуально на staging після батч-rebuild.
