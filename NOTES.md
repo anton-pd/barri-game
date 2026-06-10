@@ -2459,3 +2459,16 @@ Cleanup-перевірки activeRandomEvent стояли МІЖ парсинг�
 ### Key decisions
 - Без змін коду — аудит-only, CHANGELOG не чіпаю.
 - Позитив зафіксовано в звіті: швидкі ходи (~3 с), typing indicator, автоскрол, NPC-бульбашки, reload відновлює все, мобільний без overflow, флоу закриття сесії з оцінкою.
+
+## [2026-06-10 · Claude] — ANT-128: сирі item-ids в інвентарі гравця
+
+### Problem
+В UX-аудиті Кіпер видав предмети з назвами `case_file` і `old_note` — модель використала технічний id як Назву в `[ITEM:idx:Назва:...]`, мавпуючи snake_case ids, які бачить у dynamic-блоці (itemId для USE_ITEM тощо). Назва — єдине, що гравець бачить на чипі інвентаря.
+
+### Solution
+- `prompts.ts` (uk+en invTags): явна заборона id-подібних назв + вимога людської назви мовою гри.
+- `inventoryTags.ts`: `humanizeItemName()` — фолбек на парсингу: якщо назва матчить `^[a-z0-9_]+$` і містить `_` → underscores у пробіли, перша літера велика ("Case file"). Дедуп тепер по humanized-назві.
+
+### Key decisions
+- Однослівні lowercase-назви ("medkit") не чіпаємо — можуть бути легітимним словом; трансформуємо лише явно id-подібні (з underscore).
+- Verification: tsc clean; tsx smoke — `case_file`→"Case file", нормальна назва незмінна, теги стрипаються.

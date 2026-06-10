@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.32] — 2026-06-10
+
+### Fixed
+- **Inventory no longer shows raw technical ids as item names (ANT-128).** The Keeper occasionally emitted `[ITEM:0:case_file:…]` — and the player saw a literal "case_file" chip. The prompt now forbids id-shaped names in both languages, and the server parser de-uglifies any that slip through (`old_note` → "Old note").
+
 ## [0.4.31] — 2026-06-09
 
 ### Changed
