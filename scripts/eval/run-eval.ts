@@ -29,18 +29,21 @@ const HISTORY_WINDOW = 30; // mirrors getLastNMessages(sessionId, 30)
 
 interface ModelArm {
   key: string;
-  provider: 'anthropic' | 'gemini';
+  provider: 'anthropic' | 'gemini' | 'deepseek';
   modelId: string;
-  // USD per 1M tokens (2026-06; Anthropic from claude-api skill, Gemini from ai.google.dev)
+  // USD per 1M tokens (2026-06; Anthropic from claude-api skill, Gemini from
+  // ai.google.dev, DeepSeek from api-docs.deepseek.com — cache-miss rate)
   inPer1M: number;
   outPer1M: number;
+  cacheHitPer1M?: number;
 }
 
 const ARMS: ModelArm[] = [
-  { key: 'sonnet', provider: 'anthropic', modelId: 'claude-sonnet-4-6', inPer1M: 3.0, outPer1M: 15.0 },
-  { key: 'haiku', provider: 'anthropic', modelId: 'claude-haiku-4-5', inPer1M: 1.0, outPer1M: 5.0 },
-  { key: 'flash', provider: 'gemini', modelId: 'gemini-2.5-flash', inPer1M: 0.3, outPer1M: 2.5 },
+  { key: 'sonnet', provider: 'anthropic', modelId: 'claude-sonnet-4-6', inPer1M: 3.0, outPer1M: 15.0, cacheHitPer1M: 0.3 },
+  { key: 'haiku', provider: 'anthropic', modelId: 'claude-haiku-4-5', inPer1M: 1.0, outPer1M: 5.0, cacheHitPer1M: 0.1 },
+  { key: 'flash', provider: 'gemini', modelId: 'gemini-2.5-flash', inPer1M: 0.3, outPer1M: 2.5, cacheHitPer1M: 0.03 },
   { key: 'flash-lite', provider: 'gemini', modelId: 'gemini-2.5-flash-lite', inPer1M: 0.1, outPer1M: 0.4 },
+  { key: 'ds-flash', provider: 'deepseek', modelId: 'deepseek-v4-flash', inPer1M: 0.14, outPer1M: 0.28, cacheHitPer1M: 0.0028 },
 ];
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -330,6 +333,69 @@ async function callGemini(modelId: string, p: BuiltPrompt): Promise<CallResult> 
   };
 }
 
+async function callDeepSeek(modelId: string, p: BuiltPrompt): Promise<CallResult> {
+  // OpenAI-compatible API, streaming for TTFT. Prompt structure mirrors the
+  // Gemini split-tail mode (ANT-126): stable system prefix, dynamic state as a
+  // tail turn — DeepSeek implicit prefix caching rewards exactly this shape.
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
+  const messages = [
+    { role: 'system', content: `${p.ruleset}\n\n${p.static}` },
+    ...p.history,
+    { role: 'user', content: `[СТАН СЕСІЇ]\n${p.dynamic}` },
+    { role: 'assistant', content: 'Зрозумів.' },
+    { role: 'user', content: p.userContent },
+  ];
+  const start = Date.now();
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: modelId,
+      messages,
+      max_tokens: MAX_TOKENS,
+      temperature: 1.0,
+      stream: true,
+      stream_options: { include_usage: true },
+    }),
+  });
+  if (!res.ok || !res.body) throw new Error(`DeepSeek ${modelId}: ${res.status} ${(await res.text()).slice(0, 200)}`);
+
+  let text = '';
+  let ttftMs: number | null = null;
+  let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number } = {};
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop() ?? '';
+    for (const line of lines) {
+      if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+      try {
+        const chunk = JSON.parse(line.slice(6));
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) {
+          if (ttftMs === null) ttftMs = Date.now() - start;
+          text += delta;
+        }
+        if (chunk.usage) usage = chunk.usage;
+      } catch { /* partial line */ }
+    }
+  }
+  return {
+    text,
+    inputTokens: usage.prompt_tokens ?? 0,
+    outputTokens: usage.completion_tokens ?? 0,
+    cacheReadTokens: usage.prompt_cache_hit_tokens ?? 0,
+    ttftMs,
+    totalMs: Date.now() - start,
+  };
+}
+
 // ── Scoring ──────────────────────────────────────────────────────────────────
 
 // Loose pattern: anything that *looks* like one of our tags. Strict parse uses RX.
@@ -438,9 +504,21 @@ async function main() {
         const call =
           arm.provider === 'anthropic'
             ? await callAnthropic(arm.modelId, prompt)
-            : await callGemini(arm.modelId, prompt);
+            : arm.provider === 'deepseek'
+              ? await callDeepSeek(arm.modelId, prompt)
+              : await callGemini(arm.modelId, prompt);
         const score = scoreOutput(probe, call.text);
-        const costUsd = (call.inputTokens / 1e6) * arm.inPer1M + (call.outputTokens / 1e6) * arm.outPer1M;
+        // Cache-aware cost: cacheReadTokens billed at the hit rate when known.
+        // (For DeepSeek prompt_tokens includes hits; for Anthropic input_tokens
+        // excludes them — subtract only when the provider folds hits into input.)
+        const missTokens =
+          arm.provider === 'deepseek' || arm.provider === 'gemini'
+            ? Math.max(0, call.inputTokens - call.cacheReadTokens)
+            : call.inputTokens;
+        const costUsd =
+          (missTokens / 1e6) * arm.inPer1M +
+          (call.cacheReadTokens / 1e6) * (arm.cacheHitPer1M ?? arm.inPer1M) +
+          (call.outputTokens / 1e6) * arm.outPer1M;
         const judgeScores = withJudge ? await judge(probe, call.text) : null;
         rows.push({
           probe: probe.id, model: arm.key,

@@ -2666,3 +2666,11 @@ Anton попросив тест-план по всіх 31 In-Review задача
 - Фікстури і results — gitignored (повні транскрипти сесій); регенерація: `scripts/eval/extract-fixtures.sh`.
 - Ціни захардкоджені в ARMS (звірені 2026-06: Anthropic skill + ai.google.dev) — не з model_pricing, щоб харнес не залежав від БД.
 - DeepSeek-рука (ANT-142) — blocked на ключ; tool-calling рука (ANT-141) — наступний крок.
+
+## [2026-06-10 · Claude] — ANT-142: DeepSeek-рука еваля (код готовий, blocked на баланс)
+
+### Problem/Solution
+Anton передав DEEPSEEK_API_KEY — збережено в `/opt/apps/.env` (perms 600, поза git). У `run-eval.ts` додано руку `ds-flash` (`deepseek-v4-flash`): OpenAI-сумісний streaming для TTFT, структура промпта = Gemini split-tail (ANT-126), usage віддає `prompt_cache_hit_tokens`. Кост-розрахунок тепер cache-aware для всіх провайдерів (hit-токени по hit-тарифу).
+
+### Status
+Ключ валідний (`/models` працює: deepseek-v4-flash, deepseek-v4-pro), але inference → **402 Insufficient Balance** — на акаунті немає коштів. Повний прогін (8 проб) коштуватиме ~$0.02; мінімальне поповнення вистачить з запасом. Після поповнення: `npx tsx scripts/eval/run-eval.ts --models ds-flash --judge`.

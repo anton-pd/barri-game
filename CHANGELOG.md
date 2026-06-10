@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.36] — 2026-06-10
+
+### Added
+- **DeepSeek arm in the model eval (ANT-142).** `deepseek-v4-flash` via the OpenAI-compatible streaming API with cache-aware cost accounting; blocked on account balance (402) — code ready to run once topped up.
+
 ## [0.4.35] — 2026-06-10
 
 ### Added
