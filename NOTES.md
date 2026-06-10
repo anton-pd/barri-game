@@ -2644,3 +2644,25 @@ Anton попросив тест-план по всіх 31 In-Review задача
 - Live-тригер summarize-циклу (20 повідомлень) і EN-сесію не ганяв — логіка покрита юніт-тестами і код-рев'ю; ігрова перевірка локацій/подій відбудеться в групі 3 (ручний прохід Anton).
 - Спостереження (не дефект): Gemini split-tail кеш працює до 30 повідомлень — далі вікно getLastNMessages(30) ковзає і префікс змінюється щоходу. Закладено в дизайн ANT-126.
 - Verification: vitest 71/71 passed (було 67/68).
+
+## [2026-06-10 · Claude] — ANT-140: model matrix replay eval (v1) + перший прогін
+
+### Problem
+Перед релізом треба зрозуміти, які моделі тягнуть рушій гри (тег-протокол + українська проза) і де оптимізувати юніт-економіку. Гіпотези: дешевші моделі (Haiku 4.5, Flash-Lite) можуть бути достатні; tool calling може бути стабільнішим за інлайн-теги (ANT-141); DeepSeek V4 Flash — кандидат на заміну Gemini (ANT-142).
+
+### Solution
+`scripts/eval/run-eval.ts` — replay-харнес: реальні сесії з БД (фікстури через `extract-fixtures.sh`, gitignored), збірка промпта 1:1 як у route.ts (cache_control блоки для Anthropic, split-tail для Gemini, history window 30, max_tokens 1200), 8 проб з ground truth (roll/image/dice-result/item/NPC/neutral × коротка й глибока історія), скоринг нашими ж регексами (required/forbidden/malformed/fallback-rescued), мовна чистота, TTFT/total, $/хід з usage, сліпий суддя (Sonnet, рубрика style/fluency/coherence 1-5).
+
+### Перший прогін (4 моделі × 8 проб + suddя)
+- **Sonnet 4.6 (prod)**: 5/6 required PASS, 0 false fires, стиль 4.0/fluency 4.5. $0.018/хід (з кешем — до $0.005). TTFT ~2s.
+- **Haiku 4.5**: найслабший — 3/6 PASS, двічі повністю загубив тег (SET_PENDING_ROLL і ITEM, без fallback-порятунку), проза 2.75/2.75. НЕ кандидат.
+- **Gemini 2.5 Flash**: 5/6 (+1 rescued), проза 3.6/3.9, total ~4.5s, $0.005/хід.
+- **Flash-Lite**: 4/6 (+2 rescued — забуває roll-тег постійно), проза 3.25/3.75, $0.001/хід.
+- **Глибока історія (100+ msgs) деградує roll-тег у ВСІХ, крім Sonnet** — haiku/flash/flash-lite врятовані лише auto-inject fallback (ANT-119 окупився).
+- **Кеш**: Anthropic працює (6.3K cacheRead з 2-го звернення, і на Haiku теж). Gemini `cachedContentTokenCount` = 0 у всіх викликах — implicit cache не зловився в межах прогону; реальна ціна Gemini-шляху зараз ≈ повний input щохід. Треба дослідити (ANT-126 структура правильна, але хітів не видно).
+- Caveat: coherence-оцінки судді на telegram-пробах занижені для всіх моделей — артефакт дизайну проб (крафтове повідомлення не завжди лягає в обірваний момент історії). Порівнювати між моделями можна, абсолютні значення — ні.
+
+### Key decisions
+- Фікстури і results — gitignored (повні транскрипти сесій); регенерація: `scripts/eval/extract-fixtures.sh`.
+- Ціни захардкоджені в ARMS (звірені 2026-06: Anthropic skill + ai.google.dev) — не з model_pricing, щоб харнес не залежав від БД.
+- DeepSeek-рука (ANT-142) — blocked на ключ; tool-calling рука (ANT-141) — наступний крок.

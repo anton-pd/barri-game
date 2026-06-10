@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.35] — 2026-06-10
+
+### Added
+- **Model eval harness (ANT-140).** `scripts/eval/run-eval.ts` replays real sessions against a model matrix (Sonnet 4.6, Haiku 4.5, Gemini Flash/Flash-Lite) and scores tag-protocol compliance, Ukrainian purity, latency and cost per turn, with an optional blind LLM judge. First run: Sonnet strongest on protocol, Haiku 4.5 ruled out, deep-history roll tags survive only on Sonnet (auto-inject fallback rescues the rest), Gemini implicit caching shows zero hits.
+
 ## [0.4.34] — 2026-06-10
 
 ### Fixed
