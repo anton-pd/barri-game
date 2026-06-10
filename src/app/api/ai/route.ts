@@ -377,11 +377,13 @@ export async function POST(request: Request) {
       })();
 
   let worldState: WorldState = session.world_state;
-  // A bare number while a roll is pending is a dice result — engagement, not
-  // passivity (ANT-119). Without this, a few rolls in a row falsely trigger
-  // the "players are silent" nudge.
+  // A dice result while a roll is pending is engagement, not passivity
+  // (ANT-119). Without this, a few rolls in a row falsely trigger the
+  // "players are silent" nudge. The client sends either a bare number
+  // (legacy) or the structured "🎲 Skill: N проти M — verdict" line (ANT-134).
   const isDiceResult =
-    !isIntro && !!session.world_state.pendingRollResult && /^\d+$/.test(message.trim());
+    !isIntro && !!session.world_state.pendingRollResult &&
+    (/^\d+$/.test(message.trim()) || message.trim().startsWith('🎲'));
   const passive = isIntro || isDiceResult ? false : isPassiveMessage(message);
   worldState = {
     ...worldState,

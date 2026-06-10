@@ -432,6 +432,20 @@
   max-width: 75%;
 }
 
+/* ANT-134: dice-result chip — a roll, not speech */
+.chat-bubble--roll {
+  background: rgba(167,122,44,0.12);
+  border: 1px solid rgba(167,122,44,0.45);
+  color: var(--amber-0);
+  letter-spacing: 0.02em;
+  border-radius: 10px;
+}
+.chat-bubble--roll-fail {
+  background: rgba(146,46,46,0.12);
+  border-color: rgba(146,46,46,0.5);
+  color: var(--blood-0);
+}
+
 /* ── Replay button ──────────────────────────────────────────── */
 .chat-replay-btn {
   font-family: var(--font-typewriter);
