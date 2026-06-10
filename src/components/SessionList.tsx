@@ -140,11 +140,13 @@ function SessionCard({
   onDelete,
   playedEvening = false,
   coverFallback,
+  scenario,
 }: {
   s: SessionListEntry;
   onDelete: (id: string, e: React.MouseEvent) => void;
   playedEvening?: boolean;
   coverFallback?: string;
+  scenario?: Scenario;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -154,7 +156,14 @@ function SessionCard({
   const thumbnail       = getSessionThumbnail(s.world_state) || coverFallback || null;
   const isClosed        = s.status === 'completed' && !playedEvening;
   const players         = s.players as Player[];
-  const location        = s.world_state?.currentLocation;
+  // ANT-131: resolve display names; raw ids only as a last-resort fallback.
+  const scenarioTitle   = scenario?.titleUk || scenario?.title || s.scenario_id;
+  const locationId      = s.world_state?.currentLocation;
+  const location        = locationId
+    ? (scenario?.locations?.find((l) => l.id === locationId)?.name
+        ?? s.world_state?.dynamicLocations?.[locationId]?.name
+        ?? locationId)
+    : undefined;
   const snippet         = s.latest_summary || s.last_message || null;
   const campaignSession = s.campaign_id
     ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
@@ -199,7 +208,7 @@ function SessionCard({
         <div className="session-card-name">{s.name}</div>
 
         <div className="session-card-meta">
-          <span>{s.scenario_id}</span>
+          <span>{scenarioTitle}</span>
           <span className="session-card-meta-dot">·</span>
           <span>{formatDate(s.updated_at)}</span>
           {campaignSession && (
@@ -406,6 +415,11 @@ export default function SessionList() {
   const coverById: Record<string, string> = Object.fromEntries(
     scenarios.filter((sc) => sc.cover).map((sc) => [sc.id, sc.cover as string])
   );
+  // ANT-131: session cards print human-readable scenario titles and location
+  // names instead of raw ids (THE-HAUNTING / ELM_STREET_EXTERIOR).
+  const scenarioById: Record<string, Scenario> = Object.fromEntries(
+    scenarios.map((sc) => [sc.id, sc])
+  );
   const activeSessions    = sessions.filter((s) => s.status === 'active');
   const pausedSessions    = sessions.filter((s) => s.status === 'paused');
   const totalMessages     = sessions.reduce((acc, s) => acc + (s.message_count ?? 0), 0);
@@ -558,7 +572,7 @@ export default function SessionList() {
           </div>
         ) : (
           <div className="session-cards-grid">
-            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} />)}
+            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} />)}
           </div>
         )}
       </div>
@@ -570,7 +584,7 @@ export default function SessionList() {
             <span className="section-divider-title">Закриті справи</span>
           </div>
           <div className="session-cards-grid">
-            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} coverFallback={coverById[s.scenario_id]} />)}
+            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} />)}
           </div>
         </div>
       )}
