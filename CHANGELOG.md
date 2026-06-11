@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.41] — 2026-06-11
+
+### Changed
+- **Keeper prompt tuned for DeepSeek (ANT-143…147).** A pre-send protocol checklist now sits right before the model's response point (hidden clues must be gated behind rolls, picked-up items must emit inventory tags, NPC speech must close its tags), a one-line-per-tag cheat sheet closes the system prompt, dice rules gained a worked example, and NPC secrets may only surface through successful rolls or real leverage. Engine temperature lowered to 0.7 after an A/B eval — better roll/tag discipline, prose unchanged.
+
 ## [0.4.40] — 2026-06-11
 
 ### Changed
