@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 
+// ANT-142: the engine is DeepSeek V4 Flash in two tiers. Base = direct API
+// (free/trial users), Pro = OpenRouter pinned to Cloudflare (future paid tier).
+// Gemini still powers images/TTS but is no longer an engine option.
 const AI_OPTIONS = [
-  { value: 'gemini-flash',   label: 'Gemini 2.5 Flash',   note: 'Fast · cheap · default' },
-  { value: 'claude-sonnet',  label: 'Claude Sonnet 4.6',  note: 'Slower · premium quality' },
-  { value: 'deepseek-flash', label: 'DeepSeek V4 Flash',  note: 'Experimental · cheapest · slow first token' },
+  { value: 'deepseek-base', label: 'DeepSeek — Base (direct)',          note: 'Free/trial tier · cheapest · cold start ~6s' },
+  { value: 'deepseek-pro',  label: 'DeepSeek — Pro (OpenRouter · CF)',  note: 'Paid tier · first token ~0.6s' },
 ];
 
 const TTS_OPTIONS = [
@@ -14,9 +16,8 @@ const TTS_OPTIONS = [
 ];
 
 export default function KeeperSettings() {
-  const [aiProvider,         setAiProvider]         = useState<string>('gemini-flash');
+  const [aiProvider,         setAiProvider]         = useState<string>('deepseek-base');
   const [ttsProvider,        setTtsProvider]        = useState<string>('gemini');
-  const [geminiCacheEnabled, setGeminiCacheEnabled] = useState<boolean>(false);
   const [dailyLimitEnabled,  setDailyLimitEnabled]  = useState<boolean>(true);
   const [dailyLimitUsd,      setDailyLimitUsd]      = useState<string>('0.50');
   const [saving, setSaving] = useState<string | null>(null);
@@ -26,9 +27,10 @@ export default function KeeperSettings() {
     fetch('/api/admin/settings')
       .then((r) => r.json())
       .then((data: Record<string, string>) => {
-        if (data.ai_provider)  setAiProvider(data.ai_provider);
+        // Legacy stored values (gemini-flash / claude-sonnet / deepseek-flash)
+        // are treated as the base tier, mirroring the server-side fallback.
+        if (data.ai_provider) setAiProvider(data.ai_provider === 'deepseek-pro' ? 'deepseek-pro' : 'deepseek-base');
         if (data.tts_provider) setTtsProvider(data.tts_provider);
-        setGeminiCacheEnabled(data.gemini_cache_enabled === 'true');
         setDailyLimitEnabled(data.daily_limit_enabled !== 'false');
         if (data.daily_user_cost_limit_usd) setDailyLimitUsd(data.daily_user_cost_limit_usd);
       });
@@ -53,7 +55,7 @@ export default function KeeperSettings() {
 
         {/* AI Model */}
         <div>
-          <p className="text-xs text-stone-500 uppercase tracking-wide mb-2">AI Model (affects all sessions)</p>
+          <p className="text-xs text-stone-500 uppercase tracking-wide mb-2">Engine tier (affects all sessions)</p>
           <div className="flex gap-2 flex-wrap">
             {AI_OPTIONS.map((opt) => (
               <button
@@ -94,39 +96,6 @@ export default function KeeperSettings() {
               </button>
             ))}
             {saved === 'tts_provider' && <span className="text-xs text-emerald-500 self-center">Saved ✓</span>}
-          </div>
-        </div>
-
-        {/* Gemini Implicit Cache */}
-        <div>
-          <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Gemini Implicit Cache</p>
-          <p className="text-xs text-stone-600 mb-2">
-            Separates dynamic state from systemInstruction so ruleset+static prefix is stable across turns.
-            Enables Gemini 2.5 Flash implicit caching (75% token discount on ~1500 tokens/req).
-            OFF by default — enable to A/B test quality vs combined prompt.
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => {
-                const next = !geminiCacheEnabled;
-                setGeminiCacheEnabled(next);
-                save('gemini_cache_enabled', String(next));
-              }}
-              disabled={saving === 'gemini_cache_enabled'}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                geminiCacheEnabled ? 'bg-amber-700' : 'bg-stone-700'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  geminiCacheEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className="text-sm text-stone-400">
-              {geminiCacheEnabled ? 'ON — split mode (dynamic in history)' : 'OFF — combined mode'}
-            </span>
-            {saved === 'gemini_cache_enabled' && <span className="text-xs text-emerald-500">Saved ✓</span>}
           </div>
         </div>
 

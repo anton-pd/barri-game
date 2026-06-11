@@ -5,6 +5,15 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.40] — 2026-06-11
+
+### Changed
+- **Game engine moved to DeepSeek V4 Flash in two tiers (ANT-142).** Base tier (free/trial) uses the DeepSeek API directly; Pro tier (future paid) goes through OpenRouter pinned to Cloudflare for ~0.6s first token. Admin → Keeper Settings now switches the tier. Claude Sonnet and Gemini are no longer engine options — Gemini still powers image generation, voice and background world-state summaries.
+- Cost tracking now bills cached prompt tokens at each tier's real cache-read rate instead of treating them as free.
+
+### Removed
+- "Gemini Implicit Cache" admin toggle — the split-prompt shape it controlled is now always on and engine-agnostic.
+
 ## [0.4.39] — 2026-06-11
 
 ### Added
