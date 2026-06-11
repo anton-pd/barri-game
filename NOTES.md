@@ -2715,3 +2715,24 @@ Anton хоче сам поганяти DeepSeek у реальній грі по�
 
 ### Вердикт
 Однопрохідний tool calling для нашого флоу «наратив+мутації в одній відповіді» — гірший за інлайн-теги: моделі RL-треновані «викликав інструмент → зупинись і чекай результат», тому виклик канібалізує текст. Щоб полікувати — потрібен двофазний цикл (tools → tool_result → догенерація наративу), а це ×2 латентність і вартість на кожен хід. **Рекомендація: лишаємо інлайн-теги + серверні fallback-и (ANT-119) як архітектуру; tool calling не впроваджуємо.** Якщо колись повернемось — тільки у двофазному варіанті і лише для кидків.
+
+## [2026-06-11 · Claude] — ANT-142: бенч OpenRouter — TTFT-проблему DeepSeek вирішує Cloudflare-хост
+
+### Setup
+Anton дав OPENROUTER_API_KEY (збережено в /opt/apps/.env). `scripts/eval/bench-openrouter.ts`: один реалістичний глибокий промпт (~18K input), 3-6 прогонів на руку — direct DeepSeek vs OpenRouter (auto + піни: Cloudflare, Novita, Parasail, AtlasCloud, GMICloud, Baidu). Метрики: TTFT, кеш-хіти, вартість з usage. Потім якісний еваль (8 проб + суддя) через переможця.
+
+### Результати швидкість/кеш (теплий кеш, run 2+)
+- **Cloudflare: TTFT 0.44–1.4s (p50 ~0.6-0.8s), кеш-хіт 99%, $0.0008/хід** — у ~8× швидше прямого DeepSeek (6.2s) і швидше Sonnet (~2s).
+- direct DeepSeek: 6.2s; or-auto (роутер сам обрав Baidu): 4.4-6.4s, кеш нестабільний; Novita/Parasail: кеш-хітів 0%; AtlasCloud: кеш 99%, але TTFT 2.5-7.9s; GMICloud: 5.6-16.5s; Baidu: 429 rate-limit.
+- Кешування через OpenRouter ПРАЦЮЄ (usage.prompt_tokens_details.cached_tokens), але тільки в частини провайдерів і лише з піном (auto-роутинг скаче між хостами і вбиває кеш).
+
+### Якість через Cloudflare (8 проб + сліпий суддя, рука or-cf)
+- Проза не постраждала від квантизації: style 3.75 / fluency 4.38 (direct: 3.88/4.38), cyr 99.5%.
+- Теги: 4/6 (+1 rescued), 0 false fires — той самий DeepSeek-рівень тег-дисципліни (цього разу впав CLEAR_PENDING_ROLL: variance).
+- TTFT у повному прогоні: p50 828ms (439–1415ms). Вартість $0.0012/хід.
+
+### Висновок
+OpenRouter з піном на Cloudflare знімає головну ваду DeepSeek (TTFT) без втрати прози і майже без зміни ціни. Якщо лайв-тест Anton підтвердить — варто перевести prod-гілку deepseek-flash на OpenRouter/Cloudflare (зміна base URL + ключ + provider pin у route.ts). Тег-дисципліна лишається слабшою за Sonnet — рятують fallback-и.
+
+### Files
+- `scripts/eval/bench-openrouter.ts` (новий, --runs/--arms), рука `or-cf` у run-eval.ts (baseUrl/apiKeyEnv/orProvider у ModelArm).

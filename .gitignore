@@ -41,3 +41,4 @@ yarn-error.log*
 next-env.d.ts
 scripts/eval/fixtures/
 scripts/eval/results_*.json
+scripts/eval/bench_or_*.json

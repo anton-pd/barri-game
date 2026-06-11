@@ -36,6 +36,9 @@ interface ModelArm {
   inPer1M: number;
   outPer1M: number;
   cacheHitPer1M?: number;
+  baseUrl?: string;
+  apiKeyEnv?: string;
+  orProvider?: string;
 }
 
 const ARMS: ModelArm[] = [
@@ -44,6 +47,12 @@ const ARMS: ModelArm[] = [
   { key: 'flash', provider: 'gemini', modelId: 'gemini-2.5-flash', inPer1M: 0.3, outPer1M: 2.5, cacheHitPer1M: 0.03 },
   { key: 'flash-lite', provider: 'gemini', modelId: 'gemini-2.5-flash-lite', inPer1M: 0.1, outPer1M: 0.4 },
   { key: 'ds-flash', provider: 'deepseek', modelId: 'deepseek-v4-flash', inPer1M: 0.14, outPer1M: 0.28, cacheHitPer1M: 0.0028 },
+  // OpenRouter → Cloudflare-hosted DeepSeek V4 Flash (TTFT winner in bench-openrouter)
+  {
+    key: 'or-cf', provider: 'deepseek', modelId: 'deepseek/deepseek-v4-flash',
+    inPer1M: 0.1, outPer1M: 0.2, cacheHitPer1M: 0.04,
+    baseUrl: 'https://openrouter.ai/api/v1/chat/completions', apiKeyEnv: 'OPENROUTER_API_KEY', orProvider: 'Cloudflare',
+  },
 ];
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -333,12 +342,15 @@ async function callGemini(modelId: string, p: BuiltPrompt): Promise<CallResult> 
   };
 }
 
-async function callDeepSeek(modelId: string, p: BuiltPrompt): Promise<CallResult> {
+async function callDeepSeek(arm: ModelArm, p: BuiltPrompt): Promise<CallResult> {
   // OpenAI-compatible API, streaming for TTFT. Prompt structure mirrors the
   // Gemini split-tail mode (ANT-126): stable system prefix, dynamic state as a
   // tail turn — DeepSeek implicit prefix caching rewards exactly this shape.
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
+  // Also serves OpenRouter arms (baseUrl/apiKeyEnv/orProvider overrides).
+  const keyEnv = arm.apiKeyEnv ?? 'DEEPSEEK_API_KEY';
+  const apiKey = process.env[keyEnv];
+  if (!apiKey) throw new Error(keyEnv + ' not set');
+  const modelId = arm.modelId;
   const messages = [
     { role: 'system', content: `${p.ruleset}\n\n${p.static}` },
     ...p.history,
@@ -346,24 +358,29 @@ async function callDeepSeek(modelId: string, p: BuiltPrompt): Promise<CallResult
     { role: 'assistant', content: 'Зрозумів.' },
     { role: 'user', content: p.userContent },
   ];
+  const body: Record<string, unknown> = {
+    model: modelId,
+    messages,
+    max_tokens: MAX_TOKENS,
+    temperature: 1.0,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  if (arm.orProvider) body.provider = { order: [arm.orProvider], allow_fallbacks: false };
   const start = Date.now();
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
+  const res = await fetch(arm.baseUrl ?? 'https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: modelId,
-      messages,
-      max_tokens: MAX_TOKENS,
-      temperature: 1.0,
-      stream: true,
-      stream_options: { include_usage: true },
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) throw new Error(`DeepSeek ${modelId}: ${res.status} ${(await res.text()).slice(0, 200)}`);
 
   let text = '';
   let ttftMs: number | null = null;
-  let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number } = {};
+  let usage: {
+    prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  } = {};
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -390,7 +407,7 @@ async function callDeepSeek(modelId: string, p: BuiltPrompt): Promise<CallResult
     text,
     inputTokens: usage.prompt_tokens ?? 0,
     outputTokens: usage.completion_tokens ?? 0,
-    cacheReadTokens: usage.prompt_cache_hit_tokens ?? 0,
+    cacheReadTokens: usage.prompt_cache_hit_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? 0,
     ttftMs,
     totalMs: Date.now() - start,
   };
@@ -783,7 +800,7 @@ async function main() {
           : arm.provider === 'anthropic'
             ? await callAnthropic(arm.modelId, prompt)
             : arm.provider === 'deepseek'
-              ? await callDeepSeek(arm.modelId, prompt)
+              ? await callDeepSeek(arm, prompt)
               : await callGemini(arm.modelId, prompt);
         const toolScore = toolsMode
           ? scoreToolCalls(probe, call.text, (call as CallResult & { toolCalls: ToolCall[] }).toolCalls)
