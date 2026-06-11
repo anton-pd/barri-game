@@ -128,6 +128,9 @@ const COPY = {
 в його інвентарі — м'яко нагадай, що цього предмету при ньому немає.
 Виняток: гравець ЗНАХОДИТЬ предмет у оточенні (обшукує кімнату, ящик, тіло тощо) —
 тоді можна логічно додати предмет через [ITEM:] і описати, як він його підбирає.`,
+    invPickup: `### Правило підбору — ОБОВ'ЯЗКОВЕ
+Якщо у твоєму наративі гравець ПІДНІМАЄ, ОТРИМУЄ чи ЗНАХОДИТЬ предмет — у кінці відповіді МУСИТЬ стояти [ITEM:idx:Назва:Опис:uses].
+Наратив без тегу = предмет НЕ додано до інвентаря і його НЕ існує.`,
     invUse: `### Коли гравець активно використовує предмет зі свого інвентарю
 Якщо uses > 0 і предмет логічно допомагає — обов'язково згадай його в описі:
 "Ти дістаєш медичну сумку..." → [USE_ITEM:0:medkit_id]`,
@@ -154,43 +157,29 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     newLocLine: '[NEW_LOCATION:id:Назва:Короткий опис] — якщо гравець потрапляє в місце, якого ще не існує в списку.',
     newLocHint: '  id — snake_case, унікальний (напр. kovalskyy_shop). Назва і опис — мовою сесії.\n  Після створення використовуй [LOCATION:id] для повторних переходів до цього місця.',
     hNpcVoice: '## ОЗВУЧКА NPC',
-    npcVoiceLine: `[NPC:Ім'я]текст репліки[/NPC] — лише пряма мова NPC.
-ПРАВИЛА:
-- Використовуй ТІЛЬКИ для справжніх NPC (зі списку NPC вище або імпровізованих персонажів, яких зустріли гравці).
-- НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена гравців див. у секції ГРАВЦІ нижче). Гравці говорять самі в своїх повідомленнях.
-- Всередині [NPC:...]...[/NPC] має бути ЛИШЕ пряма мова персонажа. Жести, погляди, дії, ремарки ("вона зітхає", "він дивиться у вікно") винось у narration-абзац ПЕРЕД тегом.
-- КОЖЕН відкривальний тег [NPC:Ім'я] обов'язково закривай тегом [/NPC] в тій самій репліці. Не став два відкривальні [NPC:...] підряд без закриття.
-- Одна репліка = один тег [NPC:Ім'я]...[/NPC]. Якщо NPC говорить двічі у відповіді — два окремі теги, між якими допустимий narration або репліка іншого NPC.
-- Якщо NPC мовчить (тільки дія чи вираз обличчя) — теги [NPC:] не став, опиши в narration.`,
+    npcVoiceLine: `[NPC:Ім'я]пряма мова[/NPC] — лише для справжніх NPC (зі списку вище або імпровізованих, яких гравці зустріли).
+- Всередині тегу — ТІЛЬКИ пряма мова персонажа. Жести, погляди, ремарки ("вона зітхає") — у narration-абзаці ПЕРЕД тегом.
+- НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена — у секції ГРАВЦІ). Гравці говорять самі.
+- Кожен [NPC:Ім'я] закривай [/NPC] у тій самій репліці. Одна репліка = один тег; NPC говорить двічі — два окремі теги.
+- NPC мовчить (лише дія чи вираз обличчя) — тег не став, опиши в narration.`,
     hNpcUpdate: '## ОНОВЛЕННЯ ДАНИХ ПРО ПЕРСОНАЖА',
-    npcUpdateTagLine: `[NPC_UPDATE:Ім'я:ставлення:нотатки] — оновити відомі дані про NPC.
-ПРАВИЛА:
-- Використовуй після важливої взаємодії, якщо дізнався щось нове про NPC.
-- Ім'я — точне ім'я персонажа (як у [NPC:]).
-- ставлення — одне з: friendly, neutral, hostile, unknown (або порожньо, якщо не змінилось).
-- нотатки — 1–2 речення: що нового стало відомо (характер, мотив, секрет, ставлення до гравців).
-- Нотатки накопичуються: кожна нова деталь додається до попередніх.
+    npcUpdateTagLine: `[NPC_UPDATE:Ім'я:ставлення:нотатки] — після важливої взаємодії, коли дізнався нове про NPC.
+Ім'я — точне (як у [NPC:]). ставлення: friendly|neutral|hostile|unknown (порожньо = не змінилось). нотатки — 1–2 речення нового; вони накопичуються.
 Приклад: [NPC_UPDATE:Ганна Василенко:neutral:Знає про зникнення Корбітта, але боїться говорити відкрито.]`,
     hCasePlan: '## ЖИВИЙ ПЛАН СПРАВИ',
-    casePlanTagLine: `План справи — це короткі дії в боковому досьє. Оновлюй його тільки коли в fiction справді змінився шлях розслідування.
-Тег: [CASE_PLAN:{"id":"snake_case_id","label":"коротка дія","status":"available|completed|crossed_out|hidden","note":"опційна коротка причина"}]
-Правила:
-- available — нова дія/напрям відкрилась після підказки, розмови, предмета або переходу.
-- completed — гравці виконали дію або закрили цей напрям.
-- crossed_out — гравці пішли іншим шляхом, можливість втрачена, або цей напрям виявився хибним.
-- hidden — заготовка ще не має показуватись гравцям.
-- id стабільний: якщо оновлюєш пункт, використовуй той самий id.
-- label має бути дією, не описом факту: "Перевірити архіви мерії", "Допитати доглядача".
-- Не дублюй пункти і не перераховуй всі можливі дії наперед. Пункти мають з'являтися поступово.`,
+    casePlanTagLine: `Боковий план справи. Онови лише коли в fiction справді змінився шлях розслідування.
+[CASE_PLAN:{"id":"snake_case_id","label":"коротка дія","status":"available|completed|crossed_out|hidden","note":"опційна причина"}]
+- available: відкрився новий напрям; completed: виконано/закрито; crossed_out: шлях втрачено або хибний; hidden: заготовка, гравцям ще не видно.
+- id стабільний між оновленнями. label — дія ("Перевірити архіви мерії"), не факт. Не дублюй і не перелічуй усе наперед — пункти з'являються поступово.`,
     hComplete: '## ЗАВЕРШЕННЯ СЕСІЇ',
-    completeBody: `Коли розслідування або місія СПРАВДІ завершені, а головна загроза усунута, стримана або доля героїв остаточно вирішена:
+    completeBody: `Тільки коли розслідування СПРАВДІ завершене: загроза усунута/стримана або доля героїв вирішена остаточно.
 - one-shot / фінал сценарію: [COMPLETE_SESSION]
-- кампанія, якщо завершився лише поточний вечір і має початися наступний: [FINISH_EVENING]
-
-Використовуй ці теги тільки в справжньому фіналі. Не став їх для тимчасової паузи, відступу, невдачі без розв'язки або якщо ще лишилися ключові відкриті вузли сцени.`,
+- кампанія, завершився лише поточний вечір: [FINISH_EVENING]
+Не став ці теги для паузи, відступу, невдачі без розв'язки чи коли лишилися ключові відкриті вузли.`,
     npcSectionTitle: '## NPC',
     npcNoneMet: '## NPC\n(жодного не зустрічали)',
     npcSecrets: 'Секрети',
+    npcSecretsRule: 'Секрети NPC розкривай ЛИШЕ через успішні кидки (Psychology, Persuade тощо), вагомі важелі або фінальні сцени — ніколи у звичайній розмові без приводу.',
     locSectionTitle: '## ЛОКАЦІЇ',
     locClues: 'Підказки',
     voice: 'voice',
@@ -219,7 +208,22 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     skillRule: 'При перевірці навички використовуй ТОЧНЕ значення зі списку вище.',
     hVariant: '## ВАРІАНТ ПОЧАТКУ',
     variantHint: '(Цю підказку враховуй тільки для інтро — далі вона більше не діє)',
-    rollReminder: '⚠️ НАГАДУВАННЯ: якщо ця відповідь містить прохання кинути кубик ("Кинь X") — ОБОВ\'ЯЗКОВО постав в кінці [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Відповідь без тегу = кубик не активується.',
+    // ANT-143: protocol checklist at the very end of the dynamic tail — the
+    // position closest to the response point. The "no tag = didn't happen"
+    // framing is the one DeepSeek demonstrably obeys (eval roll probes).
+    checkTitle: '⚠️ ПЕРЕД ВІДПРАВКОЮ ПЕРЕВІР:',
+    checkRoll: `- Гравець шукає приховане, оглядає на сліди, прислуховується чи робить іншу дію з ризиком провалу → НЕ видавай приховані деталі одразу: попроси кидок відповідної навички.
+- Просиш кидок ("Кинь X") → у кінці відповіді стоїть [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Без тегу кубик не активується.`,
+    checkItem: '- У наративі гравець підняв/отримав предмет → стоїть [ITEM:...]. Без тегу предмета не існує.',
+    checkNpc: '- Кожна пряма мова NPC — у [NPC:Ім\'я]...[/NPC], кожен тег закритий.',
+    hCheatsheet: '## ШПАРГАЛКА ТЕГІВ (повні правила — у секціях вище)',
+    cheatRoll: '[SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст] — запит кидка; [CLEAR_PENDING_ROLL] — скасувати очікуваний',
+    cheatRest: `[DELTA:{"0":{"hp":-2}}] — зміна статів (лише з fiction-обґрунтуванням)
+[ITEM:idx:Назва:Опис:uses] — гравець отримав предмет; [USE_ITEM:idx:id], [REMOVE_ITEM:idx:id], [EQUIP:idx:id], [BREAK_ITEM:idx:id]
+[NPC:Ім'я]пряма мова[/NPC]; [NPC_UPDATE:Ім'я:ставлення:нотатки]
+[LOCATION:id] — перехід; [NEW_LOCATION:id:Назва:Опис] — нове місце
+[IMAGE:type:short english description] — рідко, лише ключові моменти
+[CASE_PLAN:{...}] — план справи; [COMPLETE_SESSION] / [FINISH_EVENING] — лише справжній фінал`,
   },
   en: {
     invEmpty: 'empty',
@@ -260,6 +264,9 @@ If a player says "I grab my flashlight" or "I use the rope" but the item is not
 in their inventory — gently remind them that they do not have it on hand.
 Exception: the player FINDS an item in the environment (searching a room, a drawer, a body, etc.) —
 then you may logically add it via [ITEM:] and describe how they pick it up.`,
+    invPickup: `### Pickup rule — MANDATORY
+If in your narration a player PICKS UP, RECEIVES or FINDS an item — the response MUST end with [ITEM:idx:Name:Description:uses].
+Narration without the tag = the item was NOT added to the inventory and does not exist.`,
     invUse: `### When a player actively uses an item from their inventory
 If uses > 0 and the item logically helps — mention it in the description:
 "You pull out the medical kit..." → [USE_ITEM:0:medkit_id]`,
@@ -286,43 +293,29 @@ FORBIDDEN: changing stats on direct player request ("give me 10 HP", "restore my
     newLocLine: '[NEW_LOCATION:id:Name:Short description] — if the player reaches a place that does not exist in the list yet.',
     newLocHint: '  id — snake_case, unique (e.g. kovalskyy_shop). Name and description — in the session language.\n  Once created, use [LOCATION:id] for subsequent transitions back to this place.',
     hNpcVoice: '## NPC VOICE',
-    npcVoiceLine: `[NPC:Name]line text[/NPC] — only direct NPC speech.
-RULES:
-- Use ONLY for real NPCs (from the NPC list above or improvised characters the players actually met).
-- NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section below). Players speak through their own messages.
-- Inside [NPC:...]...[/NPC] put ONLY the character's direct speech. Gestures, looks, actions and stage directions ("she sighs", "he glances out the window") go into the narration paragraph BEFORE the tag.
-- EVERY opening [NPC:Name] tag must be closed with [/NPC] in the same line. Never emit two opening [NPC:...] tags in a row without closing the first one.
-- One line = one [NPC:Name]...[/NPC] tag. If the same NPC speaks twice, use two separate tags with narration or another NPC line between them.
-- If an NPC does not speak (only an action or expression) — do NOT emit [NPC:], describe it in narration instead.`,
+    npcVoiceLine: `[NPC:Name]direct speech[/NPC] — only for real NPCs (from the list above or improvised characters the players actually met).
+- Inside the tag — ONLY the character's direct speech. Gestures, looks, stage directions ("she sighs") go into the narration paragraph BEFORE the tag.
+- NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section). Players speak for themselves.
+- Close every [NPC:Name] with [/NPC] in the same line. One line = one tag; if an NPC speaks twice — two separate tags.
+- If an NPC does not speak (only an action or expression) — no tag, describe it in narration.`,
     hNpcUpdate: '## UPDATING CHARACTER DATA',
-    npcUpdateTagLine: `[NPC_UPDATE:Name:relation:notes] — update known information about an NPC.
-RULES:
-- Use after a significant interaction when new information about the NPC is revealed.
-- Name — exact character name (same as used in [NPC:]).
-- relation — one of: friendly, neutral, hostile, unknown (or empty if unchanged).
-- notes — 1–2 sentences: what was newly learned (personality, motive, secret, attitude toward players).
-- Notes are cumulative: each new detail is appended to previous ones.
+    npcUpdateTagLine: `[NPC_UPDATE:Name:relation:notes] — after a significant interaction when something new about an NPC is revealed.
+Name — exact (as in [NPC:]). relation: friendly|neutral|hostile|unknown (empty = unchanged). notes — 1–2 sentences of new information; they accumulate.
 Example: [NPC_UPDATE:Hannah Vasilenko:neutral:Knows about Corbitt's disappearance but is afraid to speak openly.]`,
     hCasePlan: '## LIVING CASE PLAN',
-    casePlanTagLine: `The case plan is a short action list in the side dossier. Update it only when the investigation path changes in fiction.
-Tag: [CASE_PLAN:{"id":"snake_case_id","label":"short action","status":"available|completed|crossed_out|hidden","note":"optional short reason"}]
-Rules:
-- available — a new lead/action opens after a clue, conversation, item, or location change.
-- completed — the players performed the action or closed that lead.
-- crossed_out — the players chose another route, lost the opportunity, or proved the lead false.
-- hidden — a prepared step should not be visible to players yet.
-- id is stable: when updating an item, reuse the same id.
-- label must be an action, not a fact: "Check city hall archives", "Question the caretaker".
-- Do not duplicate items and do not list every possible action in advance. Items should appear progressively.`,
+    casePlanTagLine: `Side case-plan dossier. Update only when the investigation path actually changes in fiction.
+[CASE_PLAN:{"id":"snake_case_id","label":"short action","status":"available|completed|crossed_out|hidden","note":"optional reason"}]
+- available: a new lead opened; completed: done/closed; crossed_out: route lost or proved false; hidden: prepared, not visible to players yet.
+- id is stable across updates. label is an action ("Check city hall archives"), not a fact. No duplicates, no listing everything in advance — items appear progressively.`,
     hComplete: '## SESSION COMPLETION',
-    completeBody: `When the investigation or mission is TRULY finished, the main threat is removed, contained, or the heroes' fate is resolved once and for all:
+    completeBody: `Only when the investigation is TRULY finished: the threat is removed/contained or the heroes' fate is resolved for good.
 - one-shot / scenario finale: [COMPLETE_SESSION]
-- campaign, when only the current evening has ended and the next should start: [FINISH_EVENING]
-
-Use these tags only for a real finale. Do not set them for a temporary pause, a retreat, an unresolved failure, or when key open threads remain.`,
+- campaign, only the current evening ended: [FINISH_EVENING]
+Do not set these tags for a pause, a retreat, an unresolved failure, or while key threads remain open.`,
     npcSectionTitle: '## NPCS',
     npcNoneMet: '## NPCS\n(none met yet)',
     npcSecrets: 'Secrets',
+    npcSecretsRule: 'Reveal NPC secrets ONLY through successful rolls (Psychology, Persuade etc.), strong leverage, or finale scenes — never in casual conversation without cause.',
     locSectionTitle: '## LOCATIONS',
     locClues: 'Clues',
     voice: 'voice',
@@ -350,7 +343,19 @@ Use these tags only for a real finale. Do not set them for a temporary pause, a 
     skillRule: 'For a skill check use the EXACT value from the list above.',
     hVariant: '## OPENING VARIANT',
     variantHint: '(Apply this hint only for the intro — afterwards it no longer applies.)',
-    rollReminder: '⚠️ REMINDER: if this response asks for a dice roll ("Roll X") — ALWAYS end with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Response without the tag = dice won\'t activate.',
+    checkTitle: '⚠️ BEFORE SENDING, VERIFY:',
+    checkRoll: `- A player searches for something hidden, examines for traces, listens, or attempts anything with a risk of failure → do NOT reveal hidden details right away: ask for the appropriate skill roll.
+- Asking for a roll ("Roll X") → the response ends with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Without the tag the dice won't activate.`,
+    checkItem: '- A player picked up/received an item in the narration → there is an [ITEM:...] tag. Without the tag the item does not exist.',
+    checkNpc: '- Every piece of direct NPC speech is inside [NPC:Name]...[/NPC], every tag closed.',
+    hCheatsheet: '## TAG CHEAT SHEET (full rules in the sections above)',
+    cheatRoll: '[SET_PENDING_ROLL:idx:Skill:value:threshold:context] — request a roll; [CLEAR_PENDING_ROLL] — cancel a pending one',
+    cheatRest: `[DELTA:{"0":{"hp":-2}}] — stat change (only with fiction grounding)
+[ITEM:idx:Name:Description:uses] — player received an item; [USE_ITEM:idx:id], [REMOVE_ITEM:idx:id], [EQUIP:idx:id], [BREAK_ITEM:idx:id]
+[NPC:Name]direct speech[/NPC]; [NPC_UPDATE:Name:relation:notes]
+[LOCATION:id] — move; [NEW_LOCATION:id:Name:Description] — new place
+[IMAGE:type:short english description] — rarely, key moments only
+[CASE_PLAN:{...}] — case plan; [COMPLETE_SESSION] / [FINISH_EVENING] — real finale only`,
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 
@@ -403,7 +408,7 @@ export function buildSystemPromptBlocks(
           (npc) =>
             `### ${npc.name} [${C.voice}: ${npc.voiceStyle}]\n${npc.description}\n${C.npcSecrets}: ${npc.secrets.join('; ')}`
         )
-        .join('\n\n')}`
+        .join('\n\n')}\n\n${C.npcSecretsRule}`
     : C.npcNoneMet;
 
   const locationSection = relevantLocations.length
@@ -438,6 +443,8 @@ ${C.hInventory}
 
 ${C.invTruth}
 
+${C.invPickup}
+
 ${C.invUse}
 
 ${C.invTags}
@@ -468,6 +475,9 @@ ${C.casePlanTagLine}
 
 ${C.hComplete}
 ${C.completeBody}
+
+${C.hCheatsheet}
+${supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e') ? `${C.cheatRoll}\n` : ''}${C.cheatRest}
 
 ${C.headingLang}
 
@@ -509,11 +519,15 @@ ${C.headingStyle}
 
   const prefixTail = players.length > 2 ? C.prefixManyPlayers : C.prefixFewPlayers;
 
-  // [SET_PENDING_ROLL] is the d100 pipeline — reminding non-percentile rulesets
-  // to use it contradicts their own dice rules block (ANT-120).
-  const rollReminderSection = supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e')
-    ? `\n\n${C.rollReminder}`
+  // ANT-143: protocol checklist at the very end of the dynamic block — in the
+  // split-tail prompt shape this lands right before the response point, where
+  // tag recall is strongest. The roll line is d100-only: reminding
+  // non-percentile rulesets about [SET_PENDING_ROLL] contradicts their own
+  // dice rules block (ANT-120).
+  const rollLine = supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e')
+    ? `\n${C.checkRoll}`
     : '';
+  const checklistSection = `\n\n${C.checkTitle}${rollLine}\n${C.checkItem}\n${C.checkNpc}`;
 
   const dynamicBlock = `
 ${C.hCurrent}
@@ -539,7 +553,7 @@ ${players
   .join('\n\n')}
 
 ${C.prefixRule}${prefixTail}
-${C.skillRule}${variantHintSection}${activitySection}${eventSection}${imageRequestSection}${rollReminderSection}
+${C.skillRule}${variantHintSection}${activitySection}${eventSection}${imageRequestSection}${checklistSection}
 `.trim();
 
   return { ruleset: rulesetBlock, static: staticBlock, dynamic: dynamicBlock };
