@@ -39,6 +39,8 @@ interface ModelArm {
   baseUrl?: string;
   apiKeyEnv?: string;
   orProvider?: string;
+  /** Sampling temperature; default 1.0 (the prod engine value). */
+  temperature?: number;
 }
 
 const ARMS: ModelArm[] = [
@@ -47,11 +49,15 @@ const ARMS: ModelArm[] = [
   { key: 'flash', provider: 'gemini', modelId: 'gemini-2.5-flash', inPer1M: 0.3, outPer1M: 2.5, cacheHitPer1M: 0.03 },
   { key: 'flash-lite', provider: 'gemini', modelId: 'gemini-2.5-flash-lite', inPer1M: 0.1, outPer1M: 0.4 },
   { key: 'ds-flash', provider: 'deepseek', modelId: 'deepseek-v4-flash', inPer1M: 0.14, outPer1M: 0.28, cacheHitPer1M: 0.0028 },
+  // ANT-146: temperature A/B arms for DeepSeek (prod engine default is 1.0)
+  { key: 'ds-t07', provider: 'deepseek', modelId: 'deepseek-v4-flash', inPer1M: 0.14, outPer1M: 0.28, cacheHitPer1M: 0.0028, temperature: 0.7 },
+  { key: 'ds-t085', provider: 'deepseek', modelId: 'deepseek-v4-flash', inPer1M: 0.14, outPer1M: 0.28, cacheHitPer1M: 0.0028, temperature: 0.85 },
   // OpenRouter → Cloudflare-hosted DeepSeek V4 Flash (TTFT winner in bench-openrouter)
   {
     key: 'or-cf', provider: 'deepseek', modelId: 'deepseek/deepseek-v4-flash',
     inPer1M: 0.1, outPer1M: 0.2, cacheHitPer1M: 0.04,
     baseUrl: 'https://openrouter.ai/api/v1/chat/completions', apiKeyEnv: 'OPENROUTER_API_KEY', orProvider: 'Cloudflare',
+    temperature: 0.7, // matches the prod engine (ANT-146)
   },
 ];
 
@@ -362,7 +368,7 @@ async function callDeepSeek(arm: ModelArm, p: BuiltPrompt): Promise<CallResult> 
     model: modelId,
     messages,
     max_tokens: MAX_TOKENS,
-    temperature: 1.0,
+    temperature: arm.temperature ?? 1.0,
     stream: true,
     stream_options: { include_usage: true },
   };

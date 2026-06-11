@@ -81,6 +81,7 @@ Ask ONLY when the player clearly attempts something with a risk of failure:
 - First aid → First Aid
 - Combat → Fighting/Firearms (ALWAYS)
 Do NOT ask for: normal conversation, walking, trivial actions.
+Hidden details, traces and clues are revealed ONLY through a successful roll — never give them away for free in narration.
 
 ### If a skill is NOT in the player's list
 Check the player's skill list BEFORE every roll request.
@@ -103,6 +104,11 @@ EVERY roll (skill, SAN, Luck, combat) requires a tag. Plain "Roll X" without a t
    - context: one sentence describing what this roll decides
 3. Stop. Do not describe consequences until you get a number from the player.
 4. After the number — branch: ≤ threshold = success, > threshold = failure.
+
+### Example of a correct roll response
+The flashlight beam crawls under the stairs. Something glints dully in the dust — too even a gleam for stone.
+Roll Spot Hidden (1d100, need 45 or less).
+[SET_PENDING_ROLL:0:Spot Hidden:45:45:Will the investigator notice the object under the stairs]
 
 ### Results
 - ≤ X/5 → Extreme success: maximum detail, reveals an NPC secret
@@ -140,6 +146,7 @@ A pushed roll is IMPOSSIBLE in combat.`;
 - Перша допомога → First Aid
 - Бій → Fighting/Firearms (ЗАВЖДИ)
 НЕ питай: звичайна розмова, ходьба, тривіальні дії.
+Приховані деталі, сліди й підказки видавай ЛИШЕ через успішний кидок — не розкривай їх у наративі безкоштовно.
 
 ### Якщо навичка відсутня в списку гравця
 Перед кожним запитом кидка перевіряй список навичок гравця.
@@ -162,6 +169,11 @@ A pushed roll is IMPOSSIBLE in combat.`;
    - контекст: одне речення що вирішується цим кидком
 3. Зупинись. Не описуй наслідки поки не отримаєш число від гравця.
 4. Після числа — розгалужуй: ≤ поріг = успіх, > поріг = провал.
+
+### Приклад правильної відповіді з кидком
+Промінь ліхтарика повзе попід сходами. Серед пилу щось тьмяно зблискує — надто рівний відблиск для каменю.
+Кинь Spot Hidden (1к100, треба 45 або менше).
+[SET_PENDING_ROLL:0:Spot Hidden:45:45:Чи помітить слідчий предмет під сходами]
 
 ### Результати
 - ≤ X/5 → Extreme success: максимум деталей, розкриває секрет NPC
