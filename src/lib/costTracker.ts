@@ -29,9 +29,14 @@ const FALLBACK_PRICING: PricingMap = {
     'gemini-2.5-flash-image': { perImage: 0.04, inputPer1M: 0.30 }, // image + prompt input tokens
   },
   deepseek: {
-    // Cache-miss rates; the /api/ai route already subtracts cache-hit tokens
-    // before tracking, so inputPer1M applies to miss tokens only (ANT-142).
+    // Cache-miss rates; the /api/ai route folds cached tokens into equivalent
+    // miss tokens before tracking, so inputPer1M applies as-is (ANT-142).
     'deepseek-v4-flash': { inputPer1M: 0.14, outputPer1M: 0.28 },
+  },
+  openrouter: {
+    // DeepSeek V4 Flash served by Cloudflare (pro tier, ANT-142). Rates
+    // derived from OpenRouter-reported per-request cost in the bench run.
+    'deepseek/deepseek-v4-flash': { inputPer1M: 0.10, outputPer1M: 0.20 },
   },
   openai: {
     'tts-1': { perChar: 0.000015 },

@@ -1,7 +1,6 @@
 // CHANGED: Three-part prompt caching (ruleset/static/dynamic), SSE streaming,
 // cost tracking, inventory mutation tags, keeper activity, random event injection.
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDebug, updateSession, getUserById, getUserDailyCost, getAllAppSettings } from '@/lib/queries';
 import { evaluateAccessGate } from '@/lib/accessGate';
@@ -21,22 +20,52 @@ import { supportsPendingRollTag } from '@/lib/rulesets';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import type { WorldState } from '@/types';
 
-export type AiProvider = 'claude-sonnet' | 'gemini-flash' | 'deepseek-flash';
+// ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
+//   'deepseek-base' — direct api.deepseek.com. Free/trial tier: cheapest, but cold
+//                     TTFT ~6s (warm cache ~2-3s).
+//   'deepseek-pro'  — via OpenRouter pinned to Cloudflare. Future paid tier:
+//                     TTFT ~0.6s, ~99% prompt-cache hits, identical prose quality.
+// Sonnet and Gemini are no longer engine options (legacy stored values fall back
+// to 'deepseek-base'); Gemini still powers images, TTS and the summarize call.
+export type AiProvider = 'deepseek-base' | 'deepseek-pro';
 
-const GEMINI_MODELS: Record<string, string> = {
-  'gemini-flash': 'gemini-2.5-flash',
-};
-
-const DEEPSEEK_MODEL = 'deepseek-v4-flash';
-
-function extractAnthropicTextContent(
-  content: Array<{ type: string; text?: string }>
-): string {
-  return content
-    .filter((block) => block.type === 'text' && typeof block.text === 'string')
-    .map((block) => block.text ?? '')
-    .join('');
+export function resolveAiProvider(value: unknown): AiProvider {
+  return value === 'deepseek-pro' ? 'deepseek-pro' : 'deepseek-base';
 }
+
+interface EngineArm {
+  url: string;
+  apiKeyEnv: string;
+  model: string;
+  /** OpenRouter provider pin — preferred host, with fallbacks allowed. */
+  orProvider?: string;
+  trackProvider: 'deepseek' | 'openrouter';
+  /**
+   * Cache-read price as a fraction of the input (miss) rate. Cost tracking
+   * converts cached tokens into equivalent miss tokens with this factor so
+   * admin stats stay honest: direct bills hits at $0.014 vs $0.14 per 1M
+   * (×0.1); Cloudflare via OpenRouter at ~$0.038 vs $0.10 per 1M (×0.4).
+   */
+  cacheReadFactor: number;
+}
+
+const ENGINE_ARMS: Record<AiProvider, EngineArm> = {
+  'deepseek-base': {
+    url: 'https://api.deepseek.com/chat/completions',
+    apiKeyEnv: 'DEEPSEEK_API_KEY',
+    model: 'deepseek-v4-flash',
+    trackProvider: 'deepseek',
+    cacheReadFactor: 0.1,
+  },
+  'deepseek-pro': {
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    apiKeyEnv: 'OPENROUTER_API_KEY',
+    model: 'deepseek/deepseek-v4-flash',
+    orProvider: 'Cloudflare',
+    trackProvider: 'openrouter',
+    cacheReadFactor: 0.4,
+  },
+};
 
 function detectVoiceStyle(): string {
   // Keeper narrator always uses the same voice. NPC voices are handled
@@ -66,13 +95,12 @@ function isExplicitImageRequest(message: string): boolean {
   ].some((pattern) => pattern.test(message));
 }
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 // ── Summarize (always uses fast/cheap model) ──────────────────────────────────
+// Stays on Gemini Flash: it's an auxiliary background call (every 20 messages),
+// not the game engine — Gemini remains in the stack for images/TTS anyway.
 
 async function summarizeAndUpdateWorldState(
   sessionId: string,
-  aiProvider: AiProvider,
   lang: 'uk' | 'en'
 ): Promise<void> {
   try {
@@ -80,18 +108,7 @@ async function summarizeAndUpdateWorldState(
     const allMessages = await getAllMessages(sessionId);
     const summarizePrompt = buildSummarizePrompt(allMessages, lang);
 
-    let text = '';
-
-    if (aiProvider === 'claude-sonnet') {
-      const response = await anthropic.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 500,
-        messages: [{ role: 'user', content: summarizePrompt }],
-      });
-      text = response.content[0].type === 'text' ? response.content[0].text : '';
-    } else {
-      text = await callGeminiText('gemini-2.5-flash', summarizePrompt);
-    }
+    const text = await callGeminiText('gemini-2.5-flash', summarizePrompt);
 
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -112,10 +129,10 @@ async function summarizeAndUpdateWorldState(
 }
 
 // ── DeepSeek (OpenAI-compatible, streaming) ───────────────────────────────────
-// Experimental third provider (ANT-142). Prompt shape mirrors the Gemini
-// split-tail mode (ANT-126): stable system prefix (ruleset+static), dynamic
-// state as a tail turn right before the player message — DeepSeek implicit
-// prefix caching bills the stable prefix at the cache-hit rate (~2% of input).
+// The game engine (ANT-142). Prompt shape mirrors the Gemini split-tail mode
+// (ANT-126): stable system prefix (ruleset+static), dynamic state as a tail
+// turn right before the player message — implicit prefix caching (both direct
+// and OpenRouter/Cloudflare) bills the stable prefix at the cache-hit rate.
 
 interface DeepSeekMessage {
   role: 'system' | 'user' | 'assistant';
@@ -123,6 +140,7 @@ interface DeepSeekMessage {
 }
 
 async function callDeepSeekChatStream(
+  arm: EngineArm,
   messages: DeepSeekMessage[],
   maxTokens: number,
   onDelta: (text: string) => void
@@ -133,20 +151,28 @@ async function callDeepSeekChatStream(
   cacheHitTokens: number;
   finishReason: string | null;
 }> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
+  const apiKey = process.env[arm.apiKeyEnv];
+  if (!apiKey) throw new Error(`${arm.apiKeyEnv} not set`);
 
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
+  const body: Record<string, unknown> = {
+    model: arm.model,
+    messages,
+    max_tokens: maxTokens,
+    temperature: 1.0,
+    stream: true,
+    stream_options: { include_usage: true },
+  };
+  if (arm.orProvider) {
+    // allow_fallbacks: a turn on another OpenRouter host (cache miss, slower
+    // TTFT) beats a failed turn when Cloudflare has an outage.
+    body.provider = { order: [arm.orProvider], allow_fallbacks: true };
+    body.usage = { include: true };
+  }
+
+  const res = await fetch(arm.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
-      messages,
-      max_tokens: maxTokens,
-      temperature: 1.0,
-      stream: true,
-      stream_options: { include_usage: true },
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok || !res.body) {
     const err = await res.text();
@@ -156,7 +182,12 @@ async function callDeepSeekChatStream(
 
   let text = '';
   let finishReason: string | null = null;
-  let usage: { prompt_tokens?: number; completion_tokens?: number; prompt_cache_hit_tokens?: number } = {};
+  let usage: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    prompt_cache_hit_tokens?: number;
+    prompt_tokens_details?: { cached_tokens?: number };
+  } = {};
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
@@ -184,100 +215,15 @@ async function callDeepSeekChatStream(
     text,
     inputTokens: usage.prompt_tokens ?? 0,
     outputTokens: usage.completion_tokens ?? 0,
-    cacheHitTokens: usage.prompt_cache_hit_tokens ?? 0,
+    // Direct API reports prompt_cache_hit_tokens; OpenRouter uses the OpenAI
+    // shape prompt_tokens_details.cached_tokens.
+    cacheHitTokens: usage.prompt_cache_hit_tokens ?? usage.prompt_tokens_details?.cached_tokens ?? 0,
     // OpenAI-style 'length' → our truncation marker so the ANT-129 recovery applies.
     finishReason: finishReason === 'length' ? 'max_tokens' : finishReason,
   };
 }
 
-// ── Gemini REST helpers ───────────────────────────────────────────────────────
-
-interface GeminiMessage {
-  role: 'user' | 'model';
-  parts: { text: string }[];
-}
-
-async function callGeminiChat(
-  modelId: string,
-  systemPrompt: string,
-  history: GeminiMessage[],
-  diag?: { sessionId: string; isIntro: boolean }
-): Promise<{ text: string; inputTokens: number; outputTokens: number; finishReason: string | null }> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-
-  const body: Record<string, unknown> = {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents: history,
-    generationConfig: {
-      // Intro needs more room for a 4-5 paragraph scene-setter (ANT-60).
-      // ANT-129: main turns 900 → 1200, see the Anthropic branch.
-      maxOutputTokens: diag?.isIntro ? 1400 : 1200,
-      temperature: 1.0,
-      // Gemini 2.5 thinking tokens consume maxOutputTokens budget but aren't
-      // returned as visible text → narrative replies get truncated. Disable
-      // thinking for game chat (we want creative output, not reasoning).
-      thinkingConfig: { thinkingBudget: 0 },
-    },
-  };
-
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  );
-
-  if (!res.ok) {
-    const err = await res.text();
-    console.error(`Gemini ${modelId} error:`, res.status, err);
-    throw new Error(`Gemini API error: ${res.status}`);
-  }
-
-  const data = await res.json() as {
-    candidates?: {
-      content?: { parts?: { text: string }[] };
-      finishReason?: string;
-      safetyRatings?: { category: string; probability: string; blocked?: boolean }[];
-    }[];
-    promptFeedback?: { blockReason?: string; safetyRatings?: unknown };
-    usageMetadata?: {
-      promptTokenCount?: number;
-      candidatesTokenCount?: number;
-      thoughtsTokenCount?: number;
-      totalTokenCount?: number;
-    };
-  };
-
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  const finishReason = data.candidates?.[0]?.finishReason;
-  const safetyRatings = data.candidates?.[0]?.safetyRatings;
-  const blockReason = data.promptFeedback?.blockReason;
-  const outTokens = data.usageMetadata?.candidatesTokenCount ?? 0;
-  const thoughtTokens = data.usageMetadata?.thoughtsTokenCount ?? 0;
-
-  // [ANT-58 diag] always log finishReason + safety for intro and short replies
-  const textLen = text?.length ?? 0;
-  if (diag?.isIntro || finishReason !== 'STOP' || textLen < 200) {
-    console.log(
-      `[ANT-58] Gemini ${modelId} session=${diag?.sessionId ?? '?'} intro=${diag?.isIntro ?? false} ` +
-      `finishReason=${finishReason ?? 'null'} blockReason=${blockReason ?? 'null'} ` +
-      `outTokens=${outTokens} thoughtTokens=${thoughtTokens} textLen=${textLen} ` +
-      `head=${JSON.stringify(text?.slice(0, 120) ?? '')} tail=${JSON.stringify(text?.slice(-120) ?? '')} ` +
-      `safety=${JSON.stringify(safetyRatings ?? [])}`
-    );
-  }
-
-  if (!text) {
-    const reason = finishReason ?? blockReason ?? 'unknown';
-    console.error(`Gemini ${modelId} empty response. finishReason=${reason}`, JSON.stringify(data).slice(0, 500));
-    throw new Error(`Gemini returned no text (${reason})`);
-  }
-  return {
-    text,
-    inputTokens:  data.usageMetadata?.promptTokenCount     ?? 0,
-    outputTokens: outTokens,
-    finishReason: finishReason ?? null,
-  };
-}
+// ── Gemini REST helper (summarize only — the engine is DeepSeek, ANT-142) ─────
 
 async function callGeminiText(modelId: string, prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -404,20 +350,19 @@ export async function POST(request: Request) {
     message,
     playerIdx,
     allActions,
-    aiProvider = 'claude-sonnet',
     autoVoiceEnabled = false,
     keeperStyle: keeperStyleFromBody,
-    geminiCacheEnabled = false,
   } = body as {
     sessionId: string;
     message: string;
     playerIdx: number;
     allActions?: { playerIdx: number; text: string }[];
-    aiProvider?: AiProvider;
     autoVoiceEnabled?: boolean;
     keeperStyle?: 'passive' | 'balanced' | 'active';
-    geminiCacheEnabled?: boolean;
   };
+  // Legacy clients may still send 'claude-sonnet' / 'gemini-flash' / 'deepseek-flash'
+  // — everything that isn't explicitly the pro tier runs on the base tier.
+  const aiProvider = resolveAiProvider((body as { aiProvider?: unknown }).aiProvider);
 
   if (!sessionId || !message) {
     return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
@@ -500,53 +445,8 @@ export async function POST(request: Request) {
     language: sessionLang,
   });
 
-  // Claude conversation history
-  const conversationHistory = recentMessages.map((m) => {
-    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-      const name = session.players[m.player_idx].name;
-      return { role: 'user' as const, content: `[${name}]: ${m.content}` };
-    }
-    return { role: m.role as 'user' | 'assistant', content: m.content };
-  });
-  conversationHistory.push({ role: 'user', content: userContent });
-
-  const systemBlocks = [
-    { type: 'text' as const, text: blocks.ruleset, cache_control: { type: 'ephemeral' as const } },
-    { type: 'text' as const, text: blocks.static,  cache_control: { type: 'ephemeral' as const } },
-    { type: 'text' as const, text: blocks.dynamic },
-  ];
-
-  // Gemini history
-  // geminiCacheEnabled: separate dynamic block from systemInstruction so the stable
-  // ruleset+static prefix qualifies for Gemini implicit caching (75% token discount).
-  // Without this, dynamic changes every request → systemInstruction is unique → no cache hit.
-  // ANT-126: the [SESSION STATE] turn goes at the END of contents, right before
-  // the latest user message — implicit caching matches a stable token prefix,
-  // so with the (always-changing) dynamic block as contents[0] the cacheable
-  // prefix ended at systemInstruction. At the tail, the prefix becomes
-  // systemInstruction + append-only history, and the current state/instructions
-  // sit adjacent to the model's response point.
-  const modelId = GEMINI_MODELS[aiProvider] ?? '';
-  const systemPrompt = geminiCacheEnabled
-    ? `${blocks.ruleset}\n\n${blocks.static}`
-    : `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`;
-  const geminiHistory: GeminiMessage[] = recentMessages.map((m) => {
-    if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-      const name = session.players[m.player_idx].name;
-      return { role: 'user' as const, parts: [{ text: `[${name}]: ${m.content}` }] };
-    }
-    return { role: m.role === 'assistant' ? 'model' as const : 'user' as const, parts: [{ text: m.content }] };
-  });
-  if (geminiCacheEnabled) {
-    geminiHistory.push({
-      role: 'user',
-      parts: [{ text: `${sessionLang === 'en' ? '[SESSION STATE]' : '[СТАН СЕСІЇ]'}\n${blocks.dynamic}` }],
-    });
-    geminiHistory.push({ role: 'model', parts: [{ text: sessionLang === 'en' ? 'Understood.' : 'Зрозумів.' }] });
-  }
-  geminiHistory.push({ role: 'user', parts: [{ text: userContent }] });
-
-  // DeepSeek history (ANT-142): same split-tail shape, OpenAI roles.
+  // DeepSeek history (ANT-142): split-tail shape (ANT-126) — stable system
+  // prefix, dynamic state as a tail turn right before the player message.
   const deepseekMessages: DeepSeekMessage[] = [
     { role: 'system', content: `${blocks.ruleset}\n\n${blocks.static}` },
     ...recentMessages.map((m): DeepSeekMessage => {
@@ -573,101 +473,34 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
       try {
-        let assistantText = '';
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let finishReason: string | null = null;
-        let debugModel = '';
-        let debugProvider: 'anthropic' | 'gemini' | 'deepseek' = 'gemini';
+        const arm = ENGINE_ARMS[aiProvider];
+        const dsResult = await callDeepSeekChatStream(
+          arm,
+          deepseekMessages,
+          // ANT-129: 900 was tight for narration-heavy turns and produced
+          // mid-word cuts; 1200 gives headroom. Intro gets more (ANT-60).
+          isIntro ? 1400 : 1200,
+          (delta) => send('chunk', { text: delta })
+        );
+        const assistantText = dsResult.text;
+        const inputTokens   = dsResult.inputTokens;
+        const outputTokens  = dsResult.outputTokens;
+        const finishReason  = dsResult.finishReason;
 
-        if (aiProvider === 'claude-sonnet') {
-          // CHANGED: Stream response so client sees text as it arrives
-          const claudeStream = anthropic.messages.stream(
-            {
-              model: 'claude-sonnet-4-6',
-              // ANT-129: 900 was tight for narration-heavy turns (location
-              // transitions) and produced mid-word cuts; 1200 gives headroom.
-              max_tokens: isIntro ? 1400 : 1200,
-              system: systemBlocks,
-              messages: conversationHistory,
-            },
-            { headers: { 'anthropic-beta': 'prompt-caching-2024-07-31' } }
-          );
-
-          for await (const ev of claudeStream) {
-            if (ev.type === 'content_block_delta' && ev.delta.type === 'text_delta') {
-              assistantText += ev.delta.text;
-              send('chunk', { text: ev.delta.text });
-            }
-          }
-
-          const finalMsg = await claudeStream.finalMessage();
-          const finalText = extractAnthropicTextContent(
-            finalMsg.content as Array<{ type: string; text?: string }>
-          );
-          if (finalText.length > assistantText.length) {
-            assistantText = finalText;
-          }
-          inputTokens = finalMsg.usage?.input_tokens ?? 0;
-          outputTokens = finalMsg.usage?.output_tokens ?? 0;
-          finishReason = finalMsg.stop_reason ?? null;
-          debugModel = 'claude-sonnet-4-6';
-          debugProvider = 'anthropic';
-
-          trackAPICall({
-            sessionId,
-            userId: payload.sub,
-            provider: 'anthropic',
-            type: 'llm',
-            model: 'claude-sonnet-4-6',
-            inputTokens,
-            outputTokens,
-          }).catch(console.error);
-
-        } else if (aiProvider === 'deepseek-flash') {
-          const dsResult = await callDeepSeekChatStream(
-            deepseekMessages,
-            isIntro ? 1400 : 1200,
-            (delta) => send('chunk', { text: delta })
-          );
-          assistantText = dsResult.text;
-          inputTokens   = dsResult.inputTokens;
-          outputTokens  = dsResult.outputTokens;
-          finishReason  = dsResult.finishReason;
-          debugModel = DEEPSEEK_MODEL;
-          debugProvider = 'deepseek';
-
-          trackAPICall({
-            sessionId,
-            userId: payload.sub,
-            provider: 'deepseek',
-            type: 'llm',
-            model: DEEPSEEK_MODEL,
-            // Cache-hit tokens are billed at ~2% of the input rate — count only
-            // miss tokens against inputPer1M so admin cost stats stay honest.
-            inputTokens: Math.max(0, inputTokens - dsResult.cacheHitTokens),
-            outputTokens,
-          }).catch(console.error);
-
-        } else {
-          const geminiResult = await callGeminiChat(modelId, systemPrompt, geminiHistory, { sessionId, isIntro });
-          assistantText = geminiResult.text;
-          inputTokens   = geminiResult.inputTokens;
-          outputTokens  = geminiResult.outputTokens;
-          finishReason  = geminiResult.finishReason;
-          debugModel = modelId;
-          debugProvider = 'gemini';
-
-          trackAPICall({
-            sessionId,
-            userId: payload.sub,
-            provider: 'gemini',
-            type: 'llm',
-            model: modelId,
-            inputTokens,
-            outputTokens,
-          }).catch(console.error);
-        }
+        trackAPICall({
+          sessionId,
+          userId: payload.sub,
+          provider: arm.trackProvider,
+          type: 'llm',
+          model: arm.model,
+          // Cached tokens are billed at a discounted rate — fold them into
+          // equivalent miss tokens (see EngineArm.cacheReadFactor).
+          inputTokens: Math.round(
+            Math.max(0, inputTokens - dsResult.cacheHitTokens) +
+            dsResult.cacheHitTokens * arm.cacheReadFactor
+          ),
+          outputTokens,
+        }).catch(console.error);
 
         // ── Parse tags ──────────────────────────────────────────────────────
 
@@ -1015,7 +848,7 @@ export async function POST(request: Request) {
 
         const msgCount = await countMessages(sessionId);
         if (msgCount % 20 === 0) {
-          summarizeAndUpdateWorldState(sessionId, aiProvider, sessionLang);
+          summarizeAndUpdateWorldState(sessionId, sessionLang);
         }
 
         const updatedSession = await getSession(sessionId);
@@ -1063,19 +896,11 @@ export async function POST(request: Request) {
             ruleset: blocks.ruleset,
             static:  blocks.static,
             dynamic: blocks.dynamic,
-            history:
-              debugProvider === 'anthropic'
-                ? conversationHistory
-                : debugProvider === 'deepseek'
-                  ? deepseekMessages
-                  : geminiHistory,
-            ...(debugProvider === 'gemini' && {
-              geminiCacheMode: geminiCacheEnabled ? 'split-tail' : 'combined',
-            }),
+            history: deepseekMessages,
           },
           rawOutput: assistantText,
-          provider: debugProvider,
-          model: debugModel,
+          provider: arm.trackProvider,
+          model: arm.model,
           inputTokens,
           outputTokens,
           finishReason: finishReason ?? undefined,

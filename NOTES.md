@@ -2736,3 +2736,25 @@ OpenRouter з піном на Cloudflare знімає головну ваду De
 
 ### Files
 - `scripts/eval/bench-openrouter.ts` (новий, --runs/--arms), рука `or-cf` у run-eval.ts (baseUrl/apiKeyEnv/orProvider у ModelArm).
+
+## [2026-06-11 · Claude] — ANT-142: рушій → DeepSeek у двох тірах (base direct / pro OpenRouter), Gemini+Sonnet прибрані з рушія
+
+### Рішення Anton
+Базова версія (безкоштовний/пробний доступ) — DeepSeek напряму. Розширена (майбутня платна) — DeepSeek через OpenRouter з піном Cloudflare. Gemini і Sonnet як рушій прибираємо; Gemini лишається за картинками, TTS і фоновим summarize.
+
+### Що зроблено
+- `route.ts`: `AiProvider = 'deepseek-base' | 'deepseek-pro'` + `resolveAiProvider()` — будь-яке легасі-значення ('gemini-flash'/'claude-sonnet'/'deepseek-flash') падає в base. Видалені гілки Sonnet/Gemini у SSE-стрімі, `callGeminiChat`, anthropic-клієнт, побудова claude/gemini-історій і параметр `geminiCacheEnabled` (split-tail тепер єдиний і захардкоджений у deepseek-промпті). `callGeminiText` лишився для summarize.
+- `ENGINE_ARMS`: base = api.deepseek.com (`DEEPSEEK_API_KEY`), pro = openrouter.ai з `provider: { order: ['Cloudflare'], allow_fallbacks: true }` (`OPENROUTER_API_KEY`). Fallback увімкнено свідомо: хід на чужому хості (без кешу, повільніше) кращий за зірваний хід при аутеджі Cloudflare.
+- Кеш-токени читаються з обох форматів usage (`prompt_cache_hit_tokens` / `prompt_tokens_details.cached_tokens`).
+- **Чесний кост-трекінг**: cached-токени конвертуються в еквівалент miss-токенів через `cacheReadFactor` (base ×0.1 — $0.014 vs $0.14; pro ×0.4 — ~$0.038 vs $0.10, виведено з usage.cost бенчмарку). Раніше cached повністю віднімались — для pro це занижувало б вартість теплого ходу в ~6×.
+- Ціни: `model_pricing` + fallback — `openrouter / deepseek/deepseek-v4-flash` 0.10/0.20 за 1M.
+- Admin Keeper Settings: дві опції тірів замість трьох моделей; секція Gemini Implicit Cache видалена. Сід `ai_provider` → 'deepseek-base'; у barri_dev БД значення оновлено вручну.
+- docker-compose: `OPENROUTER_API_KEY` в обидва barri-сервіси (значення тільки в /opt/apps/.env).
+- Haiku-виклик у `campaigns.ts` (закриття вечора кампанії) НЕ чіпав — це не рушій і окреме рішення.
+
+### Ключові рішення
+- Тір поки що — глобальний admin-перемикач (`app_settings.ai_provider`), НЕ per-user поле: системи платних акаунтів ще нема, прив'язка тіра до користувача буде окремою таскою разом з білінгом.
+- Summarize лишився на Gemini Flash: фоновий виклик раз на 20 повідомлень, Gemini у стеку все одно живе (image/TTS).
+
+### Перевірка
+- tsc чистий, 71/71 vitest, staging перебудований (`env -u ANTHROPIC_API_KEY`), смоук обох тірів на staging.barrigame.es — див. коміт/Linear.

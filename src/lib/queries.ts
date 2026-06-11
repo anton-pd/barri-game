@@ -278,6 +278,8 @@ export async function initializeSchema() {
       ('gemini',    'gemini-2.5-flash-image',      'inputPer1M',  0.30),
       ('deepseek',  'deepseek-v4-flash',           'inputPer1M',  0.14),
       ('deepseek',  'deepseek-v4-flash',           'outputPer1M', 0.28),
+      ('openrouter','deepseek/deepseek-v4-flash',  'inputPer1M',  0.10),
+      ('openrouter','deepseek/deepseek-v4-flash',  'outputPer1M', 0.20),
       ('openai',    'tts-1',                       'perChar',     0.000015),
       ('openai',    'whisper-1',                   'perMinute',   0.006),
       ('openai',    'dall-e-2',                    'perImage',    0.02)
@@ -335,9 +337,8 @@ export async function initializeSchema() {
 
   await sql`
     INSERT INTO app_settings (key, value) VALUES
-      ('ai_provider',             'gemini-flash'),
+      ('ai_provider',             'deepseek-base'),
       ('tts_provider',            'gemini'),
-      ('gemini_cache_enabled',    'false'),
       ('daily_limit_enabled',     'true'),
       ('daily_user_cost_limit_usd','0.50')
     ON CONFLICT (key) DO NOTHING

@@ -5,7 +5,7 @@ import { verifyJwt } from '@/lib/auth';
 import { getUserById, getAllAppSettings } from '@/lib/queries';
 import { buildAmbientByLocation, readScenarioFile } from '@/lib/scenarioFiles';
 import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
-import type { AiProvider } from '@/app/api/ai/route';
+import { resolveAiProvider } from '@/app/api/ai/route';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -88,9 +88,10 @@ export default async function SessionPage({ params }: PageProps) {
   );
 
   const settings = await getAllAppSettings();
-  const defaultAiProvider       = (settings.ai_provider  ?? 'gemini-flash') as AiProvider;
+  // Legacy stored values ('gemini-flash', 'claude-sonnet', 'deepseek-flash')
+  // resolve to the base tier (ANT-142).
+  const defaultAiProvider       = resolveAiProvider(settings.ai_provider);
   const defaultTtsProvider      = (settings.tts_provider ?? 'gemini') as 'openai' | 'gemini';
-  const defaultGeminiCacheEnabled = settings.gemini_cache_enabled === 'true';
 
   return (
     <GameChat
@@ -103,7 +104,6 @@ export default async function SessionPage({ params }: PageProps) {
       rulesetId={rulesetId}
       defaultAiProvider={defaultAiProvider}
       defaultTtsProvider={defaultTtsProvider}
-      defaultGeminiCacheEnabled={defaultGeminiCacheEnabled}
       isAdmin={isAdmin}
     />
   );
