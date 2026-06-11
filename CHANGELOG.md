@@ -13,6 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ### Removed
 - "Gemini Implicit Cache" admin toggle — the split-prompt shape it controlled is now always on and engine-agnostic.
+- Claude Haiku in campaign-evening summaries — replaced with DeepSeek (cheaper, now cost-tracked).
 
 ## [0.4.39] — 2026-06-11
 

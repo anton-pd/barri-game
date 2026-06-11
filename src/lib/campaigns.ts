@@ -1,14 +1,12 @@
 // CHANGED: New file — campaign management layer for multi-session play
 import sql from './db';
 import type { Campaign, Player } from '@/types';
-import Anthropic from '@anthropic-ai/sdk';
+import { callDeepSeekText } from './deepseek';
 import {
   createCampaignRecord,
   getRecentSessionSummaries,
   saveSessionSummary,
 } from './queries';
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Get campaign context for injection into prompts
 export async function getCampaignContext(
@@ -66,12 +64,7 @@ export async function closeSession(
   // evening still closes and the next one is created with a fallback summary.
   let summaryData: { summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> };
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
-      messages: [{ role: 'user', content: summarizePrompt }],
-    });
-    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const text = await callDeepSeekText(summarizePrompt, 500, { sessionId });
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : null;
     // `summary` is NOT NULL in the DB — never trust the LLM to provide it.

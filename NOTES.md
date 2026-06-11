@@ -2758,3 +2758,7 @@ OpenRouter з піном на Cloudflare знімає головну ваду De
 
 ### Перевірка
 - tsc чистий, 71/71 vitest, staging перебудований (`env -u ANTHROPIC_API_KEY`), смоук обох тірів на staging.barrigame.es — див. коміт/Linear.
+
+## [2026-06-11 · Claude] — ANT-142 (дод.): Haiku → DeepSeek у закритті вечора кампанії
+
+`campaigns.ts` викликав claude-haiku-4-5 для підсумку вечора (closeSession) — останній Anthropic-виклик в ігровому шляху. Замінено на новий хелпер `src/lib/deepseek.ts` → `callDeepSeekText()` (non-streaming, temperature 0.3 для JSON-задач). Бонус: виклик тепер трекається в api_usage (Haiku не трекався взагалі), з тим самим кеш-обліком ×0.1. Fallback-обгортка closeSession не змінювалась — провал сумаризації, як і раніше, не блокує закриття вечора. Anthropic SDK лишився тільки в scenarioGenerator.ts (адмінська генерація сценаріїв — не ігровий шлях).
