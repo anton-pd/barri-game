@@ -158,7 +158,10 @@ async function callDeepSeekChatStream(
     model: arm.model,
     messages,
     max_tokens: maxTokens,
-    temperature: 1.0,
+    // ANT-146: 0.7 beat 1.0 in the temperature A/B — better tag/roll
+    // discipline, judge prose scores unchanged (0.85 wrote nicer but fired a
+    // false IMAGE and lost roll tags).
+    temperature: 0.7,
     stream: true,
     stream_options: { include_usage: true },
   };
