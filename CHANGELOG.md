@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.44] — 2026-06-12
+
+### Changed
+- **Sessions page vignette removed.** The case-files list (available scenarios) no longer darkens screen edges with the heavy radial vignette from the global landing overlay — only the subtle colored smoke washes remain. Same approach as the earlier game-chat fix (ANT-115 follow-up).
+
 ## [0.4.43] — 2026-06-12
 
 ### Added

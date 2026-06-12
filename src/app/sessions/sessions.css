@@ -10,6 +10,15 @@
   padding-bottom: 80px;
 }
 
+/* No edge vignette on the case-files list — keep only the smoke washes
+   from the global .landing-root::after overlay (same approach as chat.css). */
+.landing-root:has(.sessions-page)::after {
+  background:
+    radial-gradient(ellipse at 50% -10%, rgba(212, 161, 83, 0.10), transparent 55%),
+    radial-gradient(ellipse at 110% 110%, rgba(139, 26, 20, 0.14), transparent 45%),
+    radial-gradient(ellipse at -10% 90%, rgba(59, 44, 74, 0.18), transparent 55%);
+}
+
 /* ============================================================
    TOPBAR AUTH SECTION (slots into .topbar-right)
    ============================================================ */

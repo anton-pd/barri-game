@@ -2828,3 +2828,14 @@ ANT-149 додав реактивні roll-тригери в промпт, ал�
 
 ### Перевірка
 `npx tsc --noEmit` чистий; smoke-прогін кожної проби ok; 3 повних прогони збережені в results-файлах.
+
+## [2026-06-12 · Claude] — Прибрати віньєтку зі сторінки списку сценаріїв
+
+### Проблема
+Антон попросив прибрати віньєтку зі списку доступних сценаріїв (`/sessions`, секція «Доступні справи»). Причина та сама, що була з ігровим чатом (ANT-115 follow-up): layout `src/app/sessions/layout.tsx` загортає сторінку в `.landing-root`, і глобальний оверлей `.landing-root::after` з `landing.css` накладає поверх сторінки «vignette + smoke wash» — зокрема важкий радіальний градієнт `transparent 40% → rgba(0,0,0,0.75)`, що затемнює краї екрана.
+
+### Рішення
+У `src/app/sessions/sessions.css` додано override `.landing-root:has(.sessions-page)::after` — background перевизначено без останнього темного радіального градієнта. Залишено три легкі кольорові «димні» відтінки (amber/blood/bruise), тож noir-атмосфера сторінки збережена; зернистість (`::before`) не чіпалась. Підхід ідентичний фіксу в `chat.css`, але м'якший: чат вимикає `::after` повністю (`content: none`), тут прибрано лише віньєтку.
+
+### Перевірка
+Staging перезібрано (`env -u ANTHROPIC_API_KEY docker compose up -d --build barri-dev`), контейнер healthy. У збірці підтверджено мінімізоване правило в CSS-чанку: `landing-root:has(.sessions-page):after{background:...}` без темного градієнта.
