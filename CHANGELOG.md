@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.42] — 2026-06-12
+
+### Changed
+- **Reactive roll triggers + roll cadence (ANT-149).** The CoC 7e dice rules now describe a second roll-trigger category — "the world acts on the player" (a threat may notice/catch/harm the character: someone searching while the player hides, a chase, falling debris, an NPC spotting a lie or a sneaking player) — with an explicit prohibition on resolving "did the threat notice/reach/hit the character" by narration alone. Added a second few-shot example showing a tense reactive scene that ends in a Stealth roll, a cadence guideline (~every 2nd–3rd meaningful action in a tense scene goes through a roll, never more than one [SET_PENDING_ROLL] per response, trivial actions still never roll), and one extra line in the pre-send tail checklist. Mirrored across Ukrainian and English. Prompt-contract only — no tag syntax, parsing, or server changes.
+
 ## [0.4.41] — 2026-06-11
 
 ### Changed
