@@ -231,8 +231,8 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
         src={resolvedSrc}
         alt=""
         onClick={() => setFullscreen(true)}
-        className="mt-2 rounded-xl w-full object-cover cursor-zoom-in border border-stone-600"
-        style={{ maxHeight: 220 }}
+        className="mt-2 rounded-xl object-contain cursor-zoom-in border border-stone-600"
+        style={{ maxWidth: 320, maxHeight: 320 }}
       />
       {fullscreen && typeof document !== 'undefined' && createPortal(
         <div
@@ -522,8 +522,8 @@ function CaseFilesPanel({
                         src={img.url}
                         alt={img.label}
                         onClick={() => setFullscreen(img.url)}
-                        className="w-full rounded-lg object-cover cursor-zoom-in"
-                        style={{ maxHeight: 160 }}
+                        className="rounded-lg object-contain cursor-zoom-in"
+                        style={{ maxWidth: '100%', maxHeight: 200 }}
                       />
                       <figcaption className="chat-evidence-card__cap text-center">{img.label}</figcaption>
                     </figure>

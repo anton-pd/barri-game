@@ -2864,3 +2864,21 @@ Staging перезібрано (`env -u ANTHROPIC_API_KEY docker compose up -d -
 
 ### Перевірка
 `tsc` чистий; vitest 77/77 (нові юніти eventTags + merge-кейс); ~10 eval-прогонів (results_2026-06-12-08/09-*.json), сумарно <$0.05; staging перезібрано.
+
+## [2026-06-12 · Claude] — ANT-154: images in chat no longer cropped
+
+### Problem
+Generated 1:1 (square) images appeared cropped into horizontal stripes in the chat and evidence panels. Root cause: `w-full object-cover` + `maxHeight` constraints forced images to stretch horizontally then crop vertically to fit.
+
+### Solution
+- **DynamicImage** (GameChat.tsx:230-236): replaced `w-full object-cover` with `object-contain` + `maxWidth: 320, maxHeight: 320` style. Preserves aspect ratio and limits size without distortion.
+- **Evidence cards** (GameChat.tsx:520-527): replaced `w-full object-cover` with `object-contain` + `maxWidth: '100%', maxHeight: 200` style. Cards now show images at natural aspect ratio within constraint.
+- Fullscreen overlay (`<img … className="max-w-full max-h-full"…>`) already used `object-contain` (correct), no change needed.
+
+### Key decisions
+- `object-contain`: scales down to fit without stretching or cropping (CSS default for aspect-ratio preservation).
+- `maxWidth: 320 / maxWidth: 100%`: DynamicImage caps at 320px for chat bubbles; evidence cards respect parent width.
+- Both sizes tested with 1:1, landscape, and portrait images; no layout shift on load (img has explicit aspect-ratio via CSS).
+
+### Verification
+Build clean; barri-dev container restarted on staging (:3001); CSS cascades correctly (no Tailwind conflicts with inline styles).

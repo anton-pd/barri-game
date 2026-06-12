@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.46] — 2026-06-12
+
+### Fixed
+- **Images no longer cropped in chat (ANT-154).** Square (1:1) images generated in the chat now display at full size instead of being stretched horizontally and cropped into thin stripes. Changed `object-cover` to `object-contain` in DynamicImage and evidence cards, added explicit `maxWidth` / `maxHeight` constraints. Fullscreen modal already had correct styling.
+
 ## [0.4.45] — 2026-06-12
 
 ### Added
