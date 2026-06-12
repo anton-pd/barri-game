@@ -125,6 +125,7 @@ const RX = {
   item: /\[ITEM:\d+:[^:\]]+:.+?:-?\d+\]/,
   npc: /\[NPC:[^\]]+\][\s\S]+?\[\/NPC\]/,
   delta: /\[DELTA:\{[\s\S]*?\}\]/,
+  eventDone: /\[EVENT_DONE:\d+\]/,
 };
 
 function buildProbes(): Probe[] {
@@ -285,6 +286,49 @@ function buildProbes(): Probe[] {
       requiredLabels: [],
       forbiddenTags: [RX.setPendingRoll, FALLBACK_ROLL, RX.image, RX.delta],
       forbiddenLabels: ['SET_PENDING_ROLL', 'verbal roll request', 'IMAGE', 'DELTA'],
+    },
+    // ── ANT-148 — must-happen event tracking probes (filter: must_event) ──────
+    // The numbered mustHappenEvents list in the static block instructs the
+    // model to append [EVENT_DONE:n] when event №n actually happens. A roll
+    // request alongside the tag is legitimate (e.g. a SAN check during the
+    // manifestation), so SET_PENDING_ROLL is not forbidden in the positive probe.
+    {
+      id: 'haunting/must_event_supernatural',
+      sessionPrefix: 'ef137c56',
+      playerIdx: 0,
+      // Haunting event №2: "Будинок демонструє перший безсумнівний надприродний прояв".
+      message:
+        'Я піднімаюся до спальні нагорі. Просто на моїх очах важке ліжко саме по собі здригається і повзе по підлозі до стіни, а в кімнаті різко холоднішає. Я закляка дивлюся на це.',
+      requiredTags: [RX.eventDone, /\[EVENT_DONE:2\]/],
+      requiredLabels: ['EVENT_DONE', 'EVENT_DONE index=2'],
+      forbiddenTags: [RX.image],
+      forbiddenLabels: ['IMAGE'],
+    },
+    {
+      id: 'haunting/must_event_negative_mundane',
+      sessionPrefix: 'ef137c56',
+      playerIdx: 0,
+      // Mundane beat with no plot progression — no completion mark allowed.
+      message:
+        'Я повертаюся до машини, перевіряю, чи взяла ліхтарик і нотатник, і зачиняю дверцята.',
+      requiredTags: [],
+      requiredLabels: [],
+      forbiddenTags: [RX.eventDone, RX.image, RX.delta],
+      forbiddenLabels: ['EVENT_DONE', 'IMAGE', 'DELTA'],
+    },
+    {
+      id: 'telegram/must_event_no_repeat',
+      sessionPrefix: '1ec276ae',
+      playerIdx: 0,
+      // Telegram event №2 is already marked done (dynamic shows ✓ 2): re-reading
+      // the same notes must not re-emit the mark for it.
+      message:
+        'Я ще раз перечитую записи Вітмора, які ми вже знайшли раніше, — може, я пропустила щось між рядків.',
+      worldStatePatch: { completedMustEvents: [2] },
+      requiredTags: [],
+      requiredLabels: [],
+      forbiddenTags: [/\[EVENT_DONE:2\]/, RX.image],
+      forbiddenLabels: ['EVENT_DONE index=2', 'IMAGE'],
     },
   ];
 }

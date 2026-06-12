@@ -49,6 +49,9 @@ export interface WorldState {
   dynamicLocations?: Record<string, DynamicLocation>;
   // Keeper-maintained living investigation plan for the dossier sidebar
   casePlan?: CasePlan;
+  // Completed must-happen events — 1-based indices into scenario.mustHappenEvents,
+  // marked by the model via [EVENT_DONE:n] tags (ANT-148). Engine-owned.
+  completedMustEvents?: number[];
   // Scenario variant chosen at session creation
   variantId?: string;
   // One-time hint for the Keeper about this variant's entry point (cleared after intro)

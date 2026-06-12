@@ -85,6 +85,22 @@ function formatCasePlan(worldState: WorldState, lang: Lang): string {
     .join('\n');
 }
 
+// Compact ✓/ahead status line for must-happen events (ANT-148). Full event
+// texts stay in the cached static block (numbered); the dynamic block carries
+// only the indices so it doesn't grow with scenario size.
+function formatMustEvents(worldState: WorldState, total: number, lang: Lang): string {
+  const C = COPY[lang];
+  const doneSet = new Set(
+    (worldState.completedMustEvents ?? []).filter((n) => n >= 1 && n <= total)
+  );
+  const pending: number[] = [];
+  for (let n = 1; n <= total; n++) if (!doneSet.has(n)) pending.push(n);
+  const done = [...doneSet].sort((a, b) => a - b);
+  const donePart = done.length ? done.join(', ') : C.curNone;
+  const pendingPart = pending.length ? pending.join(', ') : C.curMustAllDone;
+  return `✓ ${donePart} · ${C.curMustPending}: ${pendingPart}`;
+}
+
 // ── Localized copy ─────────────────────────────────────────────────────────────
 const COPY = {
   uk: {
@@ -114,7 +130,13 @@ const COPY = {
 - НЕ перераховуй можливі дії та не питай "що ви робите далі?".`,
     hPlot: '## ЗАХИСТ СЮЖЕТУ',
     railLine: (t: string, r: string) => `Якщо ${t} → ${r}`,
-    mustHappen: (list: string) => `Обов'язкові події: ${list}`,
+    mustHappen: (events: string[], rollExample: boolean) => `Обов'язкові події сценарію:
+${events.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+Коли подія №n щойно РЕАЛЬНО відбулась у фікції — додай у кінці відповіді [EVENT_DONE:n].
+Кидок НЕ відкладає позначку: якщо подія вже сталася в цій відповіді, [EVENT_DONE:n] стоїть тут же, останнім тегом.${rollExample ? `
+Приклад (відбулась подія №2): «...важке ліжко само повзе по підлозі. Кинь Стійкість (1к100, треба 65 або менше).»
+[SET_PENDING_ROLL:0:Стійкість:65:65:надприродний прояв] [EVENT_DONE:2]` : ''}
+Статуси дивись у ПОТОЧНИЙ СТАН (✓ виконано / попереду): виконані події не повторюй і не відігравай заново, невиконані вплітай у гру своєчасно.`,
     hCrit: '## КРИТИЧНІ УСПІХИ',
     critInvestigation: 'Розслідування',
     critCombat: 'Бій',
@@ -192,6 +214,9 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     curSummary: 'Summary',
     curOpen: 'Відкриті питання',
     curPlan: 'План справи',
+    curMustEvents: "Обов'язкові події",
+    curMustPending: 'попереду',
+    curMustAllDone: 'всі виконані',
     curUnknown: 'невідома',
     curNone: 'жодної',
     curNoneM: 'жодного',
@@ -217,6 +242,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - Просиш кидок ("Кинь X") → у кінці відповіді стоїть [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Без тегу кубик не активується.`,
     checkItem: '- У наративі гравець підняв/отримав предмет → стоїть [ITEM:...]. Без тегу предмета не існує.',
     checkNpc: '- Кожна пряма мова NPC — у [NPC:Ім\'я]...[/NPC], кожен тег закритий.',
+    checkEvent: '- У цій відповіді відбулась обов\'язкова подія №n зі списку сценарію → стоїть [EVENT_DONE:n] (якщо просиш кидок — одразу ПІСЛЯ тегу кидка). Без тегу подія вважається невиконаною.',
     hCheatsheet: '## ШПАРГАЛКА ТЕГІВ (повні правила — у секціях вище)',
     cheatRoll: '[SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст] — запит кидка; [CLEAR_PENDING_ROLL] — скасувати очікуваний',
     cheatRest: `[DELTA:{"0":{"hp":-2}}] — зміна статів (лише з fiction-обґрунтуванням)
@@ -224,7 +250,8 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 [NPC:Ім'я]пряма мова[/NPC]; [NPC_UPDATE:Ім'я:ставлення:нотатки]
 [LOCATION:id] — перехід; [NEW_LOCATION:id:Назва:Опис] — нове місце
 [IMAGE:type:short english description] — рідко, лише ключові моменти
-[CASE_PLAN:{...}] — план справи; [COMPLETE_SESSION] / [FINISH_EVENING] — лише справжній фінал`,
+[CASE_PLAN:{...}] — план справи; [EVENT_DONE:n] — обов'язкова подія №n відбулась
+[COMPLETE_SESSION] / [FINISH_EVENING] — лише справжній фінал`,
   },
   en: {
     invEmpty: 'empty',
@@ -251,7 +278,13 @@ Do not ask anything, do not enumerate possible actions, do not hedge with a shor
 - Do NOT list possible actions or ask "what do you do?".`,
     hPlot: '## PLOT GUARDRAILS',
     railLine: (t: string, r: string) => `If ${t} → ${r}`,
-    mustHappen: (list: string) => `Must-happen events: ${list}`,
+    mustHappen: (events: string[], rollExample: boolean) => `Must-happen events of the scenario:
+${events.map((e, i) => `${i + 1}. ${e}`).join('\n')}
+When event #n has just ACTUALLY happened in the fiction — append [EVENT_DONE:n] at the end of the response.
+A roll does NOT postpone the mark: if the event already happened in this response, [EVENT_DONE:n] goes right here, as the last tag.${rollExample ? `
+Example (event #2 occurred): "...the heavy bed slides across the floor by itself. Roll Sanity (1d100, need 65 or less)."
+[SET_PENDING_ROLL:0:Sanity:65:65:supernatural manifestation] [EVENT_DONE:2]` : ''}
+Check CURRENT STATE for statuses (✓ done / ahead): never repeat or replay completed events, weave the pending ones in at the right time.`,
     hCrit: '## CRITICAL SUCCESSES',
     critInvestigation: 'Investigation',
     critCombat: 'Combat',
@@ -328,6 +361,9 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
     curSummary: 'Summary',
     curOpen: 'Open threads',
     curPlan: 'Case plan',
+    curMustEvents: 'Must-happen events',
+    curMustPending: 'ahead',
+    curMustAllDone: 'all done',
     curUnknown: 'unknown',
     curNone: 'none',
     curNoneM: 'none',
@@ -350,6 +386,7 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
 - Asking for a roll ("Roll X") → the response ends with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Without the tag the dice won't activate.`,
     checkItem: '- A player picked up/received an item in the narration → there is an [ITEM:...] tag. Without the tag the item does not exist.',
     checkNpc: '- Every piece of direct NPC speech is inside [NPC:Name]...[/NPC], every tag closed.',
+    checkEvent: '- A must-happen event #n from the scenario list occurred in this response → there is an [EVENT_DONE:n] tag (if you ask for a roll — right AFTER the roll tag). Without the tag the event counts as not done.',
     hCheatsheet: '## TAG CHEAT SHEET (full rules in the sections above)',
     cheatRoll: '[SET_PENDING_ROLL:idx:Skill:value:threshold:context] — request a roll; [CLEAR_PENDING_ROLL] — cancel a pending one',
     cheatRest: `[DELTA:{"0":{"hp":-2}}] — stat change (only with fiction grounding)
@@ -357,7 +394,8 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
 [NPC:Name]direct speech[/NPC]; [NPC_UPDATE:Name:relation:notes]
 [LOCATION:id] — move; [NEW_LOCATION:id:Name:Description] — new place
 [IMAGE:type:short english description] — rarely, key moments only
-[CASE_PLAN:{...}] — case plan; [COMPLETE_SESSION] / [FINISH_EVENING] — real finale only`,
+[CASE_PLAN:{...}] — case plan; [EVENT_DONE:n] — must-happen event #n occurred
+[COMPLETE_SESSION] / [FINISH_EVENING] — real finale only`,
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 
@@ -434,7 +472,7 @@ ${locationSection}
 ${C.hPlot}
 ${scenario.railguards.map((r) => C.railLine(r.trigger, r.response)).join('\n')}
 
-${C.mustHappen(scenario.mustHappenEvents.join(', '))}
+${C.mustHappen(scenario.mustHappenEvents, supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e'))}
 
 ${C.hCrit}
 ${C.critInvestigation}: ${scenario.criticalSuccessRules.investigation}
@@ -521,6 +559,11 @@ ${C.headingStyle}
 
   const prefixTail = players.length > 2 ? C.prefixManyPlayers : C.prefixFewPlayers;
 
+  const mustEventsTotal = scenario.mustHappenEvents?.length ?? 0;
+  const mustEventsLine = mustEventsTotal
+    ? `\n${C.curMustEvents}: ${formatMustEvents(worldState, mustEventsTotal, lang)}`
+    : '';
+
   // ANT-143: protocol checklist at the very end of the dynamic block — in the
   // split-tail prompt shape this lands right before the response point, where
   // tag recall is strongest. The roll line is d100-only: reminding
@@ -529,7 +572,8 @@ ${C.headingStyle}
   const rollLine = supportsPendingRollTag(scenario.rulesetId ?? 'coc_7e')
     ? `\n${C.checkRoll}`
     : '';
-  const checklistSection = `\n\n${C.checkTitle}${rollLine}\n${C.checkItem}\n${C.checkNpc}`;
+  const eventCheckLine = mustEventsTotal ? `\n${C.checkEvent}` : '';
+  const checklistSection = `\n\n${C.checkTitle}${rollLine}\n${C.checkItem}\n${C.checkNpc}${eventCheckLine}`;
 
   const dynamicBlock = `
 ${C.hCurrent}
@@ -539,7 +583,7 @@ ${C.curVisited}: ${worldState.visitedLocations.join(', ') || C.curNone}${dynLocS
 ${C.curClues}: ${worldState.discoveredClues.join(', ') || C.curNone}
 ${C.curSummary}: ${worldState.summary || C.curStart}
 ${C.curOpen}: ${worldState.openThreads.join(', ') || C.curNoneM}
-${C.curPlan}: ${formatCasePlan(worldState, lang)}${npcDetailSection}
+${C.curPlan}: ${formatCasePlan(worldState, lang)}${mustEventsLine}${npcDetailSection}
 ${campaignSection}
 ${C.hPlayers}
 ${players

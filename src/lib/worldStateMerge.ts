@@ -36,6 +36,10 @@ export function mergeSummarizedWorldState(
     // transcript and invents ids, so letting it win pollutes the dossier and
     // drops deterministically tracked relations (ANT-117).
     npcRelations: current.npcRelations,
+    // Completed must-happen events — owned by [EVENT_DONE:n] tag parsing
+    // (ANT-148). The summary LLM doesn't see the numbered scenario list, so
+    // letting it win would drop or invent completion marks.
+    completedMustEvents: current.completedMustEvents,
     // Caches / per-session metadata the summary never owns.
     sessionImages: current.sessionImages,
     dynamicNpcs: current.dynamicNpcs,

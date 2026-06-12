@@ -94,6 +94,13 @@ describe('mergeSummarizedWorldState (ANT-68)', () => {
     expect(mergeSummarizedWorldState(current, parsed).casePlan).toEqual(current.casePlan);
   });
 
+  it('keeps engine-owned completedMustEvents even if the summary returns its own (ANT-148)', () => {
+    const current = makeWorldState({ completedMustEvents: [1, 3] });
+    const parsed: Partial<WorldState> = { completedMustEvents: [2] };
+
+    expect(mergeSummarizedWorldState(current, parsed).completedMustEvents).toEqual([1, 3]);
+  });
+
   it('preserves engine fields (pendingRollResult, activeRandomEvent, locationRisk)', () => {
     const current = makeWorldState({
       pendingRollResult: { characterIdx: 0, skillName: 'Spot', skillValue: 50, context: 'c', goodThreshold: 25 },

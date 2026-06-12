@@ -8,6 +8,7 @@ import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } fr
 import { parseSegments, stripNpcTags } from '@/lib/segments';
 import { parseInventoryTags } from '@/lib/inventoryTags';
 import { applyCasePlanTags } from '@/lib/casePlanTags';
+import { applyEventDoneTags } from '@/lib/eventTags';
 import { detectCompletionAction } from '@/lib/completionTags';
 import { prefetchGemini } from '@/lib/ttsPrefetch';
 import { verifyJwt } from '@/lib/auth';
@@ -683,6 +684,15 @@ export async function POST(request: Request) {
         textAfterRollTags = planResult.cleanText;
         updatedWorldState = planResult.worldState;
 
+        // ── Parse [EVENT_DONE:n] tags (ANT-148) ─────────────────────────────
+        const eventResult = applyEventDoneTags(
+          textAfterRollTags,
+          updatedWorldState,
+          scenario.mustHappenEvents?.length ?? 0
+        );
+        textAfterRollTags = eventResult.cleanText;
+        updatedWorldState = eventResult.worldState;
+
         // ── Guard: strip [NPC:<PlayerName>]...[/NPC] (ANT-71) ───────────────
         // LLM occasionally voices a player character as if an NPC. Such tags
         // render as an NPC bubble and, worse, auto-register the player into
@@ -734,6 +744,7 @@ export async function POST(request: Request) {
           .replace(/\s*\[NEW_LOCATION:[\w-]+:[^:]+:[^\]]+\]/g, '')
           .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
           .replace(/\s*\[CASE_PLAN:[^\]]*\]/g, '')
+          .replace(/\s*\[EVENT_DONE:[^\]]*\]/g, '')
           .replace(/\s*\[COMPLETE_SESSION\]/g, '')
           .replace(/\s*\[FINISH_EVENING\]/g, '')
           .trim();

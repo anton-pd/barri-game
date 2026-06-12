@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.45] — 2026-06-12
+
+### Added
+- **Must-happen event tracking (ANT-148).** The Keeper now marks scenario must-happen events as completed via a new `[EVENT_DONE:n]` tag against the numbered event list in the system prompt. Completed indices live in `world_state.completedMustEvents` (engine-owned — the summarize cycle can't overwrite them), and the dynamic prompt block shows a compact ✓/ahead status line so deep sessions neither repeat finished plot beats nor lose pending ones. Three new eval probes (positive / negative / no-repeat) gate the contract: DeepSeek direct 9/9, OpenRouter-Cloudflare 8/9.
+
 ## [0.4.44] — 2026-06-12
 
 ### Changed

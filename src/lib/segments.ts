@@ -86,6 +86,7 @@ export function stripStreamingArtifacts(text: string): string {
     .replace(/\s*\[RANDOM_EVENT:[^\]]+\]/g, '')
     .replace(/\s*\[NPC_UPDATE:[^\]]+\]/g, '')
     .replace(/\s*\[CASE_PLAN:[^\]]*\]/g, '')
+    .replace(/\s*\[EVENT_DONE:[^\]]*\]/g, '')
     .replace(/\s*\[COMPLETE_SESSION\]/g, '')
     .replace(/\s*\[FINISH_EVENING\]/g, '')
     // Trailing partial tag at the stream buffer edge: an opening bracket
