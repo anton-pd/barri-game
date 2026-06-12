@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.47] — 2026-06-12
+
+### Fixed
+- **NPC dialogue bubbles and the Characters panel work again (ANT-153).** The Keeper now always sees the full scenario cast: met NPCs keep their full blocks (description + secrets), unmet ones are listed as a compact one-line roster. Previously only already-met NPCs reached the prompt, so the model never learned NPC names, never emitted `[NPC:]` tags, and nothing ever registered — speech landed in narration bubbles and the panel stayed empty. Added a few-shot `[NPC:]` example, a hardened checklist line, and a log-only server monitor for untagged direct speech.
+
 ## [0.4.46] — 2026-06-12
 
 ### Fixed
