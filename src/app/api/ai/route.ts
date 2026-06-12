@@ -787,6 +787,21 @@ export async function POST(request: Request) {
           }
         }
 
+        // ── ANT-153: tag-compliance monitoring (no state mutation) ──────────
+        // Dialogue punctuation (dash-led line or long quoted phrase) without a
+        // single [NPC:] tag in the reply usually means the model voiced an NPC
+        // untagged. Log it so prompt compliance can be tracked in container logs.
+        if (!/\[NPC:/.test(textAfterRollTags)) {
+          const hasUntaggedSpeech =
+            /(^|\n)\s*[—–]\s*\S/.test(textAfterRollTags) ||
+            /[«“][^»”]{15,}[»”]/.test(textAfterRollTags);
+          if (hasUntaggedSpeech) {
+            console.warn(
+              `[ANT-153] possible untagged NPC speech (session ${sessionId})`
+            );
+          }
+        }
+
         // ── Apply DELTA (all tags in order; legacy hp/sanity/luck still valid) ─
 
         let updatedPlayers = mutatedPlayers;

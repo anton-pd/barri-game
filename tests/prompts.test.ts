@@ -50,6 +50,23 @@ describe('buildSystemPromptBlocks', () => {
     expect(blocks.dynamic).toContain('check_archives: Перевірити міські архіви [активно]');
   });
 
+  // ANT-153: unmet NPCs must still reach the model as a roster, otherwise it
+  // never learns the names and never emits [NPC:] tags (registration dead-lock).
+  it('lists unmet scenario NPCs as a roster without secrets', () => {
+    const blocks = buildSystemPromptBlocks(scenario, makeWorldState(), players);
+    expect(blocks.static).toContain('Місіс Гаррієт Ковальська');
+    expect(blocks.static).toContain('ще не зустрічали');
+    expect(blocks.static).not.toContain('Знає про підвал');
+  });
+
+  it('promotes met NPCs to full blocks with secrets', () => {
+    const ws = makeWorldState({ npcRelations: { kovalska: 'neutral' } });
+    const blocks = buildSystemPromptBlocks(scenario, ws, players);
+    expect(blocks.static).toContain('### Місіс Гаррієт Ковальська');
+    expect(blocks.static).toContain('Знає про підвал');
+    expect(blocks.static).not.toContain('ще не зустрічали');
+  });
+
   it('produces an English ruleset/static when language is en', () => {
     const blocks = buildSystemPromptBlocks(scenario, makeWorldState(), players, { language: 'en' });
     expect(blocks.dynamic.length).toBeGreaterThan(0);

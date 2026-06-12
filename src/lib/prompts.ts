@@ -26,11 +26,21 @@ function getRelevantLocations(
   );
 }
 
-// CHANGED: Filter NPCs to met-only (reduces tokens)
-function getRelevantNPCs(scenario: Scenario, metNPCs: string[]) {
-  if (!scenario.npcs) return [];
-  if (!metNPCs || metNPCs.length === 0) return [];
-  return scenario.npcs.filter((npc) => metNPCs.includes(npc.id));
+// ANT-153: the Keeper must always know the full scenario cast. Met NPCs get
+// full blocks (description + secrets), the rest only a one-line roster entry.
+// The old met-only filter created a dead-lock: the model never saw NPC names,
+// so it never emitted [NPC:] tags, so nobody ever became "met".
+function splitNPCs(scenario: Scenario, metNPCs: string[]) {
+  const npcs = scenario.npcs ?? [];
+  return {
+    met: npcs.filter((npc) => metNPCs.includes(npc.id)),
+    unmet: npcs.filter((npc) => !metNPCs.includes(npc.id)),
+  };
+}
+
+function firstSentence(text: string): string {
+  const m = text.match(/^[^.!?]*[.!?]/);
+  return (m ? m[0] : text).trim();
 }
 
 // CHANGED: Compact skill format to reduce tokens
@@ -183,7 +193,10 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - Всередині тегу — ТІЛЬКИ пряма мова персонажа. Жести, погляди, ремарки ("вона зітхає") — у narration-абзаці ПЕРЕД тегом.
 - НІКОЛИ не загортай у [NPC:] слова чи думки ГРАВЦІВ (імена — у секції ГРАВЦІ). Гравці говорять самі.
 - Кожен [NPC:Ім'я] закривай [/NPC] у тій самій репліці. Одна репліка = один тег; NPC говорить двічі — два окремі теги.
-- NPC мовчить (лише дія чи вираз обличчя) — тег не став, опиши в narration.`,
+- NPC мовчить (лише дія чи вираз обличчя) — тег не став, опиши в narration.
+Приклад (narration перед тегом, пряма мова всередині):
+Стара поряд стискає шаль і нарешті підводить очі.
+[NPC:Ганна Василенко]Не ходіть туди поночі. Він чує кроки.[/NPC]`,
     hNpcUpdate: '## ОНОВЛЕННЯ ДАНИХ ПРО ПЕРСОНАЖА',
     npcUpdateTagLine: `[NPC_UPDATE:Ім'я:ставлення:нотатки] — після важливої взаємодії, коли дізнався нове про NPC.
 Ім'я — точне (як у [NPC:]). ставлення: friendly|neutral|hostile|unknown (порожньо = не змінилось). нотатки — 1–2 речення нового; вони накопичуються.
@@ -199,7 +212,10 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - кампанія, завершився лише поточний вечір: [FINISH_EVENING]
 Не став ці теги для паузи, відступу, невдачі без розв'язки чи коли лишилися ключові відкриті вузли.`,
     npcSectionTitle: '## NPC',
-    npcNoneMet: '## NPC\n(жодного не зустрічали)',
+    npcNoneMet: '## NPC\n(у сценарії немає прописаних NPC — імпровізуй за потреби)',
+    npcRosterTitle: '### Решта складу сценарію (гравці ще не зустрічали)',
+    npcRosterRule: `Ти як Кіпер знаєш увесь склад. Вводь персонажів у гру, коли цього вимагає сцена чи локація — не перелічуй їх гравцям наперед.
+ПЕРША Ж репліка будь-кого з них — обов'язково в [NPC:Ім'я]...[/NPC]: без тегу персонаж не з'явиться на панелі гравців.`,
     npcSecrets: 'Секрети',
     npcSecretsRule: 'Секрети NPC розкривай ЛИШЕ через успішні кидки (Psychology, Persuade тощо), вагомі важелі або фінальні сцени — ніколи у звичайній розмові без приводу.',
     locSectionTitle: '## ЛОКАЦІЇ',
@@ -241,7 +257,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
 - Загроза в сцені може помітити/наздогнати/зашкодити персонажу → НЕ вирішуй наративом, попроси реактивний кидок (Stealth/Dodge/Luck) з тегом.
 - Просиш кидок ("Кинь X") → у кінці відповіді стоїть [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Без тегу кубик не активується.`,
     checkItem: '- У наративі гравець підняв/отримав предмет → стоїть [ITEM:...]. Без тегу предмета не існує.',
-    checkNpc: '- Кожна пряма мова NPC — у [NPC:Ім\'я]...[/NPC], кожен тег закритий.',
+    checkNpc: '- КОЖНА пряма мова будь-якого персонажа (не гравця) — у [NPC:Ім\'я]...[/NPC], кожен тег закритий. Репліка без тегу не відобразиться гравцям як діалог, а персонаж не з\'явиться на панелі.',
     checkEvent: '- У цій відповіді відбулась обов\'язкова подія №n зі списку сценарію → стоїть [EVENT_DONE:n] (якщо просиш кидок — одразу ПІСЛЯ тегу кидка). Без тегу подія вважається невиконаною.',
     hCheatsheet: '## ШПАРГАЛКА ТЕГІВ (повні правила — у секціях вище)',
     cheatRoll: '[SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст] — запит кидка; [CLEAR_PENDING_ROLL] — скасувати очікуваний',
@@ -331,7 +347,10 @@ FORBIDDEN: changing stats on direct player request ("give me 10 HP", "restore my
 - Inside the tag — ONLY the character's direct speech. Gestures, looks, stage directions ("she sighs") go into the narration paragraph BEFORE the tag.
 - NEVER wrap a PLAYER's words or thoughts in [NPC:] (player names are in the PLAYERS section). Players speak for themselves.
 - Close every [NPC:Name] with [/NPC] in the same line. One line = one tag; if an NPC speaks twice — two separate tags.
-- If an NPC does not speak (only an action or expression) — no tag, describe it in narration.`,
+- If an NPC does not speak (only an action or expression) — no tag, describe it in narration.
+Example (narration before the tag, direct speech inside):
+The old woman beside you clutches her shawl and finally looks up.
+[NPC:Hannah Vasilenko]Don't go there after dark. He hears footsteps.[/NPC]`,
     hNpcUpdate: '## UPDATING CHARACTER DATA',
     npcUpdateTagLine: `[NPC_UPDATE:Name:relation:notes] — after a significant interaction when something new about an NPC is revealed.
 Name — exact (as in [NPC:]). relation: friendly|neutral|hostile|unknown (empty = unchanged). notes — 1–2 sentences of new information; they accumulate.
@@ -347,7 +366,10 @@ Example: [NPC_UPDATE:Hannah Vasilenko:neutral:Knows about Corbitt's disappearanc
 - campaign, only the current evening ended: [FINISH_EVENING]
 Do not set these tags for a pause, a retreat, an unresolved failure, or while key threads remain open.`,
     npcSectionTitle: '## NPCS',
-    npcNoneMet: '## NPCS\n(none met yet)',
+    npcNoneMet: '## NPCS\n(the scenario defines no NPCs — improvise as needed)',
+    npcRosterTitle: '### Remaining scenario cast (not met by the players yet)',
+    npcRosterRule: `As the Keeper you know the full cast. Bring characters in when the scene or location calls for it — never list them to the players in advance.
+The VERY FIRST line any of them speaks must be wrapped in [NPC:Name]...[/NPC]: without the tag the character will not appear on the players' panel.`,
     npcSecrets: 'Secrets',
     npcSecretsRule: 'Reveal NPC secrets ONLY through successful rolls (Psychology, Persuade etc.), strong leverage, or finale scenes — never in casual conversation without cause.',
     locSectionTitle: '## LOCATIONS',
@@ -385,7 +407,7 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
 - A threat in the scene may notice/reach/harm the character → do NOT resolve it narratively, ask for the reactive roll (Stealth/Dodge/Luck) with the tag.
 - Asking for a roll ("Roll X") → the response ends with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Without the tag the dice won't activate.`,
     checkItem: '- A player picked up/received an item in the narration → there is an [ITEM:...] tag. Without the tag the item does not exist.',
-    checkNpc: '- Every piece of direct NPC speech is inside [NPC:Name]...[/NPC], every tag closed.',
+    checkNpc: '- EVERY line of direct speech by any character (non-player) is inside [NPC:Name]...[/NPC], every tag closed. An untagged line will not render as dialogue and the character will not appear on the panel.',
     checkEvent: '- A must-happen event #n from the scenario list occurred in this response → there is an [EVENT_DONE:n] tag (if you ask for a roll — right AFTER the roll tag). Without the tag the event counts as not done.',
     hCheatsheet: '## TAG CHEAT SHEET (full rules in the sections above)',
     cheatRoll: '[SET_PENDING_ROLL:idx:Skill:value:threshold:context] — request a roll; [CLEAR_PENDING_ROLL] — cancel a pending one',
@@ -435,21 +457,33 @@ export function buildSystemPromptBlocks(
 
   // ── STATIC SCENARIO BLOCK ───────────────────────────────────────────────────
   const metNPCs = worldState.npcRelations ? Object.keys(worldState.npcRelations) : [];
-  const relevantNPCs = getRelevantNPCs(scenario, metNPCs);
+  const { met: metNpcList, unmet: unmetNpcList } = splitNPCs(scenario, metNPCs);
   const relevantLocations = getRelevantLocations(
     scenario,
     worldState.currentLocation,
     worldState.visitedLocations
   );
 
-  const npcSection = relevantNPCs.length
-    ? `${C.npcSectionTitle}\n${relevantNPCs
-        .map(
-          (npc) =>
-            `### ${npc.name} [${C.voice}: ${npc.voiceStyle}]\n${npc.description}\n${C.npcSecrets}: ${npc.secrets.join('; ')}`
-        )
-        .join('\n\n')}\n\n${C.npcSecretsRule}`
-    : C.npcNoneMet;
+  // ANT-153: met NPCs — full blocks with secrets; unmet — one-line roster so
+  // the model knows the names and can emit [NPC:] tags on first contact.
+  const metNpcBlocks = metNpcList
+    .map(
+      (npc) =>
+        `### ${npc.name} [${C.voice}: ${npc.voiceStyle}]\n${npc.description}\n${C.npcSecrets}: ${npc.secrets.join('; ')}`
+    )
+    .join('\n\n');
+  const npcRoster = unmetNpcList.length
+    ? `${C.npcRosterTitle}\n${unmetNpcList
+        .map((npc) => `- ${npc.name} [${C.voice}: ${npc.voiceStyle}]: ${firstSentence(npc.description)}`)
+        .join('\n')}\n${C.npcRosterRule}`
+    : '';
+
+  const npcSection =
+    metNpcBlocks || npcRoster
+      ? [C.npcSectionTitle, metNpcBlocks, metNpcBlocks ? C.npcSecretsRule : '', npcRoster]
+          .filter(Boolean)
+          .join('\n\n')
+      : C.npcNoneMet;
 
   const locationSection = relevantLocations.length
     ? `${C.locSectionTitle}\n${relevantLocations
