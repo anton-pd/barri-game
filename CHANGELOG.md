@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.43] — 2026-06-12
+
+### Added
+- **Reactive-roll eval probes (ANT-149 follow-up).** The eval harness gained five probes for the new reactive-roll contract: stealth-while-hiding, sudden physical danger, a chase, and an NPC about to spot a lie must all end in a `[SET_PENDING_ROLL]` with a fitting skill, plus one negative probe asserting a calm recap conversation produces no roll request at all (guard against roll spam from the cadence rule). Baseline on the staging prompt (3 passes × both DeepSeek tiers): physical danger 6/6, hiding 5/6, chase 3/6, lie detection 0/6 — the social trigger doesn't fire yet; no roll spam (6/6 clean).
+
 ## [0.4.42] — 2026-06-12
 
 ### Changed

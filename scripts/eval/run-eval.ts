@@ -220,6 +220,72 @@ function buildProbes(): Probe[] {
       forbiddenTags: [RX.image, RX.item, RX.delta],
       forbiddenLabels: ['IMAGE', 'ITEM', 'DELTA'],
     },
+    // ── ANT-149 — reactive roll probes ───────────────────────────────────────
+    // The world acts on the player (search, chase, sudden danger, lie check):
+    // the Keeper must route the outcome through [SET_PENDING_ROLL] with a
+    // fitting skill instead of resolving it narratively. DELTA is forbidden —
+    // applying harm before the roll is exactly the violation the rule targets.
+    // Neither fixture sheet has Dodge, so Luck is accepted where rules name it.
+    {
+      id: 'haunting/reactive_stealth_hide',
+      sessionPrefix: 'ef137c56',
+      playerIdx: 0,
+      message:
+        'Зсередини будинку чути важкі кроки — хтось іде до вхідних дверей. Я пірнаю за живопліт біля ґанку і завмираю, намагаючись не виказати себе.',
+      // Listen accepted: the probe message itself centres on heard footsteps.
+      // Удача = Ukrainian Luck; prod keeps unknown sheet names as-is (ANT-119).
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Stealth|Listen|Luck|Удача)\b/i],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Stealth,Listen,Luck}'],
+      forbiddenTags: [RX.image, RX.delta],
+      forbiddenLabels: ['IMAGE', 'DELTA'],
+    },
+    {
+      id: 'haunting/reactive_sudden_danger',
+      sessionPrefix: 'ef137c56',
+      playerIdx: 0,
+      message:
+        'Я заходжу в передпокій і ступаю на сходи. Прогнилі дошки тріщать піді мною, сходинка провалюється — я намагаюся відскочити вбік.',
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Jump|Luck|Удача)\b/i],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Dodge,Jump,Luck}'],
+      forbiddenTags: [RX.image, RX.delta],
+      forbiddenLabels: ['IMAGE', 'DELTA'],
+    },
+    {
+      id: 'telegram/reactive_chase',
+      sessionPrefix: '1ec276ae',
+      playerIdx: 0,
+      message:
+        'Сабо оговтується, вискакує з лавки слідом за мною і кидається навздогін. Я тікаю вузькою вулицею в бік станції, петляючи між ящиками.',
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Stealth|Luck|Удача)\b/i],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Dodge,Stealth,Luck}'],
+      forbiddenTags: [RX.image, RX.delta],
+      forbiddenLabels: ['IMAGE', 'DELTA'],
+    },
+    {
+      id: 'telegram/reactive_spot_lie',
+      sessionPrefix: '1ec276ae',
+      playerIdx: 0,
+      message:
+        'Я повертаюся до Сабо, дивлюся йому просто в очі і брешу: «За тими дверима я нічого не бачила. Мене цікавить лише телеграфний апарат, нічого більше».',
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Persuade|Fast Talk|Charm|Psychology|Luck|Удача)\b/i],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Persuade,Fast Talk,Charm,Psychology,Luck}'],
+      forbiddenTags: [RX.image, RX.delta],
+      forbiddenLabels: ['IMAGE', 'DELTA'],
+    },
+    // Negative guard against roll spam from the new cadence rule: a calm
+    // recap conversation must produce NO roll request — neither the tag nor
+    // a verbal "Кинь X (1к100 ...)" that the ANT-119 fallback would rescue.
+    {
+      id: 'haunting/reactive_negative_calm',
+      sessionPrefix: 'ef137c56',
+      playerIdx: 0,
+      message:
+        'Я сідаю в машину, ховаюся від дощу і прошу: підсумуй, будь ласка, що ми вже знаємо з папки Кнотта про цей будинок і його мешканців.',
+      requiredTags: [],
+      requiredLabels: [],
+      forbiddenTags: [RX.setPendingRoll, FALLBACK_ROLL, RX.image, RX.delta],
+      forbiddenLabels: ['SET_PENDING_ROLL', 'verbal roll request', 'IMAGE', 'DELTA'],
+    },
   ];
 }
 
