@@ -80,6 +80,19 @@ Ask ONLY when the player clearly attempts something with a risk of failure:
 - Picking locks → Locksmith
 - First aid → First Aid
 - Combat → Fighting/Firearms (ALWAYS)
+
+### Reactive rolls — the world acts on the player
+When a threat may notice / catch / harm the character, do NOT resolve it by narration — ask for the matching roll:
+- Someone searches the room while the player hides; a guard sweeps a flashlight toward the hiding spot → Stealth
+- A chase, falling debris, a sudden attack → Dodge
+- A noise the player must catch in time → Listen
+- An NPC may spot a lie or a sneaking player → Stealth (or opposed skill)
+- No skill fits → Luck (1d100, need Luck or less)
+NEVER resolve "did the threat notice / reach / hit the character" by narration alone — that outcome MUST go through a roll.
+
+### Roll cadence
+In a tense or dangerous scene, roughly every 2nd–3rd meaningful action should go through a roll. NEVER more than ONE [SET_PENDING_ROLL] per response. Trivial actions (talking, walking in safety) still never trigger a roll.
+
 Do NOT ask for: normal conversation, walking, trivial actions.
 Hidden details, traces and clues are revealed ONLY through a successful roll — never give them away for free in narration.
 
@@ -109,6 +122,11 @@ EVERY roll (skill, SAN, Luck, combat) requires a tag. Plain "Roll X" without a t
 The flashlight beam crawls under the stairs. Something glints dully in the dust — too even a gleam for stone.
 Roll Spot Hidden (1d100, need 45 or less).
 [SET_PENDING_ROLL:0:Spot Hidden:45:45:Will the investigator notice the object under the stairs]
+
+### Example of a reactive roll (threat acts on the player)
+The door bangs open and two guards step in, boots heavy on the boards. A flashlight beam swings across the shelves — closer, closer to the gap where you crouch.
+Roll Stealth (1d100, need 40 or less).
+[SET_PENDING_ROLL:0:Stealth:40:40:Will the investigator stay unnoticed behind the shelf]
 
 ### Results
 - ≤ X/5 → Extreme success: maximum detail, reveals an NPC secret
@@ -145,6 +163,19 @@ A pushed roll is IMPOSSIBLE in combat.`;
 - Злом замків → Locksmith
 - Перша допомога → First Aid
 - Бій → Fighting/Firearms (ЗАВЖДИ)
+
+### Реактивні кидки — світ діє на гравця
+Коли загроза може помітити / наздогнати / зашкодити персонажу — НЕ вирішуй це наративом, попроси відповідний кидок:
+- Хтось обшукує кімнату, поки гравець ховається; вартовий веде промінь ліхтаря до схованки → Stealth
+- Погоня, падіння уламків, раптовий напад → Dodge
+- Шум, який гравець мусить вчасно вловити → Listen
+- NPC може помітити брехню чи гравця, що крадеться → Stealth (або протиставлена навичка)
+- Жодна навичка не пасує → Luck (1к100, треба Luck або менше)
+НІКОЛИ не вирішуй "чи помітили / наздогнали / влучили в персонажа" самим наративом — цей результат МУСИТЬ пройти через кидок.
+
+### Частота кидків
+У напруженій чи небезпечній сцені приблизно кожна 2-га–3-тя значуща дія має проходити через кидок. НІКОЛИ не став більше ОДНОГО [SET_PENDING_ROLL] за відповідь. Тривіальні дії (розмова, ходьба в безпеці) кидок усе одно не викликають.
+
 НЕ питай: звичайна розмова, ходьба, тривіальні дії.
 Приховані деталі, сліди й підказки видавай ЛИШЕ через успішний кидок — не розкривай їх у наративі безкоштовно.
 
@@ -174,6 +205,11 @@ A pushed roll is IMPOSSIBLE in combat.`;
 Промінь ліхтарика повзе попід сходами. Серед пилу щось тьмяно зблискує — надто рівний відблиск для каменю.
 Кинь Spot Hidden (1к100, треба 45 або менше).
 [SET_PENDING_ROLL:0:Spot Hidden:45:45:Чи помітить слідчий предмет під сходами]
+
+### Приклад реактивного кидка (загроза діє на гравця)
+Двері з гуркотом розчахуються, заходять двоє вартових, чоботи важко гупають по дошках. Промінь ліхтаря ковзає по стелажах — ближче, ближче до щілини, де ти зачаївся.
+Кинь Stealth (1к100, треба 40 або менше).
+[SET_PENDING_ROLL:0:Stealth:40:40:Чи залишиться слідчий непоміченим за стелажем]
 
 ### Результати
 - ≤ X/5 → Extreme success: максимум деталей, розкриває секрет NPC

@@ -213,6 +213,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     // framing is the one DeepSeek demonstrably obeys (eval roll probes).
     checkTitle: '⚠️ ПЕРЕД ВІДПРАВКОЮ ПЕРЕВІР:',
     checkRoll: `- Гравець шукає приховане, оглядає на сліди, прислуховується чи робить іншу дію з ризиком провалу → НЕ видавай приховані деталі одразу: попроси кидок відповідної навички.
+- Загроза в сцені може помітити/наздогнати/зашкодити персонажу → НЕ вирішуй наративом, попроси реактивний кидок (Stealth/Dodge/Luck) з тегом.
 - Просиш кидок ("Кинь X") → у кінці відповіді стоїть [SET_PENDING_ROLL:idx:Навичка:значення:поріг:контекст]. Без тегу кубик не активується.`,
     checkItem: '- У наративі гравець підняв/отримав предмет → стоїть [ITEM:...]. Без тегу предмета не існує.',
     checkNpc: '- Кожна пряма мова NPC — у [NPC:Ім\'я]...[/NPC], кожен тег закритий.',
@@ -345,6 +346,7 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
     variantHint: '(Apply this hint only for the intro — afterwards it no longer applies.)',
     checkTitle: '⚠️ BEFORE SENDING, VERIFY:',
     checkRoll: `- A player searches for something hidden, examines for traces, listens, or attempts anything with a risk of failure → do NOT reveal hidden details right away: ask for the appropriate skill roll.
+- A threat in the scene may notice/reach/harm the character → do NOT resolve it narratively, ask for the reactive roll (Stealth/Dodge/Luck) with the tag.
 - Asking for a roll ("Roll X") → the response ends with [SET_PENDING_ROLL:idx:Skill:value:threshold:context]. Without the tag the dice won't activate.`,
     checkItem: '- A player picked up/received an item in the narration → there is an [ITEM:...] tag. Without the tag the item does not exist.',
     checkNpc: '- Every piece of direct NPC speech is inside [NPC:Name]...[/NPC], every tag closed.',
