@@ -2901,3 +2901,23 @@ Build clean; barri-dev container restarted on staging (:3001); CSS cascades corr
 
 ### Verification
 `tsc` чистий; vitest 79/79 (2 нові юніти: ростер без секретів / промоушн met у повний блок). Live на staging: нова сесія the-haunting — інтро одразу дало бульбашку «Алекс Кнотт» + `alex_knott:'unknown'`; звернення до незустрінутого сусіда — окрема бульбашка «Карлос Лопес» з першого контакту + реєстрація. Жодного хибного `[ANT-153]` warn у логах. QA-сесію видалено.
+
+---
+
+## ANT-155 / ANT-156 — Legal pages (Privacy + Terms) + consent checkbox (2026-06-13)
+
+### Problem
+EU-launch legal audit (Anton): сервіс на .es/EU не мав **жодної** legal-сторінки — ні `/privacy`, ні `/terms`, ні cookie-нотатки. Waitlist-форма ([register/page.tsx](src/app/auth/register/page.tsx)) збирала email **без згоди й без віку**. Це quick-win частина ширшого аудиту (заведено ANT-155…ANT-162).
+
+### Solution
+- **Нові сторінки** `src/app/privacy/page.tsx` + `src/app/terms/page.tsx` (server components, статичний prerender) зі спільним `src/app/legal.css`. Privacy структурований під GDPR Art. 13 (дані / підстави / процесори / трансфери / retention / cookies / права / контакт). Terms покриває вік (16+), AI-природу контенту, acceptable use. Видимий банер **DRAFT — pending legal review** + `TODO` маркери там, де потрібні вендор-факти/текст від юриста.
+- **Footer** (LandingClient): нова колонка «Legal/Правове/Legal» з лінками /privacy, /terms (трилінгва).
+- **Consent**: чекбокс «I am at least 16 and accept Terms + Privacy» у waitlist-формі; submit `disabled` поки не відмічено + серверо-незалежна перевірка перед fetch. Стиль `.auth-consent` у auth.css.
+
+### Key decisions
+- Тексти — англійською + явний DRAFT, бо фінальний зміст і **трансфери (DeepSeek/Китай, US-вендори)** мають пройти юриста (ANT-160) і впливають на дефолтний движок. Не шиплю «готовий» legal-текст 3 мовами.
+- Свідомо **не** робив у цьому заході: self-service видалення/експорт (ANT-159 — security/DB-каскад, через Planned-гейт), age-gate як окреме поле (ANT-158), маркування AI-зображень (ANT-161).
+- Cookie: поки лише strictly-necessary `auth_token` → достатньо секції в Privacy, банер не потрібен (ANT-157 інваріант: аналітика тільки після opt-in).
+
+### Verification
+`tsc --noEmit` чистий; `next build` успішний — `/privacy` та `/terms` як ○ (Static). Live-перевірку на staging роблю після деплою гілки.

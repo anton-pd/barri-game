@@ -347,6 +347,11 @@ export default function LandingClient() {
             <a href="mailto:post@barrigame.es">post@barrigame.es</a>
             <a href="https://barrigame.es">barrigame.es</a>
           </div>
+          <div className="foot-col">
+            <h4>{lang === "uk" ? "Правове" : lang === "es" ? "Legal" : "Legal"}</h4>
+            <a href="/privacy">{lang === "uk" ? "Приватність" : lang === "es" ? "Privacidad" : "Privacy"}</a>
+            <a href="/terms">{lang === "uk" ? "Умови" : lang === "es" ? "Términos" : "Terms"}</a>
+          </div>
         </div>
 
         <div className="foot-credit">

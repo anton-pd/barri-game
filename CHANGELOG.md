@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.48] — 2026-06-13
+
+### Added
+- **Legal pages: Privacy Policy and Terms of Service (ANT-155 / ANT-156).** New `/privacy` and `/terms` static pages with a GDPR Art. 13 structure (data collected, legal basis, processors, international transfers, retention, cookies, data-subject rights, contact). Added a "Legal" column to the landing footer (uk/es/en) and a required consent checkbox ("I am at least 16 and accept the Terms and Privacy Policy") on the waiting-list / registration form — the submit stays disabled until it is checked. Page copy is a clearly-marked **DRAFT pending legal review**; processor/transfer specifics depend on the transfer audit (ANT-160).
+
 ## [0.4.47] — 2026-06-12
 
 ### Fixed
