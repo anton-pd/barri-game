@@ -8,6 +8,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  // ANT-156: explicit consent to Terms + Privacy is required before we store
+  // the email. Submit stays disabled until the box is checked.
+  const [consent, setConsent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -15,6 +18,11 @@ export default function RegisterPage() {
 
     if (!email.trim()) {
       setError('Investigator email is required');
+      return;
+    }
+
+    if (!consent) {
+      setError('Please accept the Terms and Privacy Policy to continue.');
       return;
     }
 
@@ -120,9 +128,22 @@ export default function RegisterPage() {
                 Registration is closed during launch. The waiting list is the only intake route.
               </p>
 
+              <label className="auth-consent">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                />
+                <span>
+                  I am at least 16 and accept the{' '}
+                  <Link href="/terms" target="_blank">Terms</Link> and{' '}
+                  <Link href="/privacy" target="_blank">Privacy Policy</Link>.
+                </span>
+              </label>
+
               {error && <div className="auth-error">{error}</div>}
 
-              <button type="submit" disabled={loading} className="auth-submit">
+              <button type="submit" disabled={loading || !consent} className="auth-submit">
                 <span>{loading ? 'Filing request...' : 'Join Waiting List'}</span>
                 <span>→</span>
               </button>
