@@ -14,6 +14,7 @@ interface FormState {
   isCampaign: boolean;
   estimatedSessions: number;
   language: 'uk' | 'en';
+  provider: 'gemini' | 'deepseek';
 }
 
 interface SaveResponse {
@@ -39,6 +40,7 @@ const DEFAULT: FormState = {
   isCampaign: false,
   estimatedSessions: 1,
   language: 'uk',
+  provider: 'gemini',
 };
 
 export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void }) {
@@ -220,6 +222,18 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
             >
               <option value="uk">Ukrainian</option>
               <option value="en">English</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Provider (A/B)</label>
+            <select
+              className={inputCls}
+              value={form.provider}
+              onChange={(e) => set('provider', e.target.value as FormState['provider'])}
+            >
+              <option value="gemini">Gemini 2.5 Pro</option>
+              <option value="deepseek">DeepSeek V4 Flash</option>
             </select>
           </div>
         </div>

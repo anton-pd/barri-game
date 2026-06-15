@@ -8,7 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## [0.5.3] — 2026-06-15
 
 ### Changed
-- **Dropped the Anthropic dependency from the app (ANT-167).** Scenario generation (`scenarioGenerator.ts`) now runs on **Gemini 2.5 Pro** (the previous Opus/Anthropic path was removed). Campaign close already ran on DeepSeek. A **DeepSeek** generation path was added behind an optional `provider` flag so we can A/B scenario quality (Gemini vs DeepSeek) and pick the default later.
+- **Dropped the Anthropic dependency from the app (ANT-167).** Scenario generation (`scenarioGenerator.ts`) now runs on **Gemini 2.5 Pro** (the previous Opus/Anthropic path was removed). Campaign close already ran on DeepSeek. A **DeepSeek** generation path was added behind an optional `provider` flag (with a Gemini/DeepSeek selector in the admin scenario generator) so we can A/B scenario quality (Gemini vs DeepSeek) and pick the default later.
 - **Hardened the API-key build/env structure (ANT-167).** `ANTHROPIC_API_KEY` is removed from the `barri`/`barri-dev` services in `docker-compose.yml`. The app no longer reads it, so the long-standing footgun — the Claude Code shell exporting an empty `ANTHROPIC_API_KEY` that shadowed the `.env` value during Compose interpolation and silently shipped a blank key — can no longer occur. Rebuilds no longer need the `env -u ANTHROPIC_API_KEY` workaround. (The dev eval harness in `scripts/eval` still uses Anthropic and keeps the key in `.env`.)
 
 ## [0.5.2] — 2026-06-15
