@@ -274,7 +274,7 @@ export default function UsageTab() {
               if (opt.value === 'custom') { setPeriod('custom'); return; }
               applyPeriod(opt.value, '');
             }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
+            className={`px-3 py-1.5 text-xs font-medium transition-colors border ${
               period === opt.value
                 ? 'bg-amber-800/60 text-amber-200 border-amber-700'
                 : 'bg-stone-800 text-stone-400 border-stone-700 hover:border-stone-600 hover:text-stone-300'
@@ -288,13 +288,13 @@ export default function UsageTab() {
             type="date"
             value={customDate}
             onChange={e => { setCustomDate(e.target.value); applyPeriod('custom', e.target.value); }}
-            className="px-3 py-1 rounded-lg text-xs bg-stone-800 border border-stone-600 text-stone-300 focus:outline-none focus:border-amber-600"
+            className="px-3 py-1 text-xs bg-stone-800 border border-stone-600 text-stone-300 focus:outline-none focus:border-amber-600"
           />
         )}
         <div className="flex-1" />
         <button
           onClick={() => { fetchModels(period, customDate); fetchAccounts(period, customDate); fetchAnonymousDemo(period, customDate); fetchSessions(); fetchScenarios(); }}
-          className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-lg transition-colors border border-stone-700"
+          className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 transition-colors border border-stone-700"
         >
           ↻ Refresh
         </button>

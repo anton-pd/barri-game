@@ -276,7 +276,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
           <button
             onClick={generate}
             disabled={status === 'generating' || !form.title || !form.titleUk || !form.premise}
-            className="px-5 py-2.5 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-stone-100 text-sm rounded-xl transition-colors font-medium"
+            className="px-5 py-2.5 bg-amber-700 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-stone-100 text-sm transition-colors font-medium"
           >
             {status === 'generating' ? 'Generating…' : 'Generate Scenario'}
           </button>
@@ -312,7 +312,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
               <div className="flex gap-2">
                 <button
                   onClick={copyJson}
-                  className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 text-xs rounded-lg transition-colors"
+                  className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 text-xs transition-colors"
                 >
                   {copied ? 'Copied' : 'Copy JSON'}
                 </button>

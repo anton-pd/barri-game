@@ -217,7 +217,7 @@ export default function PricingEditor() {
           <button
             onClick={() => saveModel(g)}
             disabled={saving[mk] || !dirty}
-            className={`text-xs px-3 py-1 rounded-lg border transition-colors whitespace-nowrap ${
+            className={`text-xs px-3 py-1 border transition-colors whitespace-nowrap ${
               saved[mk]
                 ? 'bg-emerald-900/40 border-emerald-700 text-emerald-400'
                 : dirty
