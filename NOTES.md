@@ -2989,3 +2989,28 @@ ANT-164 у чаті прибрав italic лише з наративного ш�
 
 ### Verification
 `tsc --noEmit` чистий. Live — на staging.barrigame.es після ребілду `barri-dev`.
+
+---
+
+## ANT-167 — Викинути Anthropic-залежність із застосунку + фікс env-структури (2026-06-15, Claude/Opus)
+
+### Problem
+`ANTHROPIC_API_KEY` у застосунку був крихким: docker-compose підставляв `${ANTHROPIC_API_KEY}`, а Compose резолвить `${VAR}` спершу з оболонки, потім із `.env`. Оболонка Claude Code сама експортує `ANTHROPIC_API_KEY` (іноді порожній/інший) → тихо перекривала значення з `.env` і запікала порожній ключ у контейнер. Звідси костиль `env -u ANTHROPIC_API_KEY` при кожному ребілді + щоразова перевірка ключа. Інші ключі (DEEPSEEK/OPENAI/GEMINI/OPENROUTER/BARRI_*) не страждали лише тому, що їхні імена не збігаються з рантаймом агента.
+
+### Solution
+- **Діагноз**: закриття кампанії вже на DeepSeek (`campaigns.ts:closeSession` → `callDeepSeekText`). Єдиний реальний рантайм-споживач Anthropic — генерація сценаріїв (`scenarioGenerator.ts`, Opus + Gemini-фолбек).
+- `scenarioGenerator.ts`: прибрано `generateWithOpus` + `@anthropic-ai/sdk` import + `OPUS_MODEL`. Активний провайдер — **Gemini 2.5 Pro** (`DEFAULT_PROVIDER='gemini'`). Додано `generateWithDeepSeek` (chat/completions, `response_format: json_object`, cap 8192 tok) під опційний `input.provider` для A/B-тесту якості. `generateScenario` диспетчеризує за provider, без крос-фолбеку (чистий замір).
+- `generate-scenario/route.ts`: passthrough+валідація `provider` ('gemini'|'deepseek').
+- `types/index.ts`: `ScenarioGeneratedBy.provider` → `'anthropic'|'gemini'|'deepseek'` ('anthropic' лишено для читання легасі-сценаріїв). `ScenarioGenerator.tsx`: оновлено побудову `generatedBy`.
+- **Infra**: прибрано `ANTHROPIC_API_KEY` з обох barri-сервісів у `/opt/apps/docker-compose.yml` (це і є фікс — shadowing більше неможливий; `env -u` не потрібен). `.env` ключ **лишено** — його ще використовує dev eval-харнес (`scripts/eval/run-eval.ts`, бенчмаркає sonnet/haiku, ANT-140).
+- `@anthropic-ai/sdk` у package.json **лишено** — потрібен eval-харнесу (не застосунку).
+
+### Key decisions (Anton)
+- Викинути Anthropic-ключ із застосунку, генерацію поки лишити на **Gemini**.
+- Провести A/B тест якості Gemini vs DeepSeek і обрати дефолт за результатом (окремий крок — потребує оцінки якості згенерованих сценаріїв людиною).
+
+### Verification
+`tsc --noEmit` чистий. `docker compose config` валідний, 0 згадок ANTHROPIC. Білд/буст staging — нижче. Сам A/B-замір генерації — наступним кроком (платні виклики + людська оцінка).
+
+### Note
+`docker-compose.yml` лежить у `/opt/apps` (поза barri-dev git) — зміна застосована на сервері напряму, не в гілці.

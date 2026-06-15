@@ -329,7 +329,8 @@ export interface ScenarioVariant {
 }
 
 export interface ScenarioGeneratedBy {
-  provider: 'anthropic' | 'gemini';
+  // 'anthropic' retained only to read legacy scenarios; new generation is gemini/deepseek (ANT-167).
+  provider: 'anthropic' | 'gemini' | 'deepseek';
   model: string;
   generatedAt?: string;
   fallbackFrom?: string | null;
