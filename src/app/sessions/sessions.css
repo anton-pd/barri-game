@@ -41,7 +41,7 @@
 .sessions-authmenu-trigger {
   width: 36px;
   height: 36px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--ink-2);
   border: 1px solid rgba(212,161,83,0.35);
   color: var(--paper-1);
@@ -71,7 +71,7 @@
   min-width: 200px;
   background: var(--ink-2);
   border: 1px solid rgba(107,90,62,0.45);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 12px;
   z-index: 61;
   box-shadow: 0 12px 28px -8px rgba(0,0,0,0.6);
@@ -102,7 +102,7 @@
   text-align: left;
   text-decoration: none;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 0;
   transition: background .15s, color .15s;
 }
 .sessions-authmenu-item:hover {
@@ -742,7 +742,7 @@
   width: 36px;
   height: 3px;
   background: var(--paper-3);
-  border-radius: 2px;
+  border-radius: 0;
   opacity: 0.35;
 }
 

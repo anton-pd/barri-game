@@ -124,7 +124,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () =
   return (
     <button
       onClick={onChange}
-      className="flex items-center gap-2 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 rounded-lg text-stone-300 transition-colors"
+      className="flex items-center gap-2 px-2.5 py-1.5 bg-stone-800 hover:bg-stone-700 active:bg-stone-600 text-stone-300 transition-colors"
       title={`${checked ? 'Вимкнути' : 'Увімкнути'} ${label}`}
     >
       <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-green-600' : 'bg-stone-600'}`}>
@@ -1613,13 +1613,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                       onClick={() => {
                         navigator.clipboard.writeText(JSON.stringify(debugData, null, 2));
                       }}
-                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
+                      className="border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
                     >
                       Copy JSON
                     </button>
                     <button
                       onClick={downloadDebug}
-                      className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
+                      className="border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
                     >
                       ⬇ .json
                     </button>
@@ -1681,7 +1681,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   <button
                     key={value}
                     onClick={() => setFeedbackRating(value)}
-                    className={`h-10 w-10 rounded-lg border font-semibold text-sm transition-colors ${
+                    className={`h-10 w-10 border font-semibold text-sm transition-colors ${
                       feedbackRating === value
                         ? 'border-amber-600/70 bg-amber-900/50 text-amber-200'
                         : 'border-stone-700 bg-stone-800/60 text-stone-400 hover:border-stone-600'

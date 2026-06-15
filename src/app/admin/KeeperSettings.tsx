@@ -62,7 +62,7 @@ export default function KeeperSettings() {
                 key={opt.value}
                 onClick={() => { setAiProvider(opt.value); save('ai_provider', opt.value); }}
                 disabled={saving === 'ai_provider'}
-                className={`flex flex-col items-start px-3.5 py-2.5 rounded-xl border transition-colors text-sm ${
+                className={`flex flex-col items-start px-3.5 py-2.5 border transition-colors text-sm ${
                   aiProvider === opt.value
                     ? 'bg-amber-800/60 border-amber-700 text-amber-200'
                     : 'bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-600 hover:text-stone-300'
@@ -85,7 +85,7 @@ export default function KeeperSettings() {
                 key={opt.value}
                 onClick={() => { setTtsProvider(opt.value); save('tts_provider', opt.value); }}
                 disabled={saving === 'tts_provider'}
-                className={`flex flex-col items-start px-3.5 py-2.5 rounded-xl border transition-colors text-sm ${
+                className={`flex flex-col items-start px-3.5 py-2.5 border transition-colors text-sm ${
                   ttsProvider === opt.value
                     ? 'bg-amber-800/60 border-amber-700 text-amber-200'
                     : 'bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-600 hover:text-stone-300'
@@ -136,7 +136,7 @@ export default function KeeperSettings() {
                 onChange={(e) => setDailyLimitUsd(e.target.value)}
                 onBlur={() => save('daily_user_cost_limit_usd', dailyLimitUsd)}
                 disabled={!dailyLimitEnabled}
-                className="w-24 rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 disabled:opacity-50 focus:border-amber-700 focus:outline-none"
+                className="w-24 border border-stone-700 bg-stone-800 px-2.5 py-1.5 text-sm text-stone-200 disabled:opacity-50 focus:border-amber-700 focus:outline-none"
               />
               <span className="text-stone-600 text-xs">/ user / day</span>
             </div>

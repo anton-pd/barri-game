@@ -61,7 +61,7 @@ export default function CostsTables() {
             )}
             <button
               onClick={refresh}
-              className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 rounded-lg transition-colors"
+              className="text-xs px-2.5 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 transition-colors"
             >
               ↻ оновити
             </button>
