@@ -3014,3 +3014,22 @@ ANT-164 у чаті прибрав italic лише з наративного ш�
 
 ### Note
 `docker-compose.yml` лежить у `/opt/apps` (поза barri-dev git) — зміна застосована на сервері напряму, не в гілці.
+
+---
+
+## ANT-163/165/166 — Геймчат UI-polish (review-фікси Антона, 2026-06-15, Claude/Opus, frontend-design скіл)
+
+### Problem
+Review на staging: (1) емодзі лишились у геймчаті; (2) Voice-кнопку прибрати; (3) Send-кнопка не в стилі (дивна кров'яна offset-тінь); (4) «Завершити вечір/кампанію» не в стилі; (5) у боковій панелі дублювалась картка гравця (StatsBar з ANT-166) і статична секція «Слідчі» — об'єднати + стиль поїхав.
+
+### Solution
+- **Іконки (ANT-163):** новий `src/components/Icon.tsx` — когерентний набір thin-stroke SVG-іконок (currentColor, розмір в `em`). Замінено всі UI-емодзі в `GameChat.tsx` (хедер, settings, playback, modal, inventory chips, send, rail-strip) і `StatsBar.tsx` (інвентар, chevron). Протокольний `🎲` лишається в контенті (контракт сервера ANT-134), але рендериться як dice-іконка через `displayContent.replace(/^🎲\s*/,'')`.
+- **Voice (ANT-165):** прибрано `<VoiceButton>` з composer + імпорт. Файл `VoiceButton.tsx` лишено (Антон: «поки»).
+- **Кнопки (ANT-165):** `chat-send-btn` — прибрано `box-shadow: 3px 3px 0 blood`, тепер rectangular бурштиновий штамп; `chat-icon-btn`/`chat-back-btn` rectangular; `chat-settings-end-btn--primary/secondary` — typewriter uppercase, rectangular (secondary=ink для вечора, primary=blood для термінальної дії).
+- **Об'єднання картки (ANT-166):** прибрано окремий `chat-dossier__stats` блок і статичний цикл карток у секції «Слідчі»; тепер `<StatsBar>` — тіло секції «Слідчі» (`chat-dossier__sec--investigators`). CSS: stats-card стилізовано як паперова `chat-dossier-card` (світлий фон, ink-текст, бар-треки темні-напівпрозорі, active = бурштиновий inset-бордер). У StatsBar додано показ `p.background` у розгорнутому виді. Невикористаний `resolvePlayerStats` імпорт прибрано з GameChat.
+
+### Verification
+`tsc` чистий; `eslint` — 0 errors (лише прев existуючі `<img>`-warnings). Білд/буст staging — нижче.
+
+### Note
+Гілка `feature/chat-ui-polish` (спільна для 3 пов'язаних таск — важкий перетин у GameChat.tsx + chat.css). Використано frontend-design скіл; напрям — підсилення наявного нуар-досьє, без зміни айдентики.

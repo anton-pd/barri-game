@@ -5,6 +5,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.4] — 2026-06-15
+
+### Changed
+- **Game chat: emoji replaced with a cohesive line-icon set (ANT-163).** All decorative/UI emoji in the play screen (📋 ⚙️ 📍 🔈 🔊 ⬇ ▶ ⏸ ⚠ 🐛 🎒 ⚔ ➤ ← ✕ …) are now thin-stroke SVG icons (`Icon.tsx`) that inherit `currentColor`, so they read as part of the noir dossier instead of breaking it. The `🎲` dice-result marker stays in stored content (server contract) but renders as the dice icon.
+- **Removed the voice (STT) button (ANT-165).** Hidden from the composer for now; `VoiceButton.tsx` is retained for later.
+- **Restyled the send + finish buttons to match the UI (ANT-165).** The send button drops the odd blood-red offset shadow for a rectangular amber stamp consistent with the other controls; the back/icon buttons are rectangular; "Завершити вечір / кампанію" use the typewriter uppercase noir treatment (neutral ink for the evening, blood stamp for the terminal action).
+- **Unified the investigator card in the dossier (ANT-166).** The player stats panel and the static "Слідчі" list were merged into a single investigator card per player inside the "Слідчі" dossier section, styled in the same paper-card language as the rest of the case file (stat bars + skills + inventory + active-player selection).
+
 ## [0.5.3] — 2026-06-15
 
 ### Changed
