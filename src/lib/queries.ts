@@ -718,6 +718,88 @@ export async function getUserById(id: string): Promise<User | null> {
   return (rows[0] as unknown as User) || null;
 }
 
+// GDPR Art. 17 — right to erasure (ANT-159).
+//
+// NOTE the FK trap: game_sessions.user_id is ON DELETE SET NULL, so deleting the
+// user row alone would ORPHAN the player's sessions and messages (the chat
+// content — the most sensitive personal data) instead of erasing them. We must
+// delete the sessions explicitly first; that cascades messages, session_summaries,
+// session_feedback and message_debug.
+//
+// waitlist_entries has no FK to users (keyed by email), so it is deleted by email.
+// Deleting the user row then cascades campaigns (→ campaign_assets, summaries) and
+// sets api_usage.user_id NULL — anonymized cost rows are intentionally retained
+// (legitimate interest; documented in the Privacy Policy / retention policy).
+//
+// All-or-nothing: a failure on any step rolls the whole erasure back.
+export async function deleteUserAccount(userId: string, email: string): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`DELETE FROM game_sessions WHERE user_id = ${userId}`;
+    await tx`DELETE FROM waitlist_entries WHERE lower(email) = ${email.toLowerCase()}`;
+    await tx`DELETE FROM users WHERE id = ${userId}`;
+  });
+}
+
+export interface UserAccountExport {
+  exportedAt: string;
+  account: Pick<User, 'id' | 'email' | 'role' | 'email_verified' | 'access_status' | 'created_at' | 'updated_at'>;
+  sessions: (GameSession & { messages: Message[] })[];
+  campaigns: Campaign[];
+  sessionSummaries: SessionSummary[];
+  feedbackSubmitted: SessionFeedback[];
+}
+
+// GDPR Art. 20 — right to data portability (ANT-159). Returns everything tied to
+// the user as structured JSON. Never includes password_hash or auth tokens.
+export async function getUserAccountExport(userId: string): Promise<UserAccountExport | null> {
+  const userRows = await sql`
+    SELECT id, email, role, email_verified, access_status, created_at, updated_at
+    FROM users WHERE id = ${userId}
+  `;
+  const account = userRows[0] as unknown as UserAccountExport['account'] | undefined;
+  if (!account) return null;
+
+  const sessionRows = (await sql`
+    SELECT * FROM game_sessions WHERE user_id = ${userId} ORDER BY created_at ASC
+  `) as unknown as GameSession[];
+  const sessionIds = sessionRows.map((s) => s.id);
+
+  const messageRows = sessionIds.length
+    ? ((await sql`
+        SELECT * FROM messages WHERE session_id IN ${sql(sessionIds)} ORDER BY created_at ASC
+      `) as unknown as Message[])
+    : [];
+  const messagesBySession = new Map<string, Message[]>();
+  for (const m of messageRows) {
+    const list = messagesBySession.get(m.session_id) ?? [];
+    list.push(m);
+    messagesBySession.set(m.session_id, list);
+  }
+
+  const campaigns = (await sql`
+    SELECT * FROM campaigns WHERE user_id = ${userId} ORDER BY created_at ASC
+  `) as unknown as Campaign[];
+
+  const sessionSummaries = sessionIds.length
+    ? ((await sql`
+        SELECT * FROM session_summaries WHERE session_id IN ${sql(sessionIds)}
+      `) as unknown as SessionSummary[])
+    : [];
+
+  const feedbackSubmitted = (await sql`
+    SELECT * FROM session_feedback WHERE submitted_by_user_id = ${userId}
+  `) as unknown as SessionFeedback[];
+
+  return {
+    exportedAt: new Date().toISOString(),
+    account,
+    sessions: sessionRows.map((s) => ({ ...s, messages: messagesBySession.get(s.id) ?? [] })),
+    campaigns,
+    sessionSummaries,
+    feedbackSubmitted,
+  };
+}
+
 export async function verifyUserEmail(token: string): Promise<User | null> {
   const rows = await sql`
     UPDATE users
