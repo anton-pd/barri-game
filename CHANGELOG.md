@@ -5,6 +5,17 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.0] — 2026-06-15 — Production release
+
+First consolidated promotion of the staging line to `main` (folds in `0.4.43`–`0.4.49`). Themes shipped in this release:
+
+- **EU launch — legal / GDPR readiness:** Privacy Policy + Terms of Service pages, footer Legal links and a 16+/Terms/Privacy consent checkbox on the waiting-list form (ANT-155/156); self-service account deletion (Art. 17) and data export (Art. 20) at `/account` (ANT-159).
+- **Game engine & dice hardening:** exhaustive DELTA/LOCATION tag application (ANT-118), summarizer no longer clobbers npcRelations / navigation state (ANT-117/68), random-event lifecycle ordering (ANT-124), dice-roll contract hardening + ruleset-aware rolls (ANT-119/120), `[ITEM:]` colon parsing (ANT-125), must-happen event tracking (ANT-148), split-tail prompt caching (ANT-126), NPC roster dead-lock fix (ANT-153), prompt tuning + EN localization (ANT-116, 143–147).
+- **Chat UX / a11y / performance:** streaming tag & markdown sanitation (ANT-121/130), truncation recovery (ANT-129), failed-send retry (ANT-133), dice-result chip (ANT-134), humanized item/location/scenario labels (ANT-128/131), image crop fix (ANT-154), dialog semantics + focus trap (ANT-137), prefers-reduced-motion (ANT-138), login hydration guard (ANT-132).
+- **Tooling & release gate:** model-matrix eval harness (ANT-140) and reactive-roll fixtures (ANT-149); waiting-list access gate + per-user daily cost cap (ANT-108).
+
+Per-change detail is in the `0.4.x` entries below.
+
 ## [0.4.49] — 2026-06-15
 
 ### Added
