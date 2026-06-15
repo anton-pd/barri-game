@@ -6,11 +6,10 @@ import { useState, useEffect, useRef } from 'react';
 import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags, stripStreamingArtifacts } from '@/lib/segments';
-import { resolvePlayerStats } from '@/lib/statUtils';
 import type { AiProvider } from '@/app/api/ai/route';
-import VoiceButton from './VoiceButton';
 import DiceRoller from './DiceRoller';
 import StatsBar from './StatsBar';
+import Icon from './Icon';
 
 const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
 
@@ -211,7 +210,7 @@ function DynamicImage({ prompt, type, sessionId, msgId, url, onUrlGenerated }: {
           disabled={loading}
           className="text-xs px-3 py-1 rounded bg-stone-700 hover:bg-stone-600 text-stone-200 disabled:opacity-50"
         >
-          {loading ? 'Спроба…' : '↻ Спробувати ще раз'}
+          {loading ? 'Спроба…' : 'Спробувати ще раз'}
         </button>
       </div>
     );
@@ -371,7 +370,7 @@ function CaseFilesPanel({
         <div className="chat-dossier__hdr">
           <span className="chat-dossier__kicker">Досьє справи</span>
           {onClose && (
-            <button onClick={onClose} className="chat-dossier__close" title="Згорнути" aria-label="Згорнути панель">✕</button>
+            <button onClick={onClose} className="chat-dossier__close" title="Згорнути" aria-label="Згорнути панель"><Icon name="close" /></button>
           )}
         </div>
 
@@ -381,7 +380,7 @@ function CaseFilesPanel({
             {statusLabel}
           </span>
           {currentLocationName && (
-            <p className="chat-dossier__loc"><span aria-hidden>📍</span> {currentLocationName}</p>
+            <p className="chat-dossier__loc"><Icon name="pin" /> {currentLocationName}</p>
           )}
           {briefing?.objective && (
             <p className="chat-dossier__objective">{briefing.objective}</p>
@@ -391,19 +390,6 @@ function CaseFilesPanel({
             <span><b>{counts.npcs}</b> персонажів</span>
             <span><b>{counts.locations}</b> локацій</span>
           </div>
-        </div>
-
-        {/* Character stats (HP / SAN / Luck + inventory) — moved here from the
-            central chat column so the reading area stays uncluttered (ANT-166). */}
-        <div className="chat-dossier__stats">
-          <StatsBar
-            players={players}
-            activePlayer={activePlayer}
-            onSelectPlayer={onSelectPlayer}
-            rulesetId={rulesetId}
-            onUseItem={onUseItem}
-            readOnly={readOnly}
-          />
         </div>
 
         {/* Collapsible sections (native <details>) instead of mutually-exclusive tabs */}
@@ -453,38 +439,18 @@ function CaseFilesPanel({
             </details>
           )}
 
-          {/* ── Гравці ── */}
-          <details className="chat-dossier__sec" open>
+          {/* ── Слідчі (player dossier cards: stats bars + skills + inventory) ── */}
+          <details className="chat-dossier__sec chat-dossier__sec--investigators" open>
             <summary>Слідчі ({players.length})</summary>
-            <div className="chat-dossier__sec-body space-y-3">
-              {players.map((p, i) => (
-                <div key={i} className="chat-dossier-card space-y-2">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-stone-100 truncate">{p.name}</span>
-                    <span className="text-xs text-amber-600 shrink-0">{p.role}</span>
-                  </div>
-                  {p.background && (
-                    <p className="text-xs text-stone-400 leading-relaxed">{p.background}</p>
-                  )}
-                  <div className="flex gap-3 text-xs pt-1 flex-wrap">
-                    {resolvePlayerStats(p, rulesetId).map((s) => (
-                      <span key={s.id} style={{ color: s.color }}>
-                        {s.label} {s.value}{s.hasMax && s.max !== null ? `/${s.max}` : ''}
-                      </span>
-                    ))}
-                  </div>
-                  {Object.keys(p.skills).length > 0 && (
-                    <div className="border-t border-stone-700/60 pt-2 grid grid-cols-2 gap-x-3 gap-y-0.5">
-                      {Object.entries(p.skills).map(([skill, val]) => (
-                        <div key={skill} className="flex justify-between">
-                          <span className="text-xs text-stone-500 truncate">{skill}</span>
-                          <span className="text-xs text-amber-700 font-mono ml-1">{val}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div className="chat-dossier__sec-body">
+              <StatsBar
+                players={players}
+                activePlayer={activePlayer}
+                onSelectPlayer={onSelectPlayer}
+                rulesetId={rulesetId}
+                onUseItem={onUseItem}
+                readOnly={readOnly}
+              />
             </div>
           </details>
 
@@ -1465,7 +1431,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {/* Header */}
       <div className="chat-header flex items-center justify-between">
         <div className="flex items-center gap-2 min-w-0">
-          <Link href="/sessions" className="chat-back-btn" title="Назад">←</Link>
+          <Link href="/sessions" className="chat-back-btn" title="Назад" aria-label="Назад"><Icon name="back" /></Link>
           <div className="min-w-0">
             <h1 className="chat-session-name truncate">{session.name}</h1>
             <div className="chat-header-sub">
@@ -1485,21 +1451,21 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {speakingId && (
-            <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити озвучення" aria-label="Зупинити озвучення">⏹</button>
+            <button onClick={stopAudio} className="chat-icon-btn" title="Зупинити озвучення" aria-label="Зупинити озвучення"><Icon name="stop" /></button>
           )}
           <button
             onClick={toggleCaseFiles}
             className="chat-icon-btn"
             title="Матеріали справи"
             aria-label="Матеріали справи"
-          >📋</button>
+          ><Icon name="dossier" /></button>
           <button
             onClick={() => setShowSettings((v) => !v)}
             className={`chat-icon-btn${showSettings ? ' chat-icon-btn--active' : ''}`}
             title="Налаштування"
             aria-label="Налаштування"
             aria-expanded={showSettings}
-          >⚙️</button>
+          ><Icon name="settings" /></button>
         </div>
       </div>
 
@@ -1544,12 +1510,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               className="chat-settings-aux-btn"
               title="Export full chat log (markdown, admin)"
             >
-              ⬇ Export log
+              <Icon name="download" /> Export log
             </button>
           )}
           {ambientEnabled && (
             <div className="chat-settings-volume-row">
-              <span>🔈</span>
+              <Icon name="sound-off" />
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={ambientVolume}
@@ -1557,7 +1523,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 className="w-20"
                 title="Гучність ембієнту"
               />
-              <span>🔊</span>
+              <Icon name="sound-on" />
             </div>
           )}
 
@@ -1632,17 +1598,18 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     </button>
                     <button
                       onClick={downloadDebug}
-                      className="border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700"
+                      className="border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-200 hover:bg-stone-700 inline-flex items-center gap-1"
                     >
-                      ⬇ .json
+                      <Icon name="download" /> .json
                     </button>
                   </>
                 )}
                 <button
                   onClick={closeDebug}
-                  className="rounded-lg border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-300 hover:bg-stone-700"
+                  aria-label="Закрити"
+                  className="border border-stone-700 bg-stone-800 px-2.5 py-1 text-xs text-stone-300 hover:bg-stone-700"
                 >
-                  ✕
+                  <Icon name="close" />
                 </button>
               </div>
             </div>
@@ -1682,8 +1649,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <button
                 onClick={() => setCompletionRequest(null)}
                 className="chat-settings-aux-btn"
+                aria-label="Закрити"
               >
-                ✕
+                <Icon name="close" />
               </button>
             </div>
 
@@ -1795,7 +1763,13 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 disabled={isLoadingA}
                 className={`chat-replay-btn${isPlaying ? ' chat-replay-btn--playing' : isLoadingA ? ' chat-replay-btn--loading' : ''}`}
               >
-                {isPlaying ? '⏸ зупинити' : isLoadingA ? '⏳' : msg.id === ttsErrorId ? '⚠ не відтворилось' : '▶ озвучити'}
+                {isPlaying
+                  ? <><Icon name="pause" /> зупинити</>
+                  : isLoadingA
+                    ? <span className="chat-replay-btn__loading">…</span>
+                    : msg.id === ttsErrorId
+                      ? <><Icon name="warning" /> не відтворилось</>
+                      : <><Icon name="play" /> озвучити</>}
               </button>
               {msg.id === truncatedMsgId && !isLoading && !sessionIsReadOnly && (
                 <button
@@ -1805,7 +1779,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     ? 'The reply was cut short by the length limit — ask the Keeper to continue'
                     : 'Відповідь обірвалась через ліміт довжини — попросити Кіпера продовжити'}
                 >
-                  {session.language === 'en' ? '⤷ continue' : '⤷ продовжити'}
+                  {session.language === 'en' ? 'continue' : 'продовжити'}
                 </button>
               )}
               {isAdmin && !isUser && (
@@ -1814,7 +1788,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   className="chat-replay-btn"
                   title="Show LLM prompt + raw output (admin)"
                 >
-                  🐛 debug
+                  debug
                 </button>
               )}
             </span>
@@ -1833,7 +1807,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     <p className="chat-bubble-label chat-bubble-label--user">{player.name}</p>
                   )}
                   <div className={`chat-bubble--user${isRoll ? ` chat-bubble--roll${rollFailed ? ' chat-bubble--roll-fail' : ''}` : ''}`}>
-                    {displayContent}
+                    {isRoll
+                      ? <><Icon name="dice" className="chat-roll-ico" /> {displayContent.replace(/^🎲\s*/, '')}</>
+                      : displayContent}
                   </div>
                 </div>
               </div>
@@ -2036,7 +2012,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                             onClick={() => removePending(i)}
                             className="chat-pending-pill__remove"
                             aria-label="Прибрати з черги"
-                          >✕</button>
+                          ><Icon name="close" /></button>
                         </span>
                       ))}
                     </div>
@@ -2057,7 +2033,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                         title={item.description}
                         className="chat-inventory-item"
                       >
-                        {item.equipped ? '⚔' : '📦'} {item.name}
+                        <Icon name={item.equipped ? 'equipped' : 'inventory'} /> {item.name}
                         {item.uses > 0 && <span className="chat-inventory-item__uses">×{item.uses}</span>}
                         {item.uses === -1 && <span className="chat-inventory-item__uses">∞</span>}
                       </button>
@@ -2075,9 +2051,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     className="underline"
                     style={{ font: 'inherit', color: 'inherit' }}
                   >
-                    ↻ повторити
+                    повторити
                   </button>
-                  {' '}або ➤ ще раз.
+                  {' '}або надішли ще раз.
                 </div>
               )}
 
@@ -2097,7 +2073,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   />
                 </div>
                 <div className="composer-rail__actions">
-                  <VoiceButton onTranscript={(t) => sendMessage(t)} disabled={isLoading} sessionId={session.id} />
                   {session.players.length > 1 && (
                     <button
                       type="button"
@@ -2106,7 +2081,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                       title="Додати в чергу (наступний гравець)"
                       className="chat-icon-btn"
                       aria-label="Додати в чергу"
-                    >+</button>
+                    ><Icon name="plus" /></button>
                   )}
                   <button
                     type="button"
@@ -2114,7 +2089,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                     disabled={isLoading || (!input.trim() && pendingActions.length === 0)}
                     className="chat-send-btn"
                     aria-label="Надіслати"
-                  >➤</button>
+                  ><Icon name="send" /></button>
                 </div>
               </div>
             </>
@@ -2143,7 +2118,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           aria-label="Розгорнути досьє справи"
         >
           <span className="chat-rail-strip__chevron" aria-hidden>‹</span>
-          <span className="chat-rail-strip__icon" aria-hidden>📋</span>
+          <span className="chat-rail-strip__icon" aria-hidden><Icon name="dossier" /></span>
           <span className="chat-rail-strip__count" title="План">{(session.world_state?.casePlan?.items ?? []).filter((item) => item.status !== 'hidden').length}</span>
           <span className="chat-rail-strip__count" title="Матеріали">{Object.keys(dynamicImages).length}</span>
           <span className="chat-rail-strip__count" title="Персонажі">{Object.keys(session.world_state?.npcRelations ?? {}).length}</span>

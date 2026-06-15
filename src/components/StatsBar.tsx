@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Player } from '@/types';
 import { resolvePlayerStats } from '@/lib/statUtils';
+import Icon from './Icon';
 
 interface StatsBarProps {
   players: Player[];
@@ -74,10 +75,12 @@ export default function StatsBar({
                   </span>
                   {usableInventory.length > 0 && (
                     <span className="stats-card__inv-count" title="Предмети">
-                      🎒 {usableInventory.length}
+                      <Icon name="inventory" /> {usableInventory.length}
                     </span>
                   )}
-                  <span className="stats-card__chevron" aria-hidden>{isOpen ? '▴' : '▾'}</span>
+                  <span className={`stats-card__chevron${isOpen ? ' stats-card__chevron--open' : ''}`} aria-hidden>
+                    <Icon name="chevron-down" />
+                  </span>
                 </span>
               </button>
 
@@ -106,6 +109,11 @@ export default function StatsBar({
 
               {isOpen && (
                 <>
+                  {p.background && (
+                    <div className="stats-card__section">
+                      <p className="stats-card__bio">{p.background}</p>
+                    </div>
+                  )}
                   {p.skills && Object.keys(p.skills).length > 0 && (
                     <div className="stats-card__section">
                       <p className="stats-card__section-label">Навички</p>
@@ -140,8 +148,8 @@ export default function StatsBar({
                             <div key={item.id} className={`inv-item${stateClass}`}>
                               <div className="inv-item__main">
                                 <span className="inv-item__title">
-                                  {equipped && <span className="inv-item__icon" aria-hidden>⚔</span>}
-                                  {broken && <span className="inv-item__icon" aria-hidden>✕</span>}
+                                  {equipped && <span className="inv-item__icon" aria-hidden><Icon name="equipped" /></span>}
+                                  {broken && <span className="inv-item__icon" aria-hidden><Icon name="broken" /></span>}
                                   <span className="inv-item__name">{item.name}</span>
                                   <span className="inv-item__uses">
                                     {broken ? 'зламаний' : item.uses === -1 ? '∞' : `×${item.uses}`}
