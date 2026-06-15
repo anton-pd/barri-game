@@ -271,6 +271,10 @@ function CaseFilesPanel({
   scenarioId,
   rulesetId,
   players,
+  activePlayer,
+  onSelectPlayer,
+  onUseItem,
+  readOnly,
   briefing,
   npcs,
   npcRelations,
@@ -289,6 +293,10 @@ function CaseFilesPanel({
   scenarioId: string;
   rulesetId: string;
   players: Player[];
+  activePlayer: number;
+  onSelectPlayer: (idx: number) => void;
+  onUseItem: (playerIdx: number, itemId: string, itemName: string) => void;
+  readOnly: boolean;
   briefing?: ScenarioBriefing | null;
   npcs: NPC[];
   npcRelations: Record<string, 'friendly' | 'neutral' | 'hostile' | 'unknown'>;
@@ -383,6 +391,19 @@ function CaseFilesPanel({
             <span><b>{counts.npcs}</b> персонажів</span>
             <span><b>{counts.locations}</b> локацій</span>
           </div>
+        </div>
+
+        {/* Character stats (HP / SAN / Luck + inventory) — moved here from the
+            central chat column so the reading area stays uncluttered (ANT-166). */}
+        <div className="chat-dossier__stats">
+          <StatsBar
+            players={players}
+            activePlayer={activePlayer}
+            onSelectPlayer={onSelectPlayer}
+            rulesetId={rulesetId}
+            onUseItem={onUseItem}
+            readOnly={readOnly}
+          />
         </div>
 
         {/* Collapsible sections (native <details>) instead of mutually-exclusive tabs */}
@@ -1482,15 +1503,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         </div>
       </div>
 
-      {/* Persistent character stats (HP / SAN / Luck + inventory) */}
-      <StatsBar
-        players={session.players}
-        activePlayer={activePlayer}
-        onSelectPlayer={setActivePlayer}
-        rulesetId={rulesetId}
-        onUseItem={handleUseItem}
-        readOnly={sessionIsReadOnly}
-      />
+      {/* Character stats moved to the dossier side panel (ANT-166). */}
 
       {/* Collapsible settings panel */}
       {showSettings && (
@@ -2140,6 +2153,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           scenarioId={session.scenario_id}
           rulesetId={rulesetId}
           players={session.players}
+          activePlayer={activePlayer}
+          onSelectPlayer={setActivePlayer}
+          onUseItem={handleUseItem}
+          readOnly={sessionIsReadOnly}
           briefing={briefing}
           npcs={scenarioNpcs}
           npcRelations={session.world_state?.npcRelations ?? {}}
