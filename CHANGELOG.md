@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.2] — 2026-06-15
+
+### Changed
+- **Player stats panel moved to the dossier (ANT-166).** The HP / SAN / Luck bars and inventory (`StatsBar`) no longer sit at the top of the central chat column — they now live as a section inside the "Досьє справи" side panel, so the reading/chat area stays uncluttered. Cards stack vertically to fit the narrow rail. Active-player selection stays in sync with the composer rail. Note: on mobile the side panel is a bottom sheet, so stats are one tap away rather than always-on-screen.
+
 ## [0.5.1] — 2026-06-15
 
 ### Changed

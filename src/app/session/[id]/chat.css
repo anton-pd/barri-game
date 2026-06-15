@@ -1130,6 +1130,27 @@
   background: linear-gradient(180deg, var(--ink-1) 0%, var(--ink-0) 100%);
   padding: 8px 12px;
 }
+
+/* ANT-166: StatsBar relocated from the central column into the dossier rail.
+   Drop the standalone bar chrome and stack the player cards vertically so they
+   fit the narrow side panel. */
+.chat-dossier__stats { margin: 12px 0 4px; }
+.chat-dossier__stats .stats-bar {
+  border-bottom: none;
+  background: none;
+  padding: 0;
+}
+.chat-dossier__stats .stats-bar__row {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 8px;
+  max-width: none;
+  margin: 0;
+}
+.chat-dossier__stats .stats-card {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .stats-bar__row {
   display: flex;
   flex-wrap: wrap;
