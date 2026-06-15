@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.1] — 2026-06-15
+
+### Changed
+- **Settings consistency — emojis removed (ANT-163).** Stripped decorative `✓`/`✗` glyphs from admin status/confirmation labels (KeeperSettings "Saved", AdminTabs verified/pending, PricingEditor, ScenarioGenerator) for a consistent text-only treatment.
+- **Game-chat narrative font (ANT-164).** Replaced the hard-to-read italic `IM Fell English` (Latin-only) with **Lora** (SIL OFL, full Latin+Cyrillic) for the Keeper/narrative text, rendered upright. Scoped to the game chat only (`session/[id]` layout + `chat.css`); landing/auth/demo pages untouched.
+- **Button style normalization (ANT-165).** Unified buttons across admin, sessions and game chat to a consistent rectangular shape (dropped mixed `rounded-xl`/`rounded-lg` radii). Toggle switches and panel/card containers keep their existing shapes (they are not buttons).
+
 ## [0.5.0] — 2026-06-15 — Production release
 
 First consolidated promotion of the staging line to `main` (folds in `0.4.43`–`0.4.49`). Themes shipped in this release:

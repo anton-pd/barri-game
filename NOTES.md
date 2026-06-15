@@ -2947,3 +2947,26 @@ EU legal-аудит: право на стирання і портативніс�
 
 ### Notes
 - **CHANGELOG-колізія версій**: розрулено при мерджі в `staging` — `0.4.49` (ANT-159) над `0.4.48` (ANT-155).
+
+---
+
+## ANT-163 / ANT-164 / ANT-165 — UI polish batch (2026-06-15, Claude + 3 Haiku subagents)
+
+### Problem
+Три дрібні UI-таски з Todo (непризначені): прибрати емодзі з налаштувань (163), замінити нечитабельний italic-шрифт у чаті (164), привести кнопки до єдиного прямокутного стилю (165).
+
+### Solution
+- **ANT-163**: прибрані декоративні `✓`/`✗` з admin-лейблів (KeeperSettings «Saved», AdminTabs verified/pending, PricingEditor, ScenarioGenerator).
+- **ANT-164**: `IM Fell English` (italic, latin-only) → **Lora** (SIL OFL, latin+cyrillic), upright. Скоуп — **тільки геймчат**: `session/[id]/layout.tsx` (next/font, змінна `--font-narrative`) + `chat.css` (міграція `--font-oldprint`→`--font-narrative`, зняття `font-style: italic` у чатових елементах). Лендинг/auth/demo/sessions/legal **не чіпали** (за уточненням Антона).
+- **ANT-165**: кнопки в admin/sessions/чаті → прямокутні (прибрано `rounded-xl`/`rounded-lg`). Тогл-перемикачі та контейнери-картки лишені круглими/закругленими (це не кнопки).
+
+### Key decisions
+- Виконували 3 паралельні **Haiku-субагенти**, кожен у власному git worktree; рев'ю та фінальне доведення — Claude (Opus 4.8).
+- Зловлено й виправлено на рев'ю: ANT-165 прихопив gitlink-сміття `.claude/worktrees/*` (викинуто) і випрямив тогл-перемикач daily-limit (повернуто `rounded-full`); ANT-164 переборщив зі скоупом (зачіпав лендинг) — гілку переписано лише під чат.
+- Git-гігієна: спрацювала гонка гілок на спільному checkout навіть з worktree-ізоляцією; гілки `feature/ANT-164` довелося репойнтити, головний checkout повернути на `staging`. Деталі — у пам'яті `shared-checkout-branch-races`. `.claude/` не в `.gitignore` (варто додати `.claude/worktrees/`).
+
+### Verification
+`tsc --noEmit` чистий на змердженому `staging`. Три гілки змержено в `staging` (no-ff), без конфліктів попри перетин у admin/*. Live-перевірка — на staging.barrigame.es після ребілду контейнера `barri-dev`.
+
+### Open question for Anton
+ANT-164 у чаті прибрав italic лише з наративного шрифту (як і просили). Жодних змін поза чатом.
