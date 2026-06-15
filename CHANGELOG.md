@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.4.49] — 2026-06-15
+
+### Added
+- **Self-service account deletion and data export (ANT-159).** New "Дані та приватність" page at `/account` (linked from the email in the sessions header and the mobile menu) lets a signed-in user download all data tied to their account as a single JSON file (GDPR Art. 20) and permanently delete their account after confirming with their password (GDPR Art. 17). Deletion runs in a transaction and removes the user's game sessions, messages, campaigns, summaries, submitted feedback, and waiting-list entry; anonymized API-cost rows are intentionally retained. New endpoints `DELETE /api/account` and `GET /api/account/export`.
+
 ## [0.4.47] — 2026-06-12
 
 ### Fixed

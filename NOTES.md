@@ -2901,3 +2901,29 @@ Build clean; barri-dev container restarted on staging (:3001); CSS cascades corr
 
 ### Verification
 `tsc` чистий; vitest 79/79 (2 нові юніти: ростер без секретів / промоушн met у повний блок). Live на staging: нова сесія the-haunting — інтро одразу дало бульбашку «Алекс Кнотт» + `alex_knott:'unknown'`; звернення до незустрінутого сусіда — окрема бульбашка «Карлос Лопес» з першого контакту + реєстрація. Жодного хибного `[ANT-153]` warn у логах. QA-сесію видалено.
+
+---
+
+## ANT-159 — Self-service account deletion (Art. 17) + data export (Art. 20) (2026-06-15)
+
+### Problem
+EU legal-аудит: право на стирання і портативність технічно не реалізовані — у `src/app/api/auth` не було DELETE, не було експорту. Complex-таска (auth + каскад у БД), план ухвалено Антоном напряму («виконуй»).
+
+### Key finding (визначив дизайн)
+`game_sessions.user_id` має **`ON DELETE SET NULL`** ([queries.ts](src/lib/queries.ts)). Наївний `DELETE FROM users` **осиротив би** сесії й `messages` (увесь чат — найчутливіша PII), а не видалив. Тому сесії видаляються **явно й першими** (каскадять messages/summaries/feedback/message_debug), і лише потім — користувач.
+
+### Solution
+- **queries.ts**: `deleteUserAccount(userId, email)` — транзакція `sql.begin`: (1) `DELETE game_sessions WHERE user_id`, (2) `DELETE waitlist_entries WHERE lower(email)` (немає FK на users — по email), (3) `DELETE users` (каскад campaigns→campaign_assets/summaries; `api_usage.user_id`→NULL). `getUserAccountExport(userId)` → `UserAccountExport` (профіль без password_hash + сесії з повідомленнями + кампанії + summaries + подані feedback).
+- **API**: `DELETE /api/account` (verifyJwt + bcrypt-звірка пароля як підтвердження), `GET /api/account/export` (attachment JSON).
+- **UI**: `/account` («Дані та приватність») — кнопка експорту + видалення з модалкою (пароль, попередження про незворотність). Лінк з email у хедері [SessionList](src/components/SessionList.tsx) + у мобільному меню.
+
+### Decisions (ухвалені Антоном)
+- `api_usage` — лишаємо знеособлені cost-рядки (legitimate interest), не видаляємо.
+- Дискові зображення (`sessionImages` → shared_data, дедуп по хешу) — **не чіпаємо в v1** (ризик зачепити чужі сесії; це AI-арт, не PII).
+- FK `game_sessions` на CASCADE **не мігруємо** — erasure на рівні застосунку, SET NULL лишається для адмінського видалення.
+
+### Verification
+`tsc` чистий (після `rm -rf .next` — стара валідація типів з гілки ANT-155 давала фантомні помилки про privacy/terms); `next build` ок (`/account`, `/api/account`, `/api/account/export` у білді); vitest **83/83** (+4: порядок видалення проти SET NULL-пастки, lower-case email, відсутність password_hash в експорті, групування повідомлень по сесіях). Live-перевірку на staging — після деплою гілки.
+
+### Notes
+- **CHANGELOG-колізія версій**: ця гілка — `0.4.49`, паралельна ANT-155 — `0.4.48` (обидві ще не змерджені). Розрулити при мерджі.

@@ -518,7 +518,7 @@ export default function SessionList() {
                 {user.role === 'admin' && (
                   <Link href="/admin" className="sessions-authbar-admin">Admin</Link>
                 )}
-                <span className="sessions-authbar-email">{user.email}</span>
+                <Link href="/account" className="sessions-authbar-email" style={{ textDecoration: 'none' }}>{user.email}</Link>
                 <button className="sessions-authbar-logout" onClick={handleLogout}>
                   Вийти
                 </button>
@@ -553,6 +553,12 @@ export default function SessionList() {
                           role="menuitem"
                         >Admin</Link>
                       )}
+                      <Link
+                        href="/account"
+                        className="sessions-authmenu-item"
+                        onClick={() => setAuthMenuOpen(false)}
+                        role="menuitem"
+                      >Акаунт</Link>
                       <button
                         type="button"
                         className="sessions-authmenu-item sessions-authmenu-item--danger"
