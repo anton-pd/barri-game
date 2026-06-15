@@ -153,8 +153,8 @@ export default function AdminTabs({
                       </td>
                       <td className="px-4 py-3">
                         {user.email_verified
-                          ? <span className="text-emerald-500 text-xs">✓ verified</span>
-                          : <span className="text-stone-600 text-xs">✗ pending</span>
+                          ? <span className="text-emerald-500 text-xs">verified</span>
+                          : <span className="text-stone-600 text-xs">pending</span>
                         }
                       </td>
                       <td className="px-4 py-3">

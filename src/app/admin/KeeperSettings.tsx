@@ -72,7 +72,7 @@ export default function KeeperSettings() {
                 <span className="text-[11px] text-stone-500 mt-0.5">{opt.note}</span>
               </button>
             ))}
-            {saved === 'ai_provider' && <span className="text-xs text-emerald-500 self-center">Saved ✓</span>}
+            {saved === 'ai_provider' && <span className="text-xs text-emerald-500 self-center">Saved</span>}
           </div>
         </div>
 
@@ -95,7 +95,7 @@ export default function KeeperSettings() {
                 <span className="text-[11px] text-stone-500 mt-0.5">{opt.note}</span>
               </button>
             ))}
-            {saved === 'tts_provider' && <span className="text-xs text-emerald-500 self-center">Saved ✓</span>}
+            {saved === 'tts_provider' && <span className="text-xs text-emerald-500 self-center">Saved</span>}
           </div>
         </div>
 
@@ -141,7 +141,7 @@ export default function KeeperSettings() {
               <span className="text-stone-600 text-xs">/ user / day</span>
             </div>
             {(saved === 'daily_limit_enabled' || saved === 'daily_user_cost_limit_usd') && (
-              <span className="text-xs text-emerald-500 self-center">Saved ✓</span>
+              <span className="text-xs text-emerald-500 self-center">Saved</span>
             )}
           </div>
         </div>

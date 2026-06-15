@@ -307,21 +307,21 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
                     {meta.fallbackReason && <span className="text-amber-500"> · fallback</span>}
                   </span>
                 )}
-                {saved && <span className="text-emerald-500 ml-3">Saved + materials generated ✓</span>}
+                {saved && <span className="text-emerald-500 ml-3">Saved + materials generated</span>}
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={copyJson}
                   className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 text-xs rounded-lg transition-colors"
                 >
-                  {copied ? 'Copied ✓' : 'Copy JSON'}
+                  {copied ? 'Copied' : 'Copy JSON'}
                 </button>
                 <button
                   onClick={saveToFile}
                   disabled={saving || saved}
                   className="px-3 py-1.5 bg-emerald-900/60 hover:bg-emerald-800/60 disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-700 text-emerald-300 text-xs rounded-lg transition-colors"
                 >
-                  {saving ? 'Saving + generating…' : saved ? 'Saved ✓' : 'Save + generate materials'}
+                  {saving ? 'Saving + generating…' : saved ? 'Saved' : 'Save + generate materials'}
                 </button>
               </div>
             </div>

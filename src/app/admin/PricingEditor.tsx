@@ -225,7 +225,7 @@ export default function PricingEditor() {
                 : 'bg-stone-800 border-stone-700 text-stone-600 cursor-default'
             }`}
           >
-            {saving[mk] ? '...' : saved[mk] ? '✓ Saved' : 'Update'}
+            {saving[mk] ? '...' : saved[mk] ? 'Saved' : 'Update'}
           </button>
         </td>
 
