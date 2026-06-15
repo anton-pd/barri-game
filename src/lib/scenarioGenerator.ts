@@ -1,8 +1,9 @@
 // Scenario generator — produces full scenario JSON.
-// Primary: Claude Opus 4.7 with prompt caching on the system prompt.
-// Fallback: Gemini 2.5 Pro (REST) if Opus fails (timeout / invalid JSON / API error).
+// Provider: Gemini 2.5 Pro (REST), default. A DeepSeek path is available for an
+// A/B quality comparison (ANT-167); the winning provider becomes the default
+// once the eval is done. The Anthropic/Opus path was removed (ANT-167) to drop
+// the ANTHROPIC_API_KEY dependency.
 // Called from /api/admin/generate-scenario.
-import Anthropic from '@anthropic-ai/sdk';
 
 export interface GenerateScenarioInput {
   title: string;
@@ -15,11 +16,14 @@ export interface GenerateScenarioInput {
   isCampaign: boolean;
   estimatedSessions: number;
   language: 'uk' | 'en';  // language for Ukrainian content fields
+  provider?: ScenarioProvider; // generation provider; defaults to DEFAULT_PROVIDER
 }
+
+export type ScenarioProvider = 'gemini' | 'deepseek';
 
 export interface GenerateScenarioResult {
   scenario: object;
-  provider: 'anthropic' | 'gemini';
+  provider: ScenarioProvider;
   model: string;
   stopReason: string | null;
   inputTokens: number;
@@ -27,9 +31,13 @@ export interface GenerateScenarioResult {
   fallbackReason?: string;
 }
 
-const OPUS_MODEL = 'claude-opus-4-7';
 const GEMINI_MODEL = 'gemini-2.5-pro';
+const DEEPSEEK_MODEL = 'deepseek-v4-flash';
 const MAX_TOKENS = 32000;
+// DeepSeek v4-flash caps output at 8192 tokens — large scenarios may truncate.
+const DEEPSEEK_MAX_TOKENS = 8192;
+// Active default until the Gemini-vs-DeepSeek quality eval (ANT-167) is settled.
+const DEFAULT_PROVIDER: ScenarioProvider = 'gemini';
 
 const SYSTEM_PROMPT = `You are an expert Call of Cthulhu scenario designer. You produce complete, valid scenario JSON files for the barrigame.es system.
 
@@ -235,42 +243,51 @@ function parseJsonLoose(text: string): object {
   }
 }
 
-async function generateWithOpus(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const stream = client.messages.stream({
-    model: OPUS_MODEL,
-    max_tokens: MAX_TOKENS,
-    // Prompt caching on the static system prompt — ~90% input discount on subsequent calls.
-    system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-    messages: [{ role: 'user', content: buildUserPrompt(input) }],
-  });
-  const message = await stream.finalMessage();
+async function generateWithDeepSeek(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
 
-  const textBlock = message.content.find((b) => b.type === 'text');
-  const text = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+  const res = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: buildUserPrompt(input) },
+      ],
+      max_tokens: DEEPSEEK_MAX_TOKENS,
+      temperature: 0.9,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`DeepSeek API error ${res.status}: ${err.slice(0, 300)}`);
+  }
+
+  const data = await res.json() as {
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+
+  const finishReason = data.choices?.[0]?.finish_reason ?? null;
+  const text = data.choices?.[0]?.message?.content ?? '';
 
   if (!text) {
-    throw new Error(`Opus returned empty text (stop_reason=${message.stop_reason})`);
+    throw new Error(`DeepSeek returned empty text (finish_reason=${finishReason})`);
   }
 
-  try {
-    const scenario = parseJsonLoose(text);
-    return {
-      scenario,
-      provider: 'anthropic',
-      model: OPUS_MODEL,
-      stopReason: message.stop_reason,
-      inputTokens: message.usage.input_tokens,
-      outputTokens: message.usage.output_tokens,
-    };
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new Error(
-      `Opus JSON parse failed (stop_reason=${message.stop_reason}, ` +
-      `output_tokens=${message.usage.output_tokens}): ${detail}\n` +
-      `Response head: ${text.slice(0, 300)}`
-    );
-  }
+  const scenario = parseJsonLoose(text);
+  return {
+    scenario,
+    provider: 'deepseek',
+    model: DEEPSEEK_MODEL,
+    stopReason: finishReason,
+    inputTokens: data.usage?.prompt_tokens ?? 0,
+    outputTokens: data.usage?.completion_tokens ?? 0,
+  };
 }
 
 async function generateWithGemini(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
@@ -322,17 +339,8 @@ async function generateWithGemini(input: GenerateScenarioInput): Promise<Generat
 }
 
 export async function generateScenario(input: GenerateScenarioInput): Promise<GenerateScenarioResult> {
-  try {
-    return await generateWithOpus(input);
-  } catch (opusErr) {
-    const reason = opusErr instanceof Error ? opusErr.message : String(opusErr);
-    console.warn('[scenarioGenerator] Opus failed, falling back to Gemini:', reason);
-    try {
-      const result = await generateWithGemini(input);
-      return { ...result, fallbackReason: reason };
-    } catch (geminiErr) {
-      const geminiReason = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      throw new Error(`Both providers failed.\nOpus: ${reason}\nGemini: ${geminiReason}`);
-    }
-  }
+  const provider = input.provider ?? DEFAULT_PROVIDER;
+  return provider === 'deepseek'
+    ? generateWithDeepSeek(input)
+    : generateWithGemini(input);
 }

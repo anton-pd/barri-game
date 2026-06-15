@@ -22,7 +22,7 @@ VPS service map and cleanup notes live in **SERVER_STRUCTURE.md**.
 | Framework | Next.js 16.2 (App Router, standalone output), TypeScript, Tailwind 4 |
 | Database | PostgreSQL — `postgres` package, no ORM |
 | AI — engine | DeepSeek `deepseek-v4-flash` in two tiers (ANT-142): **base** = direct API (free/trial), **pro** = via OpenRouter pinned to Cloudflare (future paid; TTFT ~0.6s) |
-| AI — aux | Google Gemini `gemini-2.5-flash` (world-state summarize), `gemini-2.5-flash-image`, `gemini-2.5-flash-preview-tts`; Anthropic `claude-haiku-4-5` (campaign close in `campaigns.ts`) |
+| AI — aux | Google Gemini `gemini-2.5-flash` (world-state summarize), `gemini-2.5-flash-image`, `gemini-2.5-flash-preview-tts`, `gemini-2.5-pro` (scenario generation); DeepSeek `deepseek-v4-flash` (campaign close in `campaigns.ts`). Anthropic removed from the app/runtime (ANT-167) — only the dev eval harness (`scripts/eval`) still uses it. |
 | TTS | OpenAI `tts-1`, Gemini TTS, ElevenLabs (ambient sound loops) |
 | STT | OpenAI `whisper-1` |
 | Hosting | Hetzner CX32 VPS, Docker Compose, Caddy reverse proxy + Let's Encrypt |

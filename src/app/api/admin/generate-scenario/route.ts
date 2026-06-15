@@ -5,7 +5,7 @@ import { getUserById } from '@/lib/queries';
 import { generateScenario } from '@/lib/scenarioGenerator';
 import type { GenerateScenarioInput } from '@/lib/scenarioGenerator';
 
-// Scenario generation with Opus 4.7 can take 60–180s on large outputs.
+// Scenario generation can take 60–180s on large outputs.
 // Force Node runtime and extend max duration so the upstream proxy doesn't cut us off.
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -23,10 +23,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as Partial<GenerateScenarioInput>;
-  const { title, titleUk, premise, era, difficulty, minPlayers, maxPlayers, isCampaign, estimatedSessions, language } = body;
+  const { title, titleUk, premise, era, difficulty, minPlayers, maxPlayers, isCampaign, estimatedSessions, language, provider } = body;
 
   if (!title || !titleUk || !premise || !era || !difficulty) {
     return NextResponse.json({ error: 'title, titleUk, premise, era, difficulty are required' }, { status: 400 });
+  }
+  if (provider && provider !== 'gemini' && provider !== 'deepseek') {
+    return NextResponse.json({ error: "provider must be 'gemini' or 'deepseek'" }, { status: 400 });
   }
 
   try {
@@ -41,6 +44,7 @@ export async function POST(req: NextRequest) {
       isCampaign: isCampaign ?? false,
       estimatedSessions: estimatedSessions ?? 1,
       language: language ?? 'uk',
+      provider,
     });
 
     console.log(

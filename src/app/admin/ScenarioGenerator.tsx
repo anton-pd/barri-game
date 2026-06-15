@@ -112,12 +112,13 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
     if (!result) return;
     const id = result.id as string;
     if (!id) { setError('Scenario has no id field'); return; }
-    const generatedBy = (meta?.provider === 'anthropic' || meta?.provider === 'gemini') && meta?.model
+    const provider = meta?.provider;
+    const generatedBy = (provider === 'gemini' || provider === 'deepseek') && meta?.model
       ? {
-          provider: meta.provider,
+          provider,
           model: meta.model,
           generatedAt: new Date().toISOString(),
-          fallbackFrom: meta.fallbackReason ? 'claude-opus-4-7' : null,
+          fallbackFrom: null,
         } satisfies ScenarioGeneratedBy
       : undefined;
 
