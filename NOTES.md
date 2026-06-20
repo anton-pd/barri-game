@@ -2947,3 +2947,29 @@ EU legal-аудит: право на стирання і портативніс�
 
 ### Notes
 - **CHANGELOG-колізія версій**: розрулено при мерджі в `staging` — `0.4.49` (ANT-159) над `0.4.48` (ANT-155).
+
+---
+
+## ANT-168 — PostHog product analytics (prod-only)
+
+### Problem
+Прикрутити продуктову аналітику. Ціль: трекати **прод** (barrigame.es), **не** staging. Git між staging/prod має збігатися.
+
+### Key finding
+Офіційний візард (`npx @posthog/wizard --region eu`) використовує `NEXT_PUBLIC_POSTHOG_KEY` — **build-time** змінну (вшивається в клієнтський бандл під час `next build`). У нашому Dockerfile білд без build-args, а `environment:` у compose впливає лише на серверний `process.env`. Тож «як візард» не дозволяє гейтити prod vs staging без розбіжних кодових баз / per-service build-args. Плюс візард вимагає TTY (недоступний на GUI-less VPS).
+
+### Solution — runtime injection
+- `posthog-js` як залежність (клієнт).
+- `src/app/providers.tsx` — клієнтський `PostHogProvider(apiKey, apiHost)`. Якщо `apiKey` відсутній → НЕ ініціалізує PostHog (staging нічого не шле). `capture_pageview:false` + ручний `$pageview` на зміну роуту (`PageviewTracker` у `<Suspense>` через `useSearchParams`).
+- `src/components/ConsentBanner.tsx` — GDPR-банер. До згоди: `persistence:'memory'` + `opt_out_capturing_by_default`. Вибір у localStorage (`barri_analytics_consent`), банер показується раз.
+- `src/app/layout.tsx` (серверний) читає `process.env.POSTHOG_KEY` / `POSTHOG_HOST` у рантаймі і передає пропом → **один код для staging+prod**.
+- `docker-compose.yml`: `POSTHOG_KEY`/`POSTHOG_HOST` додано **тільки** в сервіс `barri` (prod). `barri-dev` (staging) свідомо без них → не трекається.
+- `/opt/apps/.env`: плейсхолдери `BARRI_POSTHOG_KEY=` (порожній) + `BARRI_POSTHOG_HOST`. Anton вставляє `phc_...` з eu.posthog.com.
+
+### Decisions
+- Host за замовчуванням `https://eu.i.posthog.com` (EU-резиденція даних, GDPR).
+- Reverse-proxy через Caddy (`/ingest`) — НЕ робив у v1 (опц., проти адблоку); прямий EU-host.
+- Кастомні продуктові події (session_created, ai_turn, dice_roll, scenario_completed…) — **наступний крок** у межах задачі; цей коміт = базова інтеграція + consent + prod-only gating.
+
+### Verification
+`tsc --noEmit` чистий; `next build` ок (EXIT 0). Live-перевірка на проді — після деплою + вставки ключа в `.env` (staging має лишитись БЕЗ подій — перевірити, що PostHog не вантажиться).

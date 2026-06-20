@@ -5,6 +5,13 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.1] — 2026-06-20
+
+### Added
+- **PostHog product analytics (ANT-168)** — prod-only web + product analytics via PostHog EU Cloud. Runtime-injected API key (server `layout.tsx` → `PostHogProvider`), so staging and prod share one codebase but only the prod container sets `POSTHOG_KEY` and is ever tracked. Manual pageview capture on route change, GDPR consent banner (memory-only persistence + opt-out until the visitor accepts).
+
+---
+
 ## [0.5.0] — 2026-06-15 — Production release
 
 First consolidated promotion of the staging line to `main` (folds in `0.4.43`–`0.4.49`). Themes shipped in this release:
