@@ -3102,3 +3102,6 @@ PostHog **не ініціалізується до згоди**. `providers.tsx`
 
 ### Verification
 `tsc`/`build` чисті. Re-test headless на проді — нижче.
+
+### Verification result (ANT-169 fix)
+Підтверджено через headless Chrome на проді: при стандартному автоматизованому браузері posthog-js **не шле подій** (bot-detection через `navigator.webdriver` + headless UA — config/розширення вантажаться, ingestion = 0). З прихованим `navigator.webdriver=false` + нормальним UA після згоди пішли **2 POST на eu.i.posthog.com (200)**. Висновок: фікс робочий, події йдуть у справжньому браузері. Залишковий ризик для кінцевого юзера — адблок на `eu.i.posthog.com` (фікс: Caddy reverse-proxy `/ingest`, окремий крок за потреби).
