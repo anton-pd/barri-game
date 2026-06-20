@@ -3105,3 +3105,22 @@ PostHog **не ініціалізується до згоди**. `providers.tsx`
 
 ### Verification result (ANT-169 fix)
 Підтверджено через headless Chrome на проді: при стандартному автоматизованому браузері posthog-js **не шле подій** (bot-detection через `navigator.webdriver` + headless UA — config/розширення вантажаться, ingestion = 0). З прихованим `navigator.webdriver=false` + нормальним UA після згоди пішли **2 POST на eu.i.posthog.com (200)**. Висновок: фікс робочий, події йдуть у справжньому браузері. Залишковий ризик для кінцевого юзера — адблок на `eu.i.posthog.com` (фікс: Caddy reverse-proxy `/ingest`, окремий крок за потреби).
+
+---
+
+## ANT-170 — PostHog reverse-proxy /ingest (обхід адблокерів)
+
+### Problem
+Anton: події не долітають з 2 реальних браузерів, тільки серверні/headless. Скрін localStorage показав кукі `ph_phc_xkavBL..._posthog` на barrigame.es → posthog-js ініціалізується (ключ+згода ок), але мережеві запити на `eu.i.posthog.com` ріже адблок. (Кукі `ph_sTMFPsFhdP1Ssg_posthog` — внутрішня аналітика самих скриптів PostHog, не наша.)
+
+### Solution — first-party proxy через Next.js rewrites
+- `next.config.ts`: `skipTrailingSlashRedirect:true` + rewrites `/ingest/static/*`→eu-assets, `/ingest/array/*`→eu-assets, `/ingest/*`→eu.i.posthog.com.
+- `providers.tsx`: `api_host:'/ingest'`, `ui_host:'https://eu.posthog.com'`. Запити стають same-origin (barrigame.es) → адблок не бачить.
+- Prod-only гейтинг збережено (staging без ключа не ініціалізує; /ingest на staging просто не викликається). Серверний егрес на eu.i вже підтверджено раніше.
+
+### Decisions
+- Через Next.js rewrites, не Caddy — лишається в репо (git-tracked), деплоїться разом з кодом, без правок інфри поза репо.
+- `BARRI_POSTHOG_HOST` у .env більше не керує api_host (хардкод `/ingest`); лишив env для сумісності.
+
+### Verification
+`tsc`/`build` чисті. Headless на проді з прихованим navigator.webdriver: події мають піти на `barrigame.es/ingest/...` (нижче).

@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.8] — 2026-06-20
+
+### Added
+- **PostHog first-party reverse proxy (ANT-170).** Analytics now route through `barrigame.es/ingest` (Next.js rewrites → PostHog EU ingestion + assets hosts) instead of hitting `*.posthog.com` directly, so adblockers (uBlock/Brave/AdGuard) can no longer block events. `posthog-js` uses `api_host: '/ingest'` + `ui_host`. Root cause confirmed from a real browser: posthog-js initialized (persistence cookie present) but ingestion requests were blocked.
+
 ## [0.5.7] — 2026-06-20
 
 ### Fixed
