@@ -3124,3 +3124,23 @@ Anton: події не долітають з 2 реальних браузері
 
 ### Verification
 `tsc`/`build` чисті. Headless на проді з прихованим navigator.webdriver: події мають піти на `barrigame.es/ingest/...` (нижче).
+
+---
+
+## ANT-171 — Cookiebot CMP (замінює власний consent)
+
+### Problem
+Власний cookie-consent не є повноцінним CMP (нема сканування кукі, категорій, юридичної достатності). Anton: повісити Cookiebot (free, EU-compliant).
+
+### Solution
+- `layout.tsx`: коли є `COOKIEBOT_CBID` — у `<head>` рендериться `next/script` Cookiebot `uc.js` (`data-cbid`, `data-blockingmode="manual"`, `beforeInteractive`). Передає `cookiebotId` у провайдер.
+- `providers.tsx`: джерело згоди — Cookiebot. `consented = window.Cookiebot.consent.statistics`, синхронізується на події `CookiebotOnConsentReady/Accept/Decline`. PostHog init лише за згодою statistics; на відкликання — `opt_out_capturing()`. Якщо `cookiebotId` нема (staging / без CBID) — fallback на власний `ConsentBanner` (прод не ламається). PostHog лишається за `/ingest` (ANT-170).
+- `.env`: `BARRI_COOKIEBOT_CBID=` (порожній); compose — лише сервіс `barri`.
+
+### Decisions
+- Prod-only через env (як POSTHOG_KEY). Без CBID код безпечний — fallback.
+- `data-blockingmode="manual"`: posthog бандлиться через npm, авто-блокування Cookiebot його не зловить, тож гейтимо вручну через consent API.
+- Не задеплоєно до отримання CBID від Anton (cookiebot.com → домен barrigame.es → Domain Group ID).
+
+### Verification
+`tsc`/`build` чисті. Live + headless — після вставки CBID у .env і деплою.
