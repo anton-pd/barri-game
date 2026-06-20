@@ -37,7 +37,11 @@ export function PostHogProvider({
     if (!apiKey || !consented) return; // no key (staging) or no consent → never init
     if (posthog.__loaded) return;
     posthog.init(apiKey, {
-      api_host: apiHost || "https://eu.i.posthog.com",
+      // First-party reverse proxy so adblockers cannot block analytics (ANT-170):
+      // `/ingest/*` is rewritten to PostHog in next.config.ts, so requests are
+      // same-origin (barrigame.es) and unblockable.
+      api_host: "/ingest",
+      ui_host: "https://eu.posthog.com",
       defaults: "2025-05-24",
       capture_pageview: false, // captured manually (initial below + on route change)
       persistence: "localStorage+cookie",
