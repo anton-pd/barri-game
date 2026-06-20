@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.9] — 2026-06-20
+
+### Added
+- **Cookiebot CMP for cookie consent (ANT-171).** Replaced the built-in consent banner with [Cookiebot](https://www.cookiebot.com/) (EU/GDPR-compliant CMP, free plan) on prod. PostHog now initializes only when Cookiebot's `statistics` consent is granted (and opts out on withdrawal). Prod-only via runtime-injected `COOKIEBOT_CBID` (script in `<head>`, `data-blockingmode="manual"`); staging / setups without a CBID fall back to the built-in banner so nothing breaks.
+
 ## [0.5.8] — 2026-06-20
 
 ### Added
