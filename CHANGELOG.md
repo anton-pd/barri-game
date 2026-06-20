@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.6] — 2026-06-20
+
+### Added
+- **PostHog custom product events (ANT-169)** — client-side product events on top of ANT-168 for the scenario funnel: `session_created` (scenario/ruleset/roles/language), `ai_turn` (latency, provider, has_npc/has_image/truncated), `dice_roll` (skill/value/threshold/success), and `scenario_completed`/`finish_evening` (trigger/ended_early/message_count). Captured client-side via a `track()` helper (`lib/analytics.ts`) so events respect the consent banner, share one distinct_id with pageviews (funnels work), and stay prod-only automatically.
+
 ## [0.5.5] — 2026-06-20
 
 ### Added

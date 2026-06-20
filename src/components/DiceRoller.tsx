@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { WorldState } from '@/types';
+import { track } from '@/lib/analytics';
 
 interface DiceRollerProps {
   pendingRoll: NonNullable<WorldState['pendingRollResult']>;
@@ -126,7 +127,16 @@ export default function DiceRoller({ pendingRoll, onResult }: DiceRollerProps) {
         {phase === 'done' && (
           <button
             type="button"
-            onClick={() => onResult(total)}
+            onClick={() => {
+              track('dice_roll', {
+                skill: pendingRoll.skillName,
+                value: pendingRoll.skillValue,
+                threshold: pendingRoll.goodThreshold,
+                roll: total,
+                success: isSuccess,
+              });
+              onResult(total);
+            }}
             className={`dice-roller__button dice-roller__button--${isSuccess ? 'success' : 'fail'}`}
           >
             {isSuccess ? 'Успіх' : 'Провал'} — надіслати {total}

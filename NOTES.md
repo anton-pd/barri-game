@@ -3059,3 +3059,26 @@ Review на staging: (1) емодзі лишились у геймчаті; (2) 
 
 ### Verification
 `tsc --noEmit` чистий; `next build` ок (EXIT 0). Live-перевірка на проді — після деплою + вставки ключа в `.env` (staging має лишитись БЕЗ подій — перевірити, що PostHog не вантажиться).
+
+---
+
+## ANT-169 — PostHog кастомні продуктові події
+
+### Problem
+Поверх базової інтеграції (ANT-168) додати продуктові події для воронки проходження сценаріїв і retention.
+
+### Solution — client-side
+Усі події client-side через `posthog-js` (НЕ posthog-node). Причини: (1) поважає consent-банер — до згоди подій нема; (2) єдиний distinct_id з `$pageview` → воронки працюють крос-івент; (3) prod-only автоматично (PostHog ініціалізується лише де є ключ = прод). Server-side posthog-node обійшов би consent — тому відкинуто.
+
+- `src/lib/analytics.ts` — `track(event, props)` з guard `posthog.__loaded` + SSR-guard. No-op на staging/до згоди.
+- `session_created` (scenario_id, ruleset, roles_count, language) — `SessionList.createSession()` після `res.ok`, перед навігацією.
+- `ai_turn` (scenario_id, provider, latency_ms, has_npc, has_image, truncated) — `GameChat.sendMessage()` після `done`-стріму. `latency_ms` = клієнтський час від fetch до завершення стріму. `has_npc` через `data.segments.some(s.type==='npc')`.
+- `dice_roll` (skill, value, threshold, roll, success) — `DiceRoller` onClick підтвердження.
+- `scenario_completed` / `finish_evening` (scenario_id, is_campaign, trigger, ended_early, message_count) — `GameChat.submitCompletion()` після успішної відповіді.
+
+### Decisions
+- Без зміни AI-протоколу/серверних роутів — лише клієнтське спостереження.
+- Токени `ai_turn` не шлемо з клієнта (їх знає лише сервер); latency — клієнтський. Якщо знадобляться токени per-turn у PostHog — окремий крок (server-side з прокиданням distinct_id).
+
+### Verification
+`tsc --noEmit` чистий; `next build` EXIT 0. Події активні лише на проді (staging без ключа). Live-перевірка — у PostHog Live Events з barrigame.es після згоди в банері.

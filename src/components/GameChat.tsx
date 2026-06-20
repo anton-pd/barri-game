@@ -7,6 +7,7 @@ import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBrie
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags, stripStreamingArtifacts } from '@/lib/segments';
 import type { AiProvider } from '@/app/api/ai/route';
+import { track } from '@/lib/analytics';
 import DiceRoller from './DiceRoller';
 import StatsBar from './StatsBar';
 import Icon from './Icon';
@@ -1226,6 +1227,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       created_at: new Date().toISOString(),
     }]);
 
+    const turnStart = Date.now();
     try {
       const res = await fetch('/api/ai', {
         method: 'POST',
@@ -1288,6 +1290,15 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       if (data.imagePrompt) setDynamicImages((prev) => ({
         ...prev, [realId]: { prompt: data.imagePrompt as string, type: (data.imageType as string) ?? 'scene' },
       }));
+
+      track('ai_turn', {
+        scenario_id: session.scenario_id,
+        provider: aiProvider,
+        latency_ms: Date.now() - turnStart,
+        has_npc: Array.isArray(data.segments) && (data.segments as Segment[]).some((s) => s.type === 'npc'),
+        has_image: Boolean(data.imagePrompt),
+        truncated: Boolean(data.truncated),
+      });
 
       // ANT-77: the Keeper emitting [FINISH_EVENING]/[COMPLETE_SESSION] must NOT
       // silently close the session. Open the confirmation modal so the player
@@ -1395,6 +1406,14 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       const data = await response.json() as CompletionResponse;
       const updatedSession = data.session;
+
+      track(mode === 'finish-evening' ? 'finish_evening' : 'scenario_completed', {
+        scenario_id: session.scenario_id,
+        is_campaign: Boolean(session.campaign_id),
+        trigger,
+        ended_early: endedEarly,
+        message_count: messages.length,
+      });
 
       setSession(updatedSession);
       setCompletionStats(data.stats ?? buildLocalCompletionStats(updatedSession, messages));

@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GameSession, Scenario, Player, WorldState } from '@/types';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
+import { track } from '@/lib/analytics';
 import { version as appVersion } from '../../package.json';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -415,6 +416,12 @@ export default function SessionList() {
       });
       if (!res.ok) throw new Error('Failed');
       const session = await res.json() as GameSession;
+      track('session_created', {
+        scenario_id: selectedScenario.id,
+        ruleset: selectedScenario.rulesetId,
+        roles_count: players.length,
+        language,
+      });
       window.location.href = `/session/${session.id}`;
     } catch {
       setIsCreating(false);
