@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.7] — 2026-06-20
+
+### Fixed
+- **PostHog never sent events after consent (ANT-169).** The opt-out-by-default + `opt_in_capturing()` flow did not actually start capturing in posthog-js 1.39x — confirmed via a headless browser (no adblock): clicking "Дозволити" loaded config but fired zero capture requests. Reworked to **not initialize PostHog until consent is granted**, then `init()` + an immediate `$pageview`. Cleaner GDPR posture and events now flow.
+
 ## [0.5.6] — 2026-06-20
 
 ### Added

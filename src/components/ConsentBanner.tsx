@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import posthog from "posthog-js";
 
 const CONSENT_KEY = "barri_analytics_consent"; // "granted" | "denied"
 
@@ -11,11 +10,11 @@ export function hasConsent(): boolean {
 }
 
 /**
- * Minimal GDPR consent banner. Until the visitor accepts, PostHog runs with
- * memory-only persistence and capturing opted out (see providers.tsx). Choice is
- * stored in localStorage so the banner is shown only once.
+ * Minimal GDPR consent banner. PostHog is only initialized after the visitor
+ * accepts (see providers.tsx — `onAccept` flips consent and triggers init).
+ * Choice is stored in localStorage so the banner is shown only once.
  */
-export function ConsentBanner() {
+export function ConsentBanner({ onAccept }: { onAccept?: () => void }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -27,14 +26,12 @@ export function ConsentBanner() {
 
   const accept = () => {
     window.localStorage.setItem(CONSENT_KEY, "granted");
-    posthog.set_config({ persistence: "localStorage+cookie" });
-    posthog.opt_in_capturing();
     setVisible(false);
+    onAccept?.();
   };
 
   const decline = () => {
     window.localStorage.setItem(CONSENT_KEY, "denied");
-    posthog.opt_out_capturing();
     setVisible(false);
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
@@ -12,6 +12,11 @@ import { ConsentBanner, hasConsent } from "@/components/ConsentBanner";
  * a build-time `NEXT_PUBLIC_*` var. This keeps a single git/code base for both
  * staging and prod: only the prod container sets `POSTHOG_KEY`, so staging never
  * initializes PostHog and is never tracked. See ANT-168 / PROJECT_CONTEXT.md.
+ *
+ * GDPR (ANT-169 fix): PostHog is NOT initialized until the visitor accepts the
+ * consent banner. The earlier opt-out-by-default + `opt_in_capturing()` flow did
+ * not actually start capturing on consent in posthog-js 1.39x, so no events were
+ * ever sent. Gating `init()` on consent is both correct and more privacy-safe.
  */
 export function PostHogProvider({
   apiKey,
@@ -22,17 +27,23 @@ export function PostHogProvider({
   apiHost?: string;
   children: React.ReactNode;
 }) {
+  const [consented, setConsented] = useState(false);
+
   useEffect(() => {
-    if (!apiKey) return; // no key (e.g. staging) → never initialize, never track
+    setConsented(hasConsent());
+  }, []);
+
+  useEffect(() => {
+    if (!apiKey || !consented) return; // no key (staging) or no consent → never init
+    if (posthog.__loaded) return;
     posthog.init(apiKey, {
       api_host: apiHost || "https://eu.i.posthog.com",
       defaults: "2025-05-24",
-      capture_pageview: false, // captured manually below on route change
-      // GDPR: do not track until the visitor explicitly consents.
-      opt_out_capturing_by_default: !hasConsent(),
-      persistence: hasConsent() ? "localStorage+cookie" : "memory",
+      capture_pageview: false, // captured manually (initial below + on route change)
+      persistence: "localStorage+cookie",
     });
-  }, [apiKey, apiHost]);
+    posthog.capture("$pageview"); // first pageview right after consent/init
+  }, [apiKey, apiHost, consented]);
 
   if (!apiKey) return <>{children}</>;
 
@@ -42,7 +53,7 @@ export function PostHogProvider({
         <PageviewTracker />
       </Suspense>
       {children}
-      <ConsentBanner />
+      <ConsentBanner onAccept={() => setConsented(true)} />
     </PHProvider>
   );
 }

@@ -3082,3 +3082,23 @@ Review на staging: (1) емодзі лишились у геймчаті; (2) 
 
 ### Verification
 `tsc --noEmit` чистий; `next build` EXIT 0. Події активні лише на проді (staging без ключа). Live-перевірка — у PostHog Live Events з barrigame.es після згоди в банері.
+
+---
+
+## ANT-169 fix — PostHog не слав події після згоди
+
+### Problem
+Anton прийняв consent-банер на проді, але в PostHog нічого не прийшло.
+
+### Diagnosis (без здогадок)
+1. Server-side тест: `curl -d '{api_key, event,...}' https://eu.i.posthog.com/i/v0/e/` → `{"status":"Ok"}` HTTP 200 → токен/host/інжест справні.
+2. Headless Chrome (`chromedp/headless-shell`, без адблоку) на barrigame.es через Playwright CDP: після кліку «Дозволити» пішли лише `eu-assets…/array/config` + `surveys.js`, **жодного `/i/v0/e/` capture-запиту**. Отже не адблок — баг у consent-флоу.
+
+### Root cause
+`opt_out_capturing_by_default: !hasConsent()` + у банері `posthog.opt_in_capturing()` — у posthog-js 1.391 цей шлях не піднімає капчер після згоди (подій нема).
+
+### Fix
+PostHog **не ініціалізується до згоди**. `providers.tsx`: стан `consented` (з `hasConsent()`), `init()` лише коли `apiKey && consented`, одразу `posthog.capture('$pageview')`. `ConsentBanner` отримав `onAccept` → `providers` робить `setConsented(true)` → тригерить init. Прибрано opt-in/opt-out dance і persistence-switch. Чистіше і для GDPR (жодного posthog до згоди).
+
+### Verification
+`tsc`/`build` чисті. Re-test headless на проді — нижче.
