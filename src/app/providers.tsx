@@ -36,8 +36,12 @@ export function PostHogProvider({
   children: React.ReactNode;
 }) {
   const [consented, setConsented] = useState(false);
+  // Adblockers block consent.cookiebot.com by domain (ERR_BLOCKED_BY_CONTENT_BLOCKER),
+  // so the CMP never loads and no consent UI appears. When that happens we fall back
+  // to the built-in first-party banner (served from our domain, unblockable). ANT-171.
+  const [cookiebotBlocked, setCookiebotBlocked] = useState(false);
 
-  // Resolve consent: Cookiebot `statistics` when the CMP is active, else our banner.
+  // Resolve consent: Cookiebot `statistics` when the CMP loads, else our banner.
   useEffect(() => {
     if (cookiebotId) {
       const sync = () => setConsented(!!window.Cookiebot?.consent?.statistics);
@@ -45,7 +49,16 @@ export function PostHogProvider({
       window.addEventListener("CookiebotOnConsentReady", sync);
       window.addEventListener("CookiebotOnAccept", sync);
       window.addEventListener("CookiebotOnDecline", sync);
+      // If Cookiebot hasn't loaded after a few seconds, assume it's blocked and
+      // fall back to our own banner + localStorage consent.
+      const fallbackTimer = setTimeout(() => {
+        if (!window.Cookiebot) {
+          setCookiebotBlocked(true);
+          setConsented(hasConsent());
+        }
+      }, 4000);
       return () => {
+        clearTimeout(fallbackTimer);
         window.removeEventListener("CookiebotOnConsentReady", sync);
         window.removeEventListener("CookiebotOnAccept", sync);
         window.removeEventListener("CookiebotOnDecline", sync);

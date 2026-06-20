@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { PostHogProvider } from "./providers";
 
@@ -29,13 +28,20 @@ export default function RootLayout({
   return (
     <html lang="uk" className="h-full">
       <head>
+        {/* Cookiebot CMP — official snippet rendered as a plain, direct <script>
+            in <head> (ANT-171). next/script `beforeInteractive` emitted a
+            <link rel="preload"> + dynamic injection, which content blockers and
+            browser heuristics treated differently than the normal install and
+            blocked (ERR_BLOCKED_BY_CONTENT_BLOCKER). A direct tag matches how
+            every other Cookiebot site loads it. */}
         {cookiebotId && (
-          <Script
+          <script
             id="Cookiebot"
             src="https://consent.cookiebot.com/uc.js"
             data-cbid={cookiebotId}
-            data-blockingmode="manual"
-            strategy="beforeInteractive"
+            data-blockingmode="auto"
+            type="text/javascript"
+            async
           />
         )}
       </head>
