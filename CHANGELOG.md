@@ -5,6 +5,11 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ---
 
+## [0.5.10] — 2026-06-20
+
+### Fixed
+- **Cookiebot script was blocked / didn't load (ANT-171).** `next/script` with `strategy="beforeInteractive"` emitted the Cookiebot loader as a `<link rel="preload">` plus dynamic injection, which content blockers and browser heuristics treated differently from a normal install and blocked (`ERR_BLOCKED_BY_CONTENT_BLOCKER`) — so `window.Cookiebot` never appeared and no banner showed. Now rendered as a plain direct `<script>` in `<head>` (the official Cookiebot snippet). Also added a safety fallback: if the CMP still fails to load within 4s, the built-in first-party banner is shown so consent + analytics keep working.
+
 ## [0.5.9] — 2026-06-20
 
 ### Added

@@ -3144,3 +3144,20 @@ Anton: події не долітають з 2 реальних браузері
 
 ### Verification
 `tsc`/`build` чисті. Live + headless — після вставки CBID у .env і деплою.
+
+---
+
+## ANT-171 fix — Cookiebot не вантажився (preload via next/script)
+
+### Problem
+Anton: банер не з'являється, в консолі `uc.js ERR_BLOCKED_BY_CONTENT_BLOCKER`. При цьому Cookiebot на ІНШИХ сайтах у нього працює → проблема в нашому способі підключення.
+
+### Root cause
+`next/script strategy="beforeInteractive"` рендерив Cookiebot як `<link rel="preload" as="script">` + динамічна ін'єкція (у HTML було лише preload, 3 згадки uc.js). Інші сайти ставлять Cookiebot прямим `<script>` у head. Preload/динамічну ін'єкцію контент-блокери та браузерні евристики обробляють інакше і блокують → `window.Cookiebot` не з'являвся.
+
+### Fix
+- `layout.tsx`: прибрано `next/script`; Cookiebot тепер прямий `<script id="Cookiebot" src=".../uc.js" data-cbid data-blockingmode="auto" async>` у `<head>` — точно як офіційний снипет.
+- `providers.tsx`: safety-fallback — якщо за 4с `window.Cookiebot` не з'явився (заблоковано/не завантажився), показуємо власний first-party банер (`cookiebotBlocked`), щоб згода+аналітика працювали все одно.
+
+### Verification
+`tsc`/`build` чисті. Прод: HTML містить прямий `<script ...uc.js>` (не preload). Headless підтверджує Cookiebot вантажиться і гейтить PostHog.
