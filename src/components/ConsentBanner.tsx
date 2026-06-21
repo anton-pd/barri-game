@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const CONSENT_KEY = "barri_analytics_consent"; // "granted" | "denied"
+import {
+  getFallbackAnalyticsConsent,
+  hasFallbackAnalyticsConsent,
+  setFallbackAnalyticsConsent,
+} from "@/lib/consent";
 
 export function hasConsent(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(CONSENT_KEY) === "granted";
+  return hasFallbackAnalyticsConsent();
 }
 
 /**
@@ -19,8 +21,7 @@ export function ConsentBanner({ onAccept }: { onAccept?: () => void }) {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const stored = window.localStorage.getItem(CONSENT_KEY);
-      if (stored !== "granted" && stored !== "denied") setVisible(true);
+      if (!getFallbackAnalyticsConsent()) setVisible(true);
     }, 0);
     return () => clearTimeout(timer);
   }, []);
@@ -28,13 +29,13 @@ export function ConsentBanner({ onAccept }: { onAccept?: () => void }) {
   if (!visible) return null;
 
   const accept = () => {
-    window.localStorage.setItem(CONSENT_KEY, "granted");
+    setFallbackAnalyticsConsent("granted");
     setVisible(false);
     onAccept?.();
   };
 
   const decline = () => {
-    window.localStorage.setItem(CONSENT_KEY, "denied");
+    setFallbackAnalyticsConsent("denied");
     setVisible(false);
   };
 

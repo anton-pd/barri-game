@@ -4,7 +4,12 @@ import { useEffect, useState, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { ConsentBanner, hasConsent } from "@/components/ConsentBanner";
+import { ConsentBanner } from "@/components/ConsentBanner";
+import {
+  hasFallbackAnalyticsConsent,
+  readCookiebotStatisticsConsent,
+  type CookiebotApi,
+} from "@/lib/consent";
 
 /**
  * PostHog provider. The API key is injected at RUNTIME (server `layout.tsx`
@@ -21,10 +26,21 @@ import { ConsentBanner, hasConsent } from "@/components/ConsentBanner";
  * prod only), consent for the `statistics` category drives PostHog. Without
  * Cookiebot (staging / no CBID) we fall back to the built-in `ConsentBanner`.
  */
-type CookiebotConsent = { consent?: { statistics?: boolean } };
 declare global {
-  interface Window { Cookiebot?: CookiebotConsent }
+  interface Window { Cookiebot?: CookiebotApi }
 }
+
+const COOKIEBOT_READY_TIMEOUT_MS = 4000;
+const COOKIEBOT_CONSENT_EVENTS = [
+  "CookiebotOnConsentReady",
+  "CookiebotOnLoad",
+  "CookiebotOnAccept",
+  "CookiebotOnDecline",
+] as const;
+const COOKIEBOT_DIALOG_EVENTS = [
+  "CookiebotOnDialogInit",
+  "CookiebotOnDialogDisplay",
+] as const;
 
 export function PostHogProvider({
   apiKey,
@@ -45,35 +61,47 @@ export function PostHogProvider({
   useEffect(() => {
     if (cookiebotId) {
       let cookiebotReady = false;
-      const sync = () => {
-        if (window.Cookiebot?.consent) {
-          cookiebotReady = true;
-          setCookiebotBlocked(false);
-        }
-        setConsented(!!window.Cookiebot?.consent?.statistics);
+      const markCookiebotReady = () => {
+        cookiebotReady = true;
+        setCookiebotBlocked(false);
+      };
+      const syncFromCookiebot = () => {
+        const statisticsConsent = readCookiebotStatisticsConsent(window.Cookiebot);
+        if (statisticsConsent === null) return;
+        markCookiebotReady();
+        setConsented(statisticsConsent);
       };
       // consent may already be resolved (returning visitor)
-      const syncTimer = window.setTimeout(sync, 0);
-      window.addEventListener("CookiebotOnConsentReady", sync);
-      window.addEventListener("CookiebotOnAccept", sync);
-      window.addEventListener("CookiebotOnDecline", sync);
+      const syncTimer = window.setTimeout(syncFromCookiebot, 0);
+      COOKIEBOT_CONSENT_EVENTS.forEach((eventName) => {
+        window.addEventListener(eventName, syncFromCookiebot);
+      });
+      COOKIEBOT_DIALOG_EVENTS.forEach((eventName) => {
+        window.addEventListener(eventName, markCookiebotReady);
+      });
       // If Cookiebot hasn't loaded after a few seconds, assume it's blocked and
       // fall back to our own banner + localStorage consent.
       const fallbackTimer = setTimeout(() => {
         if (!cookiebotReady) {
           setCookiebotBlocked(true);
-          setConsented(hasConsent());
+          setConsented(hasFallbackAnalyticsConsent());
         }
-      }, 4000);
+      }, COOKIEBOT_READY_TIMEOUT_MS);
       return () => {
         clearTimeout(syncTimer);
         clearTimeout(fallbackTimer);
-        window.removeEventListener("CookiebotOnConsentReady", sync);
-        window.removeEventListener("CookiebotOnAccept", sync);
-        window.removeEventListener("CookiebotOnDecline", sync);
+        COOKIEBOT_CONSENT_EVENTS.forEach((eventName) => {
+          window.removeEventListener(eventName, syncFromCookiebot);
+        });
+        COOKIEBOT_DIALOG_EVENTS.forEach((eventName) => {
+          window.removeEventListener(eventName, markCookiebotReady);
+        });
       };
     }
-    const localConsentTimer = window.setTimeout(() => setConsented(hasConsent()), 0);
+    const localConsentTimer = window.setTimeout(
+      () => setConsented(hasFallbackAnalyticsConsent()),
+      0
+    );
     return () => clearTimeout(localConsentTimer);
   }, [cookiebotId]);
 

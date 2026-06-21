@@ -1,6 +1,7 @@
 import Link from "next/link";
 import "../legal.css";
 import { publicMetadata } from "../seo";
+import { CookieSettingsButton } from "@/components/CookieSettingsButton";
 
 export const metadata = publicMetadata({
   title: "Privacy Policy — Barri",
@@ -84,6 +85,10 @@ export default function PrivacyPage() {
           consent and is used to understand product usage, not for advertising.
           Your analytics choice may be stored in local storage.
         </p>
+        <p>
+          You can change or withdraw your analytics choice at any time.
+        </p>
+        <CookieSettingsButton />
 
         <h2 className="legal-h2">8. Your rights</h2>
         <p>

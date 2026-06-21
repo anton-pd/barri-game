@@ -3183,3 +3183,14 @@ Anton попросив взяти в роботу SEO-аудит разом із
 - `npm run build` — Next.js 16.2 production build clean, `/opengraph-image`, `/robots.txt`, `/sitemap.xml` prerender OK.
 - Runtime checks: `robots.txt` блокує `/admin`, `/api`, `/auth`, `/account`, `/session`, `/sessions`; sitemap містить тільки `/` і `/demo`; homepage має title/description/canonical/OG/JSON-LD.
 - Cookiebot blocked/stalled test: with `POSTHOG_KEY` + `COOKIEBOT_CBID`, network-blocked Cookiebot produced fallback banner with `Decline` / `Allow analytics`.
+
+### Cookiebot reliability hardening follow-up
+- Звірено з Cookiebot docs: consent state треба читати через lifecycle events (`CookiebotOnConsentReady`, `CookiebotOnLoad`, `CookiebotOnAccept`, `CookiebotOnDecline`); dialog events (`CookiebotOnDialogInit/Display`) означають, що CMP живий і fallback не повинен перекривати Cookiebot.
+- `src/lib/consent.ts`: винесено shared fallback storage + Cookiebot statistics consent parser. Stubbed `window.Cookiebot` без `consent` тепер явно трактується як not ready.
+- `providers.tsx`: додано `CookiebotOnLoad`, `CookiebotOnDialogInit`, `CookiebotOnDialogDisplay`; fallback активується лише якщо CMP не став ready і не показав dialog за timeout.
+- `privacy`: додано `Change cookie settings`; якщо Cookiebot живий — викликає `Cookiebot.renew()`, якщо ні — чистить fallback localStorage і перезавантажує, щоб знову показати first-party banner.
+- Tests: `tests/consent.test.ts` покриває fallback values, set/clear і Cookiebot ready/stub parsing.
+- Runtime CDP verification:
+  - blocked/stubbed Cookiebot => fallback banner visible (`Decline`, `Allow analytics`);
+  - ready Cookiebot with `statistics:false` => no fallback overlay, analytics stays off;
+  - Privacy button with Cookiebot stub => `Cookiebot.renew()` called.

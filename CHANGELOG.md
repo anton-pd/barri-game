@@ -988,3 +988,4 @@ Per-change detail is in the `0.4.x` entries below.
 
 ### Fixed
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.
+- **Cookiebot reliability**: consent flow тепер слухає повний набір Cookiebot lifecycle events (`ConsentReady`, `Load`, `Accept`, `Decline`, `DialogInit`, `DialogDisplay`), не показує fallback поверх живого CMP і має Privacy-page кнопку для зміни/відкликання cookie settings.
