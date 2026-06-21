@@ -77,8 +77,8 @@ export default function LandingClient() {
       {/* HERO */}
       <section className="hero">
         <div className="scratches" aria-hidden />
-        <span className="hero-bg-mark m1" aria-hidden>Cthulhu</span>
-        <span className="hero-bg-mark m2" aria-hidden>fhtagn</span>
+        <span className="hero-bg-mark m1" aria-hidden>Barri</span>
+        <span className="hero-bg-mark m2" aria-hidden>Keeper</span>
 
         <div className="hero-inner">
           <div>
@@ -86,6 +86,8 @@ export default function LandingClient() {
               <span>{c.hero.caseNo}</span>
               <span style={{ marginLeft: "auto" }}>{c.hero.filed}</span>
             </div>
+
+            <div className="hero-kicker reveal d1">{c.hero.kicker}</div>
 
             <h1 className="hero-title">
               <span className="line1 reveal d1">{c.hero.t1}</span>
@@ -96,10 +98,14 @@ export default function LandingClient() {
             </h1>
 
             <p className="hero-lede reveal d4">
-              {c.hero.lede}{" "}
-              <span className="redact">{c.hero.redact}</span>{" "}
-              {c.hero.ledeEnd}
+              {c.hero.lede}
             </p>
+
+            <div className="hero-proof-row reveal d5" aria-label={c.hero.proofLabel}>
+              {c.hero.proofs.map((proof) => (
+                <span key={proof}>{proof}</span>
+              ))}
+            </div>
 
             <div className="hero-cta-row reveal d5">
               <Link href={demoHref} className="btn-primary">
@@ -109,24 +115,30 @@ export default function LandingClient() {
             </div>
           </div>
 
-          {/* Dossier card */}
-          <aside className="dossier reveal d3" aria-hidden>
-            <span className="paperclip" />
-            <div className="dossier-header">
-              <span>{c.dossier.county}</span>
-              <span>{c.dossier.confidential}</span>
+          <aside className="keeper-preview reveal d3" aria-label={c.preview.label}>
+            <div className="keeper-preview-header">
+              <span>{c.preview.label}</span>
+              <strong>{c.preview.status}</strong>
             </div>
-            <h3>{c.dossier.subject}</h3>
-            <div className="dossier-photo" />
-            {c.dossier.rows.map((r) => (
-              <div className="dossier-row" key={r.k}>
-                <span className="k">{r.k}</span>
-                <span className="v">{r.v}</span>
-              </div>
-            ))}
-            <div className="dossier-stamp">
-              {c.dossier.stamp}
-              <small>{c.dossier.stampSub}</small>
+            <div className="keeper-preview-message">
+              <span>{c.preview.messageMeta}</span>
+              <p>{c.preview.message}</p>
+            </div>
+            <div className="keeper-preview-objective">
+              <span>{c.preview.objectiveLabel}</span>
+              <p>{c.preview.objective}</p>
+            </div>
+            <div className="keeper-preview-stats">
+              {c.preview.stats.map((stat) => (
+                <div key={stat.k}>
+                  <span>{stat.k}</span>
+                  <strong>{stat.v}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="keeper-preview-input">
+              <span>{c.preview.input}</span>
+              <b aria-hidden>↵</b>
             </div>
           </aside>
         </div>
@@ -357,6 +369,7 @@ export default function LandingClient() {
         <div className="foot-credit">
           <span>{c.footer.credit1}</span>
           <span>{c.footer.credit2}</span>
+          <span>{c.footer.disclaimer}</span>
         </div>
       </footer>
     </>
@@ -394,6 +407,7 @@ const CASE_COPY = {
       primary: "Access denied",
       secondary: "Join waitlist",
       stamp: "Sealed",
+      rulesetLabel: "D100 HORROR",
       oneShot: "1",
       campaign: "Campaign",
       unknown: "—",
@@ -441,6 +455,7 @@ const CASE_COPY = {
       primary: "Доступ закрито",
       secondary: "Стати в чергу",
       stamp: "Закрито",
+      rulesetLabel: "D100 ЖАХ",
       oneShot: "1",
       campaign: "Кампанія",
       unknown: "—",
@@ -488,6 +503,7 @@ const CASE_COPY = {
       primary: "Acceso denegado",
       secondary: "Unirse a la lista",
       stamp: "Sellado",
+      rulesetLabel: "D100 TERROR",
       oneShot: "1",
       campaign: "Campaña",
       unknown: "—",
@@ -514,7 +530,9 @@ function getScenarioTitle(scenario: Scenario, lang: Lang) {
 
 function formatScenarioId(index: number, scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
   const number = String(index + 1).padStart(2, "0");
-  const suffix = scenario.rulesetId?.replace("_", " ").toUpperCase() ?? "CASE";
+  const suffix = scenario.rulesetId === "coc_7e"
+    ? copy.locked.rulesetLabel
+    : scenario.rulesetId?.replace("_", " ").toUpperCase() ?? "CASE";
   return `${copy.locked.idPrefix} № ${number} · ${suffix}`;
 }
 

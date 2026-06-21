@@ -1,10 +1,13 @@
 import Link from "next/link";
 import "../legal.css";
+import { publicMetadata } from "../seo";
 
-export const metadata = {
+export const metadata = publicMetadata({
   title: "Privacy Policy — Barri",
   description: "How Barri collects, uses, and protects your personal data.",
-};
+  path: "/privacy",
+  noIndex: true,
+});
 
 // ANT-155: privacy policy scaffold. Structure follows GDPR Art. 13 disclosure
 // requirements. Body text is a DRAFT and must be confirmed by legal counsel —
@@ -77,8 +80,9 @@ export default function PrivacyPage() {
         <h2 className="legal-h2">7. Cookies</h2>
         <p>
           We use a single strictly-necessary cookie (<code>auth_token</code>) to
-          keep you signed in. We do not set advertising or analytics cookies. If
-          that changes, we will ask for your consent first.
+          keep you signed in. Optional product analytics is loaded only after
+          consent and is used to understand product usage, not for advertising.
+          Your analytics choice may be stored in local storage.
         </p>
 
         <h2 className="legal-h2">8. Your rights</h2>

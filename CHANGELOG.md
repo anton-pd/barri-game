@@ -970,3 +970,21 @@ Per-change detail is in the `0.4.x` entries below.
 - **Demo microcopy**: напис на дверях демо оновлено на “Відділ паранормальних справ” замість “справ, що відмовилися померти”.
 - **Demo free-text flow**: тимчасово прибрано кнопки запропонованих дій над чатом, щоб користувачі писали власні ходи.
 - **Admin usage**: usage dashboard тепер трекає anonymous instant-demo calls і показує окремий блок `Anonymous Demo` з сесіями, токенами та cost.
+
+---
+
+## [0.3.20] — 2026-06-21
+
+### Added
+- **SEO foundation**: додано canonical metadata, `robots.txt`, `sitemap.xml`, JSON-LD для Barri як web game/app, а також generated Open Graph/Twitter preview images.
+- **Launch metadata pack**: додано `LAUNCH_METADATA.md` з Product Hunt / itch.io positioning, asset checklist і share copy.
+- **SEO tests**: додано guardrail-тести для sitemap/robots/structured data, щоб приватні app/auth/API сторінки не потрапляли в індексацію.
+
+### Changed
+- **Landing hero**: перший екран тепер чіткіше продає продукт: AI Keeper, browser tabletop horror, d100, voice/text, no-account demo і primary CTA на `/demo`.
+- **Landing preview**: абстрактну dossier-картку замінено на live game preview з Keeper message, objective, stats і free-text input.
+- **Public copy**: acquisition-тексти зроблено більш trademark-safe: прямі Call of Cthulhu/CoC claims прибрані з hero/cases, а affiliation disclaimer лишився у footer.
+- **Mobile landing**: hero/topbar/CTA адаптовано без horizontal overflow; demo CTA видно у першому mobile viewport.
+
+### Fixed
+- **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.

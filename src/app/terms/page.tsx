@@ -1,10 +1,13 @@
 import Link from "next/link";
 import "../legal.css";
+import { publicMetadata } from "../seo";
 
-export const metadata = {
+export const metadata = publicMetadata({
   title: "Terms of Service — Barri",
   description: "The terms governing your use of Barri.",
-};
+  path: "/terms",
+  noIndex: true,
+});
 
 // ANT-156: terms of service scaffold. DRAFT — must be confirmed by counsel.
 // Covers age requirement (ANT-158), AI-content nature (ANT-161), and acceptable

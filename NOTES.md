@@ -3161,3 +3161,25 @@ Anton: банер не з'являється, в консолі `uc.js ERR_BLOCK
 
 ### Verification
 `tsc`/`build` чисті. Прод: HTML містить прямий `<script ...uc.js>` (не preload). Headless підтверджує Cookiebot вантажиться і гейтить PostHog.
+
+---
+
+## ANT-172 + ANT-110/111/112/157 — SEO launch foundation + landing conversion pass
+
+### Scope
+Anton попросив взяти в роботу SEO-аудит разом із landing/product polish, Launch metadata і Dia/Cookiebot fallback. Робота ведеться однією гілкою `feature/ANT-172`, а ANT-110/111/112/157 синхронізовані в Linear як пов'язані acceptance criteria.
+
+### Changes
+- Додано централізований SEO helper `src/app/seo.ts`, canonical metadata для `/` і `/demo`, `robots.txt`, `sitemap.xml`, JSON-LD (`WebSite` + `SoftwareApplication`) і генеровані `opengraph-image` / `twitter-image`.
+- Лендинг перепозиціоновано під acquisition: hero тепер одразу пояснює продукт (“AI Keeper”, browser tabletop horror, d100, voice/text, no-account demo), primary CTA веде в demo, а праворуч з'явився live game preview замість абстрактного dossier.
+- Публічний acquisition copy прибрано від прямих CoC/Call of Cthulhu claims у hero/cases; trademark згадка лишилась лише як footer disclaimer “not affiliated…”.
+- Mobile hero перевірено через CDP device emulation: `390px innerWidth`, `scrollWidth=390`, CTA/topbar/title/lede без horizontal overflow.
+- Cookiebot fallback посилено: якщо CMP не стає ready за timeout (навіть якщо blocker/failed script залишив `window.Cookiebot` stub), показується first-party `ConsentBanner`. Це покриває Dia/adblock сценарій без втрати consent UX.
+- `LAUNCH_METADATA.md` додано як робочий пакет для Product Hunt / itch.io launch copy, OG asset notes і share snippets.
+
+### Verification
+- `npm run lint` — clean errors; лишаються старі warnings про `<img>` у `GameChat`/`SessionList`.
+- `npm test` — 13 files / 86 tests passed, включно з новим `tests/seo.test.ts`.
+- `npm run build` — Next.js 16.2 production build clean, `/opengraph-image`, `/robots.txt`, `/sitemap.xml` prerender OK.
+- Runtime checks: `robots.txt` блокує `/admin`, `/api`, `/auth`, `/account`, `/session`, `/sessions`; sitemap містить тільки `/` і `/demo`; homepage має title/description/canonical/OG/JSON-LD.
+- Cookiebot blocked/stalled test: with `POSTHOG_KEY` + `COOKIEBOT_CBID`, network-blocked Cookiebot produced fallback banner with `Decline` / `Allow analytics`.

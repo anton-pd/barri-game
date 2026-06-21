@@ -44,27 +44,37 @@ export function PostHogProvider({
   // Resolve consent: Cookiebot `statistics` when the CMP loads, else our banner.
   useEffect(() => {
     if (cookiebotId) {
-      const sync = () => setConsented(!!window.Cookiebot?.consent?.statistics);
-      sync(); // consent may already be resolved (returning visitor)
+      let cookiebotReady = false;
+      const sync = () => {
+        if (window.Cookiebot?.consent) {
+          cookiebotReady = true;
+          setCookiebotBlocked(false);
+        }
+        setConsented(!!window.Cookiebot?.consent?.statistics);
+      };
+      // consent may already be resolved (returning visitor)
+      const syncTimer = window.setTimeout(sync, 0);
       window.addEventListener("CookiebotOnConsentReady", sync);
       window.addEventListener("CookiebotOnAccept", sync);
       window.addEventListener("CookiebotOnDecline", sync);
       // If Cookiebot hasn't loaded after a few seconds, assume it's blocked and
       // fall back to our own banner + localStorage consent.
       const fallbackTimer = setTimeout(() => {
-        if (!window.Cookiebot) {
+        if (!cookiebotReady) {
           setCookiebotBlocked(true);
           setConsented(hasConsent());
         }
       }, 4000);
       return () => {
+        clearTimeout(syncTimer);
         clearTimeout(fallbackTimer);
         window.removeEventListener("CookiebotOnConsentReady", sync);
         window.removeEventListener("CookiebotOnAccept", sync);
         window.removeEventListener("CookiebotOnDecline", sync);
       };
     }
-    setConsented(hasConsent());
+    const localConsentTimer = window.setTimeout(() => setConsented(hasConsent()), 0);
+    return () => clearTimeout(localConsentTimer);
   }, [cookiebotId]);
 
   useEffect(() => {
@@ -97,7 +107,9 @@ export function PostHogProvider({
         <PageviewTracker />
       </Suspense>
       {children}
-      {!cookiebotId && <ConsentBanner onAccept={() => setConsented(true)} />}
+      {(!cookiebotId || cookiebotBlocked) && (
+        <ConsentBanner onAccept={() => setConsented(true)} />
+      )}
     </PHProvider>
   );
 }

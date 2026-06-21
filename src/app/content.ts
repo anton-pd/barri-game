@@ -10,16 +10,31 @@ export const CONTENT = {
       enter: "Join Waitlist →",
     },
     hero: {
-      caseNo: "Case Nº 1929 / CTH",
+      caseNo: "Case Nº 1929 / BRR",
       filed: "Filed: 04 / 20 / 2026",
+      kicker: "AI Keeper for browser tabletop horror",
       t1: "The Keeper",
       t2: "is already",
       t3: "listening",
-      lede: "An AI-run Call of Cthulhu investigation, played in your browser. Your party, your choices, your",
-      redact: "unspeakable",
-      ledeEnd: "failures — all recorded in a dossier that never forgets.",
-      cta: "Open the Case File",
-      ghost: "Read the Evidence",
+      lede: "Play a tabletop horror investigation in your browser. Speak or type in character, roll d100, and let the Keeper track clues, injuries, sanity, and consequences.",
+      cta: "Try Free Demo",
+      ghost: "See How It Works",
+      proofLabel: "Product highlights",
+      proofs: ["No account demo", "Voice or text", "1-4 investigators"],
+    },
+    preview: {
+      label: "Live game preview",
+      status: "Keeper online",
+      messageMeta: "Keeper",
+      message: "Rain needles the Bureau windows. A sealed archive door waits ahead. No handle. A thin keyhole listens back.",
+      objectiveLabel: "Objective",
+      objective: "Tell the Keeper what you do. Inspect, listen, improvise, or risk a d100 check.",
+      stats: [
+        { k: "Clues", v: "0/3" },
+        { k: "Roll", v: "d100" },
+        { k: "Mode", v: "Free text" },
+      ],
+      input: "I inspect the brass hinges...",
     },
     dossier: {
       county: "Arkham County · Records",
@@ -55,7 +70,7 @@ export const CONTENT = {
         {
           num: "II", tag: "Exhibit B",
           title: "The Dice Don't Lie.",
-          body: "A full Call of Cthulhu 7e ruleset runs under the hood. Roll d100 against your skills on the virtual table, or call it out and the Keeper will adjudicate on the spot.",
+          body: "A d100 horror rules engine runs under the hood. Roll against your skills on the virtual table, or call it out and the Keeper will adjudicate on the spot.",
         },
         {
           num: "III", tag: "Exhibit C",
@@ -111,7 +126,7 @@ export const CONTENT = {
       desc: "One demo file is open. The rest of the cabinet is real, sealed, and waiting for registered investigators.",
       files: [
         {
-          id: "File № 01 · CoC 7e", badge: "Open", badgeSealed: false,
+          id: "File № 01 · d100 Horror", badge: "Open", badgeSealed: false,
           cls: "case-1",
           title: "The Haunting",
           sub: "A draughty house on Elm Street.",
@@ -125,7 +140,7 @@ export const CONTENT = {
           stamp: null,
         },
         {
-          id: "File № 02 · CoC 7e · Campaign", badge: "Multi-Session", badgeSealed: true,
+          id: "File № 02 · d100 Horror · Campaign", badge: "Multi-Session", badgeSealed: true,
           cls: "case-2",
           title: "The Last Telegram",
           sub: "Four locations. One message from the dead.",
@@ -164,7 +179,7 @@ export const CONTENT = {
           role: "Detective · Providence",
         },
         {
-          q: "I have run Cthulhu for fifteen years. This is the first digital Keeper that let me stop running and start playing.",
+          q: "I have run investigative horror tables for fifteen years. This is the first digital Keeper that let me stop running and start playing.",
           name: "Mrs. E. Orne",
           role: "Longtime Keeper · Arkham",
         },
@@ -185,6 +200,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri Bureau of Unspeakable Affairs",
       credit2: "No known investigators were harmed in the filing of this dossier.",
+      disclaimer: "Independent fan-built tool. Not affiliated with Chaosium or Call of Cthulhu.",
     },
   },
 
@@ -200,14 +216,29 @@ export const CONTENT = {
     hero: {
       caseNo: "Справа №1929 / ЗГ",
       filed: "Подано: 20 / 04 / 2026",
+      kicker: "AI-Хранитель для браузерного настільного горору",
       t1: "Хранитель",
       t2: "вже",
       t3: "слухає",
-      lede: "Комп'ютерна гра у Call of Cthulhu з AI-Хранителем — у вашому браузері. Ваша команда, ваші вибори, ваші",
-      redact: "жахливі",
-      ledeEnd: "провали — всі вони записані в досьє, яке нічого не забуває.",
-      cta: "Відкрити справу",
-      ghost: "Читати докази",
+      lede: "Грайте в настільне горор-розслідування у браузері. Пишіть або говоріть від імені персонажа, кидайте d100, а Хранитель веде зачіпки, рани, розсуд і наслідки.",
+      cta: "Спробувати демо",
+      ghost: "Як це працює",
+      proofLabel: "Переваги продукту",
+      proofs: ["Демо без акаунта", "Голос або текст", "1-4 слідчих"],
+    },
+    preview: {
+      label: "Прев'ю гри",
+      status: "Хранитель онлайн",
+      messageMeta: "Хранитель",
+      message: "Дощ б'є по вікнах Бюро. Попереду запечатані архівні двері. Без ручки. Тонка шпарина слухає у відповідь.",
+      objectiveLabel: "Ціль",
+      objective: "Скажіть Хранителю, що робите. Оглядайте, слухайте, імпровізуйте або ризикуйте перевіркою d100.",
+      stats: [
+        { k: "Зачіпки", v: "0/3" },
+        { k: "Кидок", v: "d100" },
+        { k: "Режим", v: "Вільний текст" },
+      ],
+      input: "Я оглядаю латунні петлі...",
     },
     dossier: {
       county: "Аркхем · Архів справ",
@@ -243,7 +274,7 @@ export const CONTENT = {
         {
           num: "II", tag: "Доказ Б",
           title: "Кубики не брешуть.",
-          body: "Повна система правил Call of Cthulhu 7e працює під капотом. Кидайте d100 проти своїх навичок на віртуальному столі — Хранитель розсудить на місці.",
+          body: "Під капотом працює d100-рушій для горор-розслідувань. Кидайте проти своїх навичок на віртуальному столі — Хранитель розсудить на місці.",
         },
         {
           num: "III", tag: "Доказ В",
@@ -299,7 +330,7 @@ export const CONTENT = {
       desc: "Одна демо-справа відкрита. Решта архіву реальна, запечатана і чекає зареєстрованих слідчих.",
       files: [
         {
-          id: "Справа № 01 · CoC 7e", badge: "Відкрита", badgeSealed: false,
+          id: "Справа № 01 · d100 горор", badge: "Відкрита", badgeSealed: false,
           cls: "case-1",
           title: "Переслідування",
           sub: "Будинок із протягом на вулиці Елм.",
@@ -313,7 +344,7 @@ export const CONTENT = {
           stamp: null,
         },
         {
-          id: "Справа № 02 · CoC 7e · Кампанія", badge: "Декілька сесій", badgeSealed: true,
+          id: "Справа № 02 · d100 горор · Кампанія", badge: "Декілька сесій", badgeSealed: true,
           cls: "case-2",
           title: "Остання Телеграма",
           sub: "Чотири локації. Одне повідомлення від мертвого.",
@@ -352,7 +383,7 @@ export const CONTENT = {
           role: "Детектив · Провіденс",
         },
         {
-          q: "Я провів п'ятнадцять років за кермом Call of Cthulhu. Це перший цифровий Хранитель, який дозволив мені зупинитись і просто грати.",
+          q: "Я п'ятнадцять років водив настільні горор-розслідування. Це перший цифровий Хранитель, який дозволив мені зупинитись і просто грати.",
           name: "Пані Е. Орн",
           role: "Досвідчений Хранитель · Аркхем",
         },
@@ -373,6 +404,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri — Бюро незрозумілих справ",
       credit2: "Жоден слідчий офіційно не постраждав під час складання цього досьє.",
+      disclaimer: "Незалежний фанатський інструмент. Не пов'язаний з Chaosium або Call of Cthulhu.",
     },
   },
 
@@ -386,16 +418,31 @@ export const CONTENT = {
       enter: "Unirse a la lista →",
     },
     hero: {
-      caseNo: "Expediente Nº 1929 / CTH",
+      caseNo: "Expediente Nº 1929 / BRR",
       filed: "Fechado: 20 / 04 / 2026",
+      kicker: "Guardián IA para terror de mesa en navegador",
       t1: "El Guardián",
       t2: "ya está",
       t3: "escuchando",
-      lede: "Una investigación de Call of Cthulhu dirigida por IA, jugada en tu navegador. Tu grupo, tus decisiones, tus",
-      redact: "indecibles",
-      ledeEnd: "fracasos — todo registrado en un expediente que nunca olvida.",
-      cta: "Abrir el expediente",
-      ghost: "Leer las pruebas",
+      lede: "Juega una investigación de terror de mesa en tu navegador. Escribe o habla como tu personaje, tira d100 y deja que el Guardián registre pistas, heridas, cordura y consecuencias.",
+      cta: "Probar demo gratis",
+      ghost: "Cómo funciona",
+      proofLabel: "Ventajas del producto",
+      proofs: ["Demo sin cuenta", "Voz o texto", "1-4 investigadores"],
+    },
+    preview: {
+      label: "Vista de partida",
+      status: "Guardián online",
+      messageMeta: "Guardián",
+      message: "La lluvia golpea las ventanas del Buró. Una puerta de archivo sellada espera delante. Sin pomo. Una cerradura fina escucha.",
+      objectiveLabel: "Objetivo",
+      objective: "Dile al Guardián qué haces. Inspecciona, escucha, improvisa o arriesga una tirada d100.",
+      stats: [
+        { k: "Pistas", v: "0/3" },
+        { k: "Tirada", v: "d100" },
+        { k: "Modo", v: "Texto libre" },
+      ],
+      input: "Examino las bisagras de latón...",
     },
     dossier: {
       county: "Condado de Arkham · Archivos",
@@ -431,7 +478,7 @@ export const CONTENT = {
         {
           num: "II", tag: "Prueba B",
           title: "Los dados no mienten.",
-          body: "Un conjunto completo de reglas de CoC 7e funciona bajo el capó. Tira d100 contra tus habilidades en la mesa virtual — el Guardián juzgará en el acto.",
+          body: "Un motor d100 para terror investigativo funciona bajo el capó. Tira contra tus habilidades en la mesa virtual — el Guardián juzgará en el acto.",
         },
         {
           num: "III", tag: "Prueba C",
@@ -487,7 +534,7 @@ export const CONTENT = {
       desc: "Un expediente demo está abierto. El resto del archivo es real, sellado y reservado para investigadores registrados.",
       files: [
         {
-          id: "Expediente № 01 · CoC 7e", badge: "Abierto", badgeSealed: false,
+          id: "Expediente № 01 · d100 terror", badge: "Abierto", badgeSealed: false,
           cls: "case-1",
           title: "La Persecución",
           sub: "Una casa fría en Elm Street.",
@@ -501,7 +548,7 @@ export const CONTENT = {
           stamp: null,
         },
         {
-          id: "Expediente № 02 · CoC 7e · Campaña", badge: "Multi-sesión", badgeSealed: true,
+          id: "Expediente № 02 · d100 terror · Campaña", badge: "Multi-sesión", badgeSealed: true,
           cls: "case-2",
           title: "El Último Telegrama",
           sub: "Cuatro ubicaciones. Un mensaje del más allá.",
@@ -540,7 +587,7 @@ export const CONTENT = {
           role: "Detective · Providence",
         },
         {
-          q: "Llevo quince años dirigiendo Cthulhu. Este es el primer Guardián digital que me permitió dejar de dirigir y empezar a jugar.",
+          q: "Llevo quince años dirigiendo mesas de terror investigativo. Este es el primer Guardián digital que me permitió dejar de dirigir y empezar a jugar.",
           name: "Sra. E. Orne",
           role: "Guardiana veterana · Arkham",
         },
@@ -561,6 +608,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri — Buró de Asuntos Indecibles",
       credit2: "Ningún investigador conocido resultó herido durante la elaboración de este expediente.",
+      disclaimer: "Herramienta fan independiente. No afiliada a Chaosium ni a Call of Cthulhu.",
     },
   },
 } as const;
