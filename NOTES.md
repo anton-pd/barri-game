@@ -3194,3 +3194,11 @@ Anton попросив взяти в роботу SEO-аудит разом із
   - blocked/stubbed Cookiebot => fallback banner visible (`Decline`, `Allow analytics`);
   - ready Cookiebot with `statistics:false` => no fallback overlay, analytics stays off;
   - Privacy button with Cookiebot stub => `Cookiebot.renew()` called.
+
+### Legal baseline pages follow-up
+- Replaced draft/TODO Privacy Policy and Terms pages with baseline launch-ready copy covering GDPR transparency, AI processing, processors, transfers, retention, rights, age gate, AI-generated content, acceptable use, liability, governing law, and no-affiliation disclaimer.
+- Added `/cookies` Cookie Policy with necessary storage, Cookiebot/fallback consent, optional PostHog analytics, and cookie settings control.
+- Added `/legal-notice` with operator/contact, website purpose, IP notice, terms/policy links, user responsibilities, external provider note, and applicable law.
+- Added `src/app/legalInfo.ts` as the central source for legal operator details and links. Important: registered address and tax/VAT identification still need Anton's exact details before paid commercial launch or invoicing.
+- Footer legal section now links to Privacy, Cookies, Terms, and Legal Notice. Fallback consent banner links to Cookie Policy.
+- Verification: `npm run lint` clean errors (existing image warnings only), `npm test` 14 files / 91 tests, `npm run build` clean. Runtime check: `/privacy`, `/cookies`, `/terms`, `/legal-notice` all return 200 and `noindex, follow`; no draft/TODO strings remain in legal page content.

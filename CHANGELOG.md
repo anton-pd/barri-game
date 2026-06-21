@@ -979,12 +979,14 @@ Per-change detail is in the `0.4.x` entries below.
 - **SEO foundation**: додано canonical metadata, `robots.txt`, `sitemap.xml`, JSON-LD для Barri як web game/app, а також generated Open Graph/Twitter preview images.
 - **Launch metadata pack**: додано `LAUNCH_METADATA.md` з Product Hunt / itch.io positioning, asset checklist і share copy.
 - **SEO tests**: додано guardrail-тести для sitemap/robots/structured data, щоб приватні app/auth/API сторінки не потрапляли в індексацію.
+- **Legal baseline pages**: додано `/cookies` і `/legal-notice`, а `/privacy` та `/terms` замінено з draft-заглушок на базові launch-ready legal pages.
 
 ### Changed
 - **Landing hero**: перший екран тепер чіткіше продає продукт: AI Keeper, browser tabletop horror, d100, voice/text, no-account demo і primary CTA на `/demo`.
 - **Landing preview**: абстрактну dossier-картку замінено на live game preview з Keeper message, objective, stats і free-text input.
 - **Public copy**: acquisition-тексти зроблено більш trademark-safe: прямі Call of Cthulhu/CoC claims прибрані з hero/cases, а affiliation disclaimer лишився у footer.
 - **Mobile landing**: hero/topbar/CTA адаптовано без horizontal overflow; demo CTA видно у першому mobile viewport.
+- **Legal footer**: footer тепер веде на Privacy, Cookies, Terms і Legal Notice; fallback consent banner містить посилання на Cookie Policy.
 
 ### Fixed
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.

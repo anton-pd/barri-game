@@ -362,7 +362,9 @@ export default function LandingClient() {
           <div className="foot-col">
             <h4>{lang === "uk" ? "Правове" : lang === "es" ? "Legal" : "Legal"}</h4>
             <a href="/privacy">{lang === "uk" ? "Приватність" : lang === "es" ? "Privacidad" : "Privacy"}</a>
+            <a href="/cookies">{lang === "uk" ? "Куки" : lang === "es" ? "Cookies" : "Cookies"}</a>
             <a href="/terms">{lang === "uk" ? "Умови" : lang === "es" ? "Términos" : "Terms"}</a>
+            <a href="/legal-notice">{lang === "uk" ? "Правова інформація" : lang === "es" ? "Aviso legal" : "Legal Notice"}</a>
           </div>
         </div>
 

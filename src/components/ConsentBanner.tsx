@@ -44,7 +44,11 @@ export function ConsentBanner({ onAccept }: { onAccept?: () => void }) {
       <div className="flex w-full max-w-2xl flex-col gap-3 rounded-xl border border-stone-700 bg-stone-900/95 p-4 shadow-2xl backdrop-blur sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-stone-300">
           Barri uses optional, anonymous product analytics to improve the game.
-          No ads or marketing trackers. Allow analytics?
+          No ads or marketing trackers.{" "}
+          <a href="/cookies" className="text-amber-400 underline underline-offset-2">
+            Cookie Policy
+          </a>
+          . Allow analytics?
         </p>
         <div className="flex shrink-0 gap-2">
           <button
