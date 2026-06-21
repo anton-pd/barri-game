@@ -3202,3 +3202,11 @@ Anton попросив взяти в роботу SEO-аудит разом із
 - Added `src/app/legalInfo.ts` as the central source for legal operator details and links. Important: registered address and tax/VAT identification still need Anton's exact details before paid commercial launch or invoicing.
 - Footer legal section now links to Privacy, Cookies, Terms, and Legal Notice. Fallback consent banner links to Cookie Policy.
 - Verification: `npm run lint` clean errors (existing image warnings only), `npm test` 14 files / 91 tests, `npm run build` clean. Runtime check: `/privacy`, `/cookies`, `/terms`, `/legal-notice` all return 200 and `noindex, follow`; no draft/TODO strings remain in legal page content.
+
+### Staging deploy for Anton QA
+- Merged `feature/ANT-172` into `staging` by fast-forward and pushed `origin/staging` to `0a174e9`.
+- Deployed staging on VPS: `/opt/apps/barri-dev` pulled `origin/staging`, then `/opt/apps/docker-compose.yml` rebuilt and restarted `barri-dev`.
+- Build on VPS succeeded with Next.js 16.2.3; generated 46 app routes including `/cookies`, `/legal-notice`, `/opengraph-image`, `/robots.txt`, `/sitemap.xml`.
+- Live smoke checks on `https://staging.barrigame.es`: `/`, `/demo`, `/privacy`, `/cookies`, `/terms`, `/legal-notice`, `/robots.txt`, `/sitemap.xml` all returned 200.
+- Additional checks: `/opengraph-image` returned `200 image/png`; `/api/scenarios` returned `200 application/json` with live scenarios; privacy/cookie pages include noindex metadata and cookie settings copy.
+- Main/prod were not touched.
