@@ -3210,3 +3210,23 @@ Anton попросив взяти в роботу SEO-аудит разом із
 - Live smoke checks on `https://staging.barrigame.es`: `/`, `/demo`, `/privacy`, `/cookies`, `/terms`, `/legal-notice`, `/robots.txt`, `/sitemap.xml` all returned 200.
 - Additional checks: `/opengraph-image` returned `200 image/png`; `/api/scenarios` returned `200 application/json` with live scenarios; privacy/cookie pages include noindex metadata and cookie settings copy.
 - Main/prod were not touched.
+
+---
+
+## Mobile chat/dossier drawer fix — 2026-06-21
+
+### Problem
+On mobile, the public demo case dossier stayed in the document flow above the chat, pushing the console/input below the first viewport and creating a broken demo experience. Main chat also still treated tablet/mobile widths as a two-pane layout in parts of the CSS/JS, so the case-file pane could compete with the chat/composer instead of getting out of the way.
+
+### Fix
+- `/demo`: added a localized "Case file" button and moved the dossier into a mobile/tablet drawer (`<=920px`). The console now owns the mobile viewport by default; the dossier opens as an overlay sheet with scrim + close button.
+- Main `GameChat`: changed the case-file toggle breakpoint to `<=1024px`, so mobile/tablet opens the drawer instead of collapsing the desktop rail.
+- `chat.css`: added final mobile/tablet drawer overrides for `.chat-sidebar`, disabled desktop collapsed rail behavior below `1025px`, and kept the composer padded above the safe-area inset.
+
+### Verification
+- Browser mobile repro at `390x844` on `/demo`: before fix, dossier occupied ~704px before the console and input ended below viewport; after fix, console starts under the header, input ends inside the viewport, dossier is fixed offscreen until opened.
+- Browser drawer check: "Case file" opens the demo dossier as a fixed sheet with scrim and closes cleanly.
+- `npm run lint` passes with existing `<img>` warnings only.
+- `npx tsc --noEmit` passes.
+- `npm run build` passes.
+- Local main session browser verification was blocked by auth redirect to `/auth/login`; main chat fix was verified statically through the shared breakpoint/state path.

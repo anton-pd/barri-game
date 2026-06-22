@@ -147,6 +147,7 @@ export default function DemoClient() {
   const [waitlistState, setWaitlistState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waitlistError, setWaitlistError] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(DEMO_SECONDS);
+  const [showDossier, setShowDossier] = useState(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const anonymousSessionRef = useRef('');
 
@@ -354,7 +355,27 @@ export default function DemoClient() {
         </header>
 
         <section className="demo-stage" aria-label={copy.stageLabel}>
-          <aside className="demo-dossier" aria-label={copy.caseStatusLabel}>
+          {showDossier && (
+            <button
+              type="button"
+              className="demo-dossier-scrim"
+              onClick={() => setShowDossier(false)}
+              aria-label={copy.closeCaseFile}
+            />
+          )}
+          <aside
+            id="demo-case-file"
+            className={`demo-dossier${showDossier ? ' demo-dossier--open' : ''}`}
+            aria-label={copy.caseStatusLabel}
+          >
+            <button
+              type="button"
+              className="demo-dossier-close"
+              onClick={() => setShowDossier(false)}
+              aria-label={copy.closeCaseFile}
+            >
+              x
+            </button>
             <div className="demo-dossier-label">{copy.previewLabel}</div>
             <h1>{copy.title}</h1>
             <p>
@@ -401,9 +422,20 @@ export default function DemoClient() {
                 <span>{copy.liveTranscriptLabel}</span>
                 <strong>{copy.keeperOnlineLabel}</strong>
               </div>
-              <button type="button" onClick={() => setEnding('manual')} className="demo-queue-button">
-                {copy.joinWaitlist}
-              </button>
+              <div className="demo-console-actions">
+                <button
+                  type="button"
+                  onClick={() => setShowDossier(true)}
+                  className="demo-file-button"
+                  aria-controls="demo-case-file"
+                  aria-expanded={showDossier}
+                >
+                  {copy.caseFileButton}
+                </button>
+                <button type="button" onClick={() => setEnding('manual')} className="demo-queue-button">
+                  {copy.joinWaitlist}
+                </button>
+              </div>
             </div>
 
             <div className="demo-transcript" ref={transcriptRef}>
@@ -640,6 +672,8 @@ const DEMO_COPY = {
     signIn: 'Sign in',
     stageLabel: 'Playable instant demo',
     caseStatusLabel: 'Case status',
+    caseFileButton: 'Case file',
+    closeCaseFile: 'Close case file',
     previewLabel: '15-minute preview',
     title: 'The Archive Door',
     description:
@@ -757,6 +791,8 @@ const DEMO_COPY = {
     signIn: 'Увійти',
     stageLabel: 'Ігрове instant demo',
     caseStatusLabel: 'Стан справи',
+    caseFileButton: 'Справа',
+    closeCaseFile: 'Закрити справу',
     previewLabel: '15-хвилинне превʼю',
     title: 'Двері Архіву',
     description:
@@ -874,6 +910,8 @@ const DEMO_COPY = {
     signIn: 'Entrar',
     stageLabel: 'Demo jugable',
     caseStatusLabel: 'Estado del expediente',
+    caseFileButton: 'Expediente',
+    closeCaseFile: 'Cerrar expediente',
     previewLabel: 'Vista de 15 minutos',
     title: 'La Puerta del Archivo',
     description:
