@@ -3288,3 +3288,61 @@ Anton confirmed that scenario JSON must have one live location available to both
 - `docker exec apps-barri-dev-1` confirms `SCENARIOS_DIR=/app/scenarios` and sees the shared scenario files.
 - `https://staging.barrigame.es/api/scenarios` returns the 5 shared-volume scenarios.
 - `https://staging.barrigame.es/api/scenarios/the-haunting/images` returns 200 with 4 cached images.
+
+---
+
+## Final prod bug/E2E chat QA — 2026-06-22
+
+### Scope
+Post-main-deploy QA on `https://barrigame.es`, including smoke checks, scenario catalog, authenticated session creation, chat/game runtime, dice flow, mobile layout, and a staging control pass.
+
+Temporary approved QA users were created directly in prod/staging DBs and removed after testing. Cleanup result:
+- prod: 1 test session deleted, 1 test user deleted
+- staging: 1 test session deleted, 1 test user deleted
+
+### Passed
+- Prod `/`, `/demo`, `/api/scenarios`, and unauthenticated `/api/sessions` smoke checks pass (`/api/sessions` returns 401 as expected).
+- Prod container has `SCENARIOS_DIR=/app/scenarios` and sees the shared scenario JSON files.
+- Prod UI scenario catalog renders 5 shared-volume scenarios.
+- With Cookiebot/Usercentrics blocked, prod chat/game runtime works:
+  - session page hydrates
+  - intro is generated and persisted
+  - textarea input enables the send button
+  - player message sends
+  - DeepSeek response returns in scenario context
+  - `GET /api/sessions/:id` shows persisted messages
+  - mobile composer remains in viewport (`textareaY ~676` at 390x844)
+- Dice flow works with an injected `pendingRollResult`:
+  - DiceRoller appears
+  - virtual d100 roll completes
+  - result sends as a roll message
+  - `pendingRollResult` clears from API state
+
+### Bugs / findings
+1. **P0/P1 — Cookiebot breaks prod session-page hydration.**
+   - Repro: open prod `/session/:id` with Cookiebot enabled in a fresh browser context.
+   - Browser page errors: `Connection closed.` and repeated `Unexpected server data: missing bootstrap script.`
+   - Symptom: page server-renders the chat shell, but React interactivity is broken. Typing changes the DOM textarea value, but the send button stays disabled because React state does not update.
+   - Staging control: same flow on `staging.barrigame.es` works; no missing-bootstrap errors and send button enables after typing.
+   - Isolation: prod with Cookiebot/Usercentrics requests blocked hydrates correctly and chat works.
+   - Impact: first-time prod users can reach a session page that looks loaded but cannot actually play until Cookiebot is removed/blocked/handled correctly.
+
+2. **P2 — Cookiebot overlay intercepts game controls until consent.**
+   - Repro: after login on prod, Cookiebot dialog can appear over `/sessions` or `/session/:id`.
+   - Symptom: clicks on app controls such as "Відкрити справу" are intercepted by the CMP dialog.
+   - Note: a consent dialog is expected, but its timing/placement is hostile to the game flow and made the first E2E create-session click fail.
+
+3. **P2 content/catalog — prod exposes legacy shared-only scenarios.**
+   - Prod UI/API currently list 5 shared-volume scenarios: `barcelona-sagrada-mystery`, `barcelona-stones-of-the-unfinished`, `the-haunting-v2-pilot`, `the-haunting`, `the-last-telegram`.
+   - The three shared-only scenarios are not tracked in repo and still contain legacy `Keeper` / `Поклик Ктулху` wording from the earlier audit.
+   - Impact: even after the Case Curator rename and scenario-source fix, users can still start older IP/terminology-risk scenarios from the live catalog.
+
+### Artifacts
+- `/tmp/barri-e2e-sessions.png`
+- `/tmp/barri-e2e-chat-initial.png`
+- `/tmp/barri-chat-trace-after90.png`
+- `/tmp/barri-prod-no-cookiebot-hydration.png`
+- `/tmp/barri-prod-no-cookiebot-after-send.png`
+- `/tmp/barri-prod-no-cookiebot-mobile.png`
+- `/tmp/barri-dice-before.png`
+- `/tmp/barri-dice-after.png`
