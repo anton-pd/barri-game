@@ -3278,3 +3278,13 @@ Anton confirmed that scenario JSON must have one live location available to both
 - VPS `/opt/apps/docker-compose.yml` now sets `SCENARIOS_DIR: /app/scenarios` for both `barri-dev` and `barri`, with the existing shared mount `/opt/apps/shared_data/scenarios:/app/scenarios`.
 - Docs now describe `/opt/apps/shared_data/scenarios` as the live source of truth and repo `scenarios/` as local fallback/templates.
 - Added `tests/scenarioFiles.test.ts` to lock the `SCENARIOS_DIR` behavior.
+
+### Verification
+- `npm run lint` passes with existing `<img>` warnings only.
+- `npx tsc --noEmit` passes.
+- `npm test` passes: 15 files, 93 tests.
+- `npm run build` passes locally and during staging Docker rebuild.
+- Staging deployed from `origin/staging` at `258a0a3`.
+- `docker exec apps-barri-dev-1` confirms `SCENARIOS_DIR=/app/scenarios` and sees the shared scenario files.
+- `https://staging.barrigame.es/api/scenarios` returns the 5 shared-volume scenarios.
+- `https://staging.barrigame.es/api/scenarios/the-haunting/images` returns 200 with 4 cached images.
