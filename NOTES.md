@@ -3398,3 +3398,10 @@ Anton asked to remove `sagrada mystery` and `the haunting v2`, and to add admin 
 - `npx tsc --noEmit` passes.
 - `npm run lint` passes with the existing `<img>` warnings only.
 - `npm run build` passes and includes `/api/admin/scenarios` plus `/api/admin/scenarios/[id]`.
+- Pushed commit `b706a4d` to `feature/ANT-177-admin-scenario-library`, `staging`, and `main`.
+- Rebuilt and restarted both VPS containers: `apps-barri-dev-1` and `apps-barri-1`.
+- Post-deploy authenticated admin smoke:
+  - staging `GET /api/admin/scenarios` returns the 4 live scenarios.
+  - prod `GET /api/admin/scenarios` returns the 4 live scenarios.
+  - staging `GET /api/admin/scenarios/the-black-ledger` returns full scenario detail and file metadata.
+- Post-deploy unauthenticated admin smoke: staging/prod `GET /api/admin/scenarios` return 403.
