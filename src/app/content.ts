@@ -12,11 +12,11 @@ export const CONTENT = {
     hero: {
       caseNo: "Case Nº 1929 / BRR",
       filed: "Filed: 04 / 20 / 2026",
-      kicker: "AI Keeper for browser tabletop horror",
-      t1: "The Keeper",
+      kicker: "AI Case Curator for browser tabletop horror",
+      t1: "The Case Curator",
       t2: "is already",
       t3: "listening",
-      lede: "Play a tabletop horror investigation in your browser. Speak or type in character, roll d100, and let the Keeper track clues, injuries, sanity, and consequences.",
+      lede: "Play a tabletop horror investigation in your browser. Speak or type in character, roll d100, and let the Case Curator track clues, injuries, sanity, and consequences.",
       cta: "Try Free Demo",
       ghost: "See How It Works",
       proofLabel: "Product highlights",
@@ -24,11 +24,11 @@ export const CONTENT = {
     },
     preview: {
       label: "Live game preview",
-      status: "Keeper online",
-      messageMeta: "Keeper",
+      status: "Case Curator online",
+      messageMeta: "Case Curator",
       message: "Rain needles the Bureau windows. A sealed archive door waits ahead. No handle. A thin keyhole listens back.",
       objectiveLabel: "Objective",
-      objective: "Tell the Keeper what you do. Inspect, listen, improvise, or risk a d100 check.",
+      objective: "Tell the Case Curator what you do. Inspect, listen, improvise, or risk a d100 check.",
       stats: [
         { k: "Clues", v: "0/3" },
         { k: "Roll", v: "d100" },
@@ -41,7 +41,7 @@ export const CONTENT = {
       confidential: "Confidential",
       subject: "Subject: The Listener",
       rows: [
-        { k: "Classification", v: "Keeper / Narrator" },
+        { k: "Classification", v: "Case Curator / Narrator" },
         { k: "Active since", v: "the small hours" },
         { k: "Known aliases", v: "Sonnet-4.6, Haiku-4.5" },
         { k: "Jurisdiction", v: "barrigame.es" },
@@ -52,25 +52,25 @@ export const CONTENT = {
     ticker: [
       "Dossier nº 1929 — reopened after ninety-seven years of silence",
       "Witness reports: voices in the static, none of them human",
-      "The Keeper sees every die you roll. Even the ones you hide",
+      "The Case Curator sees every die you roll. Even the ones you hide",
       "Three investigators entered. Two returned. One came back wrong",
       "Ambient phonographs recovered from the Elm Street property",
       "Do not read the file after sundown",
     ],
     exhibits: {
       label: "§ I · The Evidence",
-      heading: ["What a Keeper ", "knows", ",\xa0a Keeper remembers."],
-      desc: "Six exhibits, logged by the Bureau. Read each in full, and you begin to grasp why the Keeper never needs to sleep.",
+      heading: ["What the Case Curator ", "knows", ",\xa0the Case Curator records."],
+      desc: "Six exhibits, logged by the Bureau. Read each in full, and you begin to grasp why the Case Curator never leaves the desk.",
       items: [
         {
           num: "I", tag: "Exhibit A",
-          title: "The Keeper Never Sleeps.",
-          body: "An AI game master narrates every scene in real time. It remembers the matchbook in your pocket, the name you gave the barkeep, and the lie you told three sessions ago.",
+          title: "The Case Curator Never Closes the File.",
+          body: "An AI case handler narrates every scene in real time. It remembers the matchbook in your pocket, the name you gave the barkeep, and the lie you told three sessions ago.",
         },
         {
           num: "II", tag: "Exhibit B",
           title: "The Dice Don't Lie.",
-          body: "A d100 horror rules engine runs under the hood. Roll against your skills on the virtual table, or call it out and the Keeper will adjudicate on the spot.",
+          body: "A d100 horror rules engine runs under the hood. Roll against your skills on the virtual table, or call it out and the Case Curator will adjudicate on the spot.",
         },
         {
           num: "III", tag: "Exhibit C",
@@ -90,7 +90,7 @@ export const CONTENT = {
         {
           num: "VI", tag: "Exhibit F",
           title: "Bring Your Party.",
-          body: "One to four investigators at the same table. Assign roles — detective, scholar, reporter — and let the AI Keeper track injuries, sanity, and luck for everyone.",
+          body: "One to four investigators at the same table. Assign roles — detective, scholar, reporter — and let the AI Case Curator track injuries, sanity, and luck for everyone.",
         },
       ],
     },
@@ -106,12 +106,12 @@ export const CONTENT = {
         {
           n: "2", tag: "Casting",
           title: "Assemble Your Party",
-          body: "Name your investigators, pick their roles, and step into the era. The Keeper distributes skills, gear, and secrets accordingly.",
+          body: "Name your investigators, pick their roles, and step into the era. The Case Curator assigns skills, gear, and secrets accordingly.",
         },
         {
           n: "3", tag: "Session",
           title: "Begin the Interview",
-          body: "Speak with NPCs, search rooms, follow leads. Voice or text — the Keeper hears you. Roll dice when she asks, or when your nerve fails you.",
+          body: "Speak with NPCs, search rooms, follow leads. Voice or text — the Case Curator hears you. Roll dice when she asks, or when your nerve fails you.",
         },
         {
           n: "4", tag: "Archive",
@@ -174,17 +174,17 @@ export const CONTENT = {
       heading: ["Statements ", "from the record."],
       notes: [
         {
-          q: "Played four hours. The Keeper noticed my character was afraid of water six rooms ago and used it against me. My wife walked out of the kitchen to check if I was alright.",
+          q: "Played four hours. The Case Curator noticed my character was afraid of water six rooms ago and used it against me. My wife walked out of the kitchen to check if I was alright.",
           name: "J. Harwell",
           role: "Detective · Providence",
         },
         {
-          q: "I have run investigative horror tables for fifteen years. This is the first digital Keeper that let me stop running and start playing.",
+          q: "I have run investigative horror tables for fifteen years. This is the first digital Case Curator that let me stop running and start playing.",
           name: "Mrs. E. Orne",
-          role: "Longtime Keeper · Arkham",
+          role: "Longtime Case Curator · Arkham",
         },
         {
-          q: "We ran the telegram case twice. Different suspects, different ending. The second run we trusted the wrong man on purpose — just to see. The Keeper obliged.",
+          q: "We ran the telegram case twice. Different suspects, different ending. The second run we trusted the wrong man on purpose — just to see. The Case Curator obliged.",
           name: "Dr. A. Pettigrew",
           role: "Investigator · Kingsport",
         },
@@ -216,11 +216,11 @@ export const CONTENT = {
     hero: {
       caseNo: "Справа №1929 / ЗГ",
       filed: "Подано: 20 / 04 / 2026",
-      kicker: "AI-Хранитель для браузерного настільного горору",
-      t1: "Хранитель",
+      kicker: "AI-Куратор справи для браузерного настільного горору",
+      t1: "Куратор справи",
       t2: "вже",
       t3: "слухає",
-      lede: "Грайте в настільне горор-розслідування у браузері. Пишіть або говоріть від імені персонажа, кидайте d100, а Хранитель веде зачіпки, рани, розсуд і наслідки.",
+      lede: "Грайте в настільне горор-розслідування у браузері. Пишіть або говоріть від імені персонажа, кидайте d100, а Куратор справи веде зачіпки, рани, розсуд і наслідки.",
       cta: "Спробувати демо",
       ghost: "Як це працює",
       proofLabel: "Переваги продукту",
@@ -228,11 +228,11 @@ export const CONTENT = {
     },
     preview: {
       label: "Прев'ю гри",
-      status: "Хранитель онлайн",
-      messageMeta: "Хранитель",
+      status: "Куратор справи онлайн",
+      messageMeta: "Куратор справи",
       message: "Дощ б'є по вікнах Бюро. Попереду запечатані архівні двері. Без ручки. Тонка шпарина слухає у відповідь.",
       objectiveLabel: "Ціль",
-      objective: "Скажіть Хранителю, що робите. Оглядайте, слухайте, імпровізуйте або ризикуйте перевіркою d100.",
+      objective: "Скажіть Куратору справи, що робите. Оглядайте, слухайте, імпровізуйте або ризикуйте перевіркою d100.",
       stats: [
         { k: "Зачіпки", v: "0/3" },
         { k: "Кидок", v: "d100" },
@@ -245,7 +245,7 @@ export const CONTENT = {
       confidential: "Таємно",
       subject: "Суб'єкт: Слухач",
       rows: [
-        { k: "Класифікація", v: "Хранитель / Розповідач" },
+        { k: "Класифікація", v: "Куратор справи / Розповідач" },
         { k: "Активний з", v: "глибокої ночі" },
         { k: "Псевдоніми", v: "Sonnet-4.6, Haiku-4.5" },
         { k: "Юрисдикція", v: "barrigame.es" },
@@ -256,25 +256,25 @@ export const CONTENT = {
     ticker: [
       "Досьє №1929 — відкрите після дев'яноста семи років тиші",
       "Показання свідків: голоси в ефірі — жодного людського",
-      "Хранитель бачить кожен ваш кидок кубика. Навіть приховані",
+      "Куратор справи бачить кожен ваш кидок кубика. Навіть приховані",
       "Три слідчі увійшли. Двоє повернулись. Третій — вже не той",
       "Фонографічні записи вилучено з будинку на вулиці Елм",
       "Не читайте справу після заходу сонця",
     ],
     exhibits: {
       label: "§ I · Докази",
-      heading: ["Що Хранитель ", "знає", ",\xa0Хранитель пам'ятає."],
-      desc: "Шість доказів, внесених до реєстру. Прочитайте кожен — і ви почнете розуміти, чому Хранитель не потребує сну.",
+      heading: ["Що Куратор справи ", "знає", ",\xa0Куратор справи пам'ятає."],
+      desc: "Шість доказів, внесених до реєстру. Прочитайте кожен — і ви почнете розуміти, чому Куратор справи не лишає файл без нагляду.",
       items: [
         {
           num: "I", tag: "Доказ А",
-          title: "Хранитель не спить.",
-          body: "AI-майстер гри веде розповідь у реальному часі. Він пам'ятає сірники у вашій кишені, ім'я, яке ви дали бармену, і брехню, яку ви сказали три сесії тому.",
+          title: "Куратор справи не закриває файл.",
+          body: "AI-куратор веде розповідь у реальному часі. Він пам'ятає сірники у вашій кишені, ім'я, яке ви дали бармену, і брехню, яку ви сказали три сесії тому.",
         },
         {
           num: "II", tag: "Доказ Б",
           title: "Кубики не брешуть.",
-          body: "Під капотом працює d100-рушій для горор-розслідувань. Кидайте проти своїх навичок на віртуальному столі — Хранитель розсудить на місці.",
+          body: "Під капотом працює d100-рушій для горор-розслідувань. Кидайте проти своїх навичок на віртуальному столі — Куратор справи розсудить на місці.",
         },
         {
           num: "III", tag: "Доказ В",
@@ -294,7 +294,7 @@ export const CONTENT = {
         {
           num: "VI", tag: "Доказ Е",
           title: "Беріть команду.",
-          body: "Від одного до чотирьох слідчих за одним столом. Обирайте ролі — детектив, вчений, журналіст — Хранитель веде стан, здоров'я та удачу для кожного.",
+          body: "Від одного до чотирьох слідчих за одним столом. Обирайте ролі — детектив, вчений, журналіст — Куратор справи веде стан, здоров'я та удачу для кожного.",
         },
       ],
     },
@@ -310,12 +310,12 @@ export const CONTENT = {
         {
           n: "2", tag: "Склад",
           title: "Зібрати команду",
-          body: "Назвіть слідчих, оберіть їхні ролі та зануртесь в епоху. Хранитель розподілить навички, спорядження та таємниці.",
+          body: "Назвіть слідчих, оберіть їхні ролі та зануртесь в епоху. Куратор справи розподілить навички, спорядження та таємниці.",
         },
         {
           n: "3", tag: "Сесія",
           title: "Почати допит",
-          body: "Розмовляйте з персонажами, обшукуйте кімнати, ідіть за слідами. Голос або текст — Хранитель чує. Кидайте кубики коли він просить або коли нерви здають.",
+          body: "Розмовляйте з персонажами, обшукуйте кімнати, ідіть за слідами. Голос або текст — Куратор справи чує. Кидайте кубики коли він просить або коли нерви здають.",
         },
         {
           n: "4", tag: "Архів",
@@ -378,17 +378,17 @@ export const CONTENT = {
       heading: ["Заяви ", "з протоколу."],
       notes: [
         {
-          q: "Грав чотири години. Хранитель пам'ятав, що мій персонаж боїться води ще шість кімнат тому — і використав це проти нього. Дружина вийшла з кухні, щоб дізнатися чи все гаразд.",
+          q: "Грав чотири години. Куратор справи пам'ятав, що мій персонаж боїться води ще шість кімнат тому — і використав це проти нього. Дружина вийшла з кухні, щоб дізнатися чи все гаразд.",
           name: "Й. Харвелл",
           role: "Детектив · Провіденс",
         },
         {
-          q: "Я п'ятнадцять років водив настільні горор-розслідування. Це перший цифровий Хранитель, який дозволив мені зупинитись і просто грати.",
+          q: "Я п'ятнадцять років водив настільні горор-розслідування. Це перший цифровий Куратор справи, який дозволив мені зупинитись і просто грати.",
           name: "Пані Е. Орн",
-          role: "Досвідчений Хранитель · Аркхем",
+          role: "Досвідчений Куратор справи · Аркхем",
         },
         {
-          q: "Ми пройшли справу з телеграмою двічі. Різні підозрювані, різна кінцівка. Другого разу навмисно довірились не тому — щоб подивитись. Хранитель не підвів.",
+          q: "Ми пройшли справу з телеграмою двічі. Різні підозрювані, різна кінцівка. Другого разу навмисно довірились не тому — щоб подивитись. Куратор справи не підвів.",
           name: "Д-р А. Петтіґрю",
           role: "Слідчий · Кінгспорт",
         },
@@ -420,11 +420,11 @@ export const CONTENT = {
     hero: {
       caseNo: "Expediente Nº 1929 / BRR",
       filed: "Fechado: 20 / 04 / 2026",
-      kicker: "Guardián IA para terror de mesa en navegador",
-      t1: "El Guardián",
+      kicker: "Curador de caso IA para terror de mesa en navegador",
+      t1: "El Curador del caso",
       t2: "ya está",
       t3: "escuchando",
-      lede: "Juega una investigación de terror de mesa en tu navegador. Escribe o habla como tu personaje, tira d100 y deja que el Guardián registre pistas, heridas, cordura y consecuencias.",
+      lede: "Juega una investigación de terror de mesa en tu navegador. Escribe o habla como tu personaje, tira d100 y deja que el Curador del caso registre pistas, heridas, cordura y consecuencias.",
       cta: "Probar demo gratis",
       ghost: "Cómo funciona",
       proofLabel: "Ventajas del producto",
@@ -432,11 +432,11 @@ export const CONTENT = {
     },
     preview: {
       label: "Vista de partida",
-      status: "Guardián online",
-      messageMeta: "Guardián",
+      status: "Curador online",
+      messageMeta: "Curador",
       message: "La lluvia golpea las ventanas del Buró. Una puerta de archivo sellada espera delante. Sin pomo. Una cerradura fina escucha.",
       objectiveLabel: "Objetivo",
-      objective: "Dile al Guardián qué haces. Inspecciona, escucha, improvisa o arriesga una tirada d100.",
+      objective: "Dile al Curador qué haces. Inspecciona, escucha, improvisa o arriesga una tirada d100.",
       stats: [
         { k: "Pistas", v: "0/3" },
         { k: "Tirada", v: "d100" },
@@ -449,7 +449,7 @@ export const CONTENT = {
       confidential: "Confidencial",
       subject: "Sujeto: El Oyente",
       rows: [
-        { k: "Clasificación", v: "Guardián / Narrador" },
+        { k: "Clasificación", v: "Curador del caso / Narrador" },
         { k: "Activo desde", v: "las horas pequeñas" },
         { k: "Alias conocidos", v: "Sonnet-4.6, Haiku-4.5" },
         { k: "Jurisdicción", v: "barrigame.es" },
@@ -460,25 +460,25 @@ export const CONTENT = {
     ticker: [
       "Expediente nº 1929 — reabierto tras noventa y siete años de silencio",
       "Declaraciones de testigos: voces en la estática, ninguna humana",
-      "El Guardián ve cada dado que tiras. Incluso los que escondes",
+      "El Curador del caso ve cada dado que tiras. Incluso los que escondes",
       "Tres investigadores entraron. Dos regresaron. El tercero volvió cambiado",
       "Fonógrafos ambientales recuperados de la propiedad en Elm Street",
       "No leas el expediente después del atardecer",
     ],
     exhibits: {
       label: "§ I · Las pruebas",
-      heading: ["Lo que el Guardián ", "sabe", ",\xa0el Guardián lo recuerda."],
-      desc: "Seis pruebas registradas por el Buró. Léelas todas y comenzarás a entender por qué el Guardián no necesita dormir.",
+      heading: ["Lo que el Curador ", "sabe", ",\xa0el Curador lo registra."],
+      desc: "Seis pruebas registradas por el Buró. Léelas todas y comenzarás a entender por qué el Curador nunca abandona el escritorio.",
       items: [
         {
           num: "I", tag: "Prueba A",
-          title: "El Guardián nunca duerme.",
-          body: "Un director de juego IA narra cada escena en tiempo real. Recuerda las cerillas en tu bolsillo, el nombre que le diste al barman y la mentira que contaste hace tres sesiones.",
+          title: "El Curador del caso nunca duerme.",
+          body: "Un curador de caso IA narra cada escena en tiempo real. Recuerda las cerillas en tu bolsillo, el nombre que le diste al barman y la mentira que contaste hace tres sesiones.",
         },
         {
           num: "II", tag: "Prueba B",
           title: "Los dados no mienten.",
-          body: "Un motor d100 para terror investigativo funciona bajo el capó. Tira contra tus habilidades en la mesa virtual — el Guardián juzgará en el acto.",
+          body: "Un motor d100 para terror investigativo funciona bajo el capó. Tira contra tus habilidades en la mesa virtual — el Curador juzgará en el acto.",
         },
         {
           num: "III", tag: "Prueba C",
@@ -498,7 +498,7 @@ export const CONTENT = {
         {
           num: "VI", tag: "Prueba F",
           title: "Trae tu grupo.",
-          body: "De uno a cuatro investigadores en la misma mesa. Elige roles — detective, erudito, periodista — y deja que el Guardián lleve el control de lesiones, cordura y suerte.",
+          body: "De uno a cuatro investigadores en la misma mesa. Elige roles — detective, erudito, periodista — y deja que el Curador lleve el control de lesiones, cordura y suerte.",
         },
       ],
     },
@@ -514,12 +514,12 @@ export const CONTENT = {
         {
           n: "2", tag: "Reparto",
           title: "Reunir al grupo",
-          body: "Nombra a tus investigadores, elige sus roles y sumérgete en la época. El Guardián distribuirá habilidades, equipamiento y secretos.",
+          body: "Nombra a tus investigadores, elige sus roles y sumérgete en la época. El Curador del caso distribuirá habilidades, equipamiento y secretos.",
         },
         {
           n: "3", tag: "Sesión",
           title: "Comenzar la investigación",
-          body: "Habla con los PNJ, registra habitaciones, sigue pistas. Voz o texto — el Guardián te escucha. Tira los dados cuando lo pida, o cuando los nervios te fallen.",
+          body: "Habla con los PNJ, registra habitaciones, sigue pistas. Voz o texto — el Curador te escucha. Tira los dados cuando lo pida, o cuando los nervios te fallen.",
         },
         {
           n: "4", tag: "Archivo",
@@ -582,17 +582,17 @@ export const CONTENT = {
       heading: ["Declaraciones ", "del registro."],
       notes: [
         {
-          q: "Jugué cuatro horas. El Guardián recordó que mi personaje tenía miedo al agua desde seis habitaciones atrás y lo usó en mi contra. Mi mujer salió de la cocina a preguntar si estaba bien.",
+          q: "Jugué cuatro horas. El Curador del caso recordó que mi personaje tenía miedo al agua desde seis habitaciones atrás y lo usó en mi contra. Mi mujer salió de la cocina a preguntar si estaba bien.",
           name: "J. Harwell",
           role: "Detective · Providence",
         },
         {
-          q: "Llevo quince años dirigiendo mesas de terror investigativo. Este es el primer Guardián digital que me permitió dejar de dirigir y empezar a jugar.",
+          q: "Llevo quince años dirigiendo mesas de terror investigativo. Este es el primer Curador digital que me permitió dejar de dirigir y empezar a jugar.",
           name: "Sra. E. Orne",
-          role: "Guardiana veterana · Arkham",
+          role: "Curadora veterana · Arkham",
         },
         {
-          q: "Jugamos el caso del telegrama dos veces. Distintos sospechosos, distinto final. La segunda vez confiamos a propósito en el hombre equivocado — solo para ver. El Guardián cumplió.",
+          q: "Jugamos el caso del telegrama dos veces. Distintos sospechosos, distinto final. La segunda vez confiamos a propósito en el hombre equivocado — solo para ver. El Curador del caso cumplió.",
           name: "Dr. A. Pettigrew",
           role: "Investigador · Kingsport",
         },

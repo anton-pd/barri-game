@@ -26,7 +26,7 @@ export const metadata: Metadata = {
         url: OG_IMAGE,
         width: 1200,
         height: 630,
-        alt: "Barri AI Keeper tabletop horror investigation preview",
+        alt: "Barri AI Case Curator tabletop horror investigation preview",
       },
     ],
   },

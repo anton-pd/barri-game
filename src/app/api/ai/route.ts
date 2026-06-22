@@ -309,9 +309,9 @@ Do NOT enumerate options as a list — describe a situation that demands a respo
 
   if (keeperStyle === 'passive') {
     if (lang === 'en') {
-      return `\n\n## KEEPER STYLE: PASSIVE\nWait for the players' actions. Describe only the current moment.`;
+      return `\n\n## CASE CURATOR STYLE: PASSIVE\nWait for the players' actions. Describe only the current moment.`;
     }
-    return `\n\n## СТИЛЬ KEEPER: ПАСИВНИЙ\nЧекай дій гравців. Описуй лише поточний момент.`;
+    return `\n\n## СТИЛЬ КУРАТОРА СПРАВИ: ПАСИВНИЙ\nЧекай дій гравців. Описуй лише поточний момент.`;
   }
 
   return '';

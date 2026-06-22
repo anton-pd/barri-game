@@ -15,7 +15,7 @@ const ptmono = PT_Mono({ subsets: ["latin", "cyrillic"], weight: "400", variable
 const ptserif = PT_Serif({ subsets: ["latin", "cyrillic"], weight: ["400", "700"], style: ["normal", "italic"], variable: "--font-ptserif", display: "swap" });
 
 export const metadata = publicMetadata({
-  title: "Barri — AI Keeper for Browser Tabletop RPGs",
+  title: "Barri — AI Case Curator for Browser Tabletop RPGs",
   description: DEFAULT_DESCRIPTION,
 });
 

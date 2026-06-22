@@ -46,7 +46,7 @@ export default function PrivacyPage() {
             metadata.
           </li>
           <li>
-            <strong>Game content:</strong> messages you send, AI Keeper
+            <strong>Game content:</strong> messages you send, AI Case Curator
             responses, character names, roles, dice rolls, inventory, session
             state, campaign summaries, feedback, and generated game materials.
           </li>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
               <th>Legal basis</th>
             </tr>
             <tr>
-              <td>Provide accounts, waiting-list access, demo play, sessions, and AI Keeper features.</td>
+              <td>Provide accounts, waiting-list access, demo play, sessions, and AI Case Curator features.</td>
               <td>Contract or steps requested before a contract.</td>
             </tr>
             <tr>
@@ -108,13 +108,13 @@ export default function PrivacyPage() {
         <ul>
           <li>Hosting and infrastructure providers for the Barri application and database.</li>
           <li>Email delivery providers for verification, access, and service messages.</li>
-          <li>AI model providers and routing services for Keeper narration, summaries, speech, and images.</li>
+          <li>AI model providers and routing services for Case Curator narration, summaries, speech, and images.</li>
           <li>Product analytics providers for optional consent-based analytics.</li>
         </ul>
         <p>
           We only send providers the information needed for the relevant
           feature. Game prompts can include your messages, session state, and
-          character details so the AI Keeper can respond consistently.
+          character details so the AI Case Curator can respond consistently.
         </p>
 
         <h2 className="legal-h2">5. International transfers</h2>

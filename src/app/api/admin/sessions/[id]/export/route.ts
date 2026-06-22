@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: Params) {
     lines.push(`- **Name**: ${session.name}`);
     lines.push(`- **Status**: ${session.status}`);
     lines.push(`- **Language**: ${session.language ?? 'uk'}`);
-    lines.push(`- **Keeper style**: ${session.keeper_style ?? 'balanced'}`);
+    lines.push(`- **Case Curator style**: ${session.keeper_style ?? 'balanced'}`);
     lines.push(`- **Created**: ${session.created_at}`);
     lines.push(`- **Updated**: ${session.updated_at}`);
     if (session.campaign_id) lines.push(`- **Campaign**: ${session.campaign_id}`);

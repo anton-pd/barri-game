@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Barri AI Keeper for browser tabletop horror investigations";
+export const alt = "Barri AI Case Curator for browser tabletop horror investigations";
 export const size = {
   width: 1200,
   height: 630,
@@ -75,7 +75,7 @@ export default function Image() {
                 textTransform: "uppercase",
               }}
             >
-              AI Keeper for browser tabletop RPGs
+              AI Case Curator for browser tabletop RPGs
             </div>
             <div
               style={{
@@ -89,7 +89,7 @@ export default function Image() {
               }}
             >
               <span>Play the case.</span>
-              <span>The Keeper remembers.</span>
+              <span>The Case Curator records.</span>
             </div>
           </div>
 

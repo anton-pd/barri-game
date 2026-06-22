@@ -10,8 +10,8 @@ const blackletter = UnifrakturMaguntia({ subsets: ['latin'], weight: '400', vari
 const ptmono = PT_Mono({ subsets: ['latin', 'cyrillic'], weight: '400', variable: '--font-ptmono', display: 'swap' });
 
 export const metadata = publicMetadata({
-  title: 'Barri Demo — Play the AI Keeper',
-  description: 'Try a short playable Barri preview in your browser. Tell the AI Keeper what you do, inspect the room, and find your way into the secret archive.',
+  title: 'Barri Demo — Play the AI Case Curator',
+  description: 'Try a short playable Barri preview in your browser. Tell the AI Case Curator what you do, inspect the room, and find your way into the secret archive.',
   path: '/demo',
 });
 

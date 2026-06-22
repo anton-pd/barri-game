@@ -50,7 +50,7 @@ export default function KeeperSettings() {
 
   return (
     <section>
-      <h2 className="text-stone-300 text-sm tracking-widest uppercase mb-4">Keeper Settings</h2>
+      <h2 className="text-stone-300 text-sm tracking-widest uppercase mb-4">Case Curator Settings</h2>
       <div className="bg-stone-900 border border-stone-800 rounded-xl p-5 space-y-5">
 
         {/* AI Model */}

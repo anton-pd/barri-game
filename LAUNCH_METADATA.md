@@ -4,13 +4,13 @@
 
 Name: Barri
 
-Tagline: AI Keeper for browser tabletop RPG horror
+Tagline: AI Case Curator for browser tabletop RPG horror
 
-Short description: Play a tabletop horror investigation in your browser with an AI Keeper that narrates scenes, tracks clues, handles d100 rolls, and remembers what your party did.
+Short description: Play a tabletop horror investigation in your browser with an AI Case Curator that narrates scenes, tracks clues, handles d100 rolls, and remembers what your party did.
 
 Maker comment draft:
 
-> Barri started from a simple itch: sometimes the person who always runs the table wants to play too. The public demo lets you type freely into a short investigation and see the Keeper track clues, objectives, and consequences. It is browser-only, account-free for the demo, and built for slow-burn investigative horror rather than generic chatbot roleplay.
+> Barri started from a simple itch: sometimes the person who always runs the table wants to play too. The public demo lets you type freely into a short investigation and see the Case Curator track clues, objectives, and consequences. It is browser-only, account-free for the demo, and built for slow-burn investigative horror rather than generic chatbot roleplay.
 
 Suggested topics:
 
@@ -24,9 +24,9 @@ Suggested topics:
 
 Project title: Barri
 
-Short text: A browser-based AI Keeper for tabletop horror investigations.
+Short text: A browser-based AI Case Curator for tabletop horror investigations.
 
-Cover direction: 315:250 noir dossier crop with the Barri wordmark, AI Keeper label, and one clear gameplay hint such as a transcript or d100 roll.
+Cover direction: 315:250 noir dossier crop with the Barri wordmark, AI Case Curator label, and one clear gameplay hint such as a transcript or d100 roll.
 
 Screenshot/GIF candidates:
 
@@ -38,8 +38,8 @@ Screenshot/GIF candidates:
 
 ## Share Metadata
 
-Primary SEO title: Barri — AI Keeper for Browser Tabletop RPGs
+Primary SEO title: Barri — AI Case Curator for Browser Tabletop RPGs
 
-Primary SEO description: Play browser-based tabletop horror investigations with an AI Keeper that narrates scenes, tracks clues, handles d100 rolls, and remembers your choices.
+Primary SEO description: Play browser-based tabletop horror investigations with an AI Case Curator that narrates scenes, tracks clues, handles d100 rolls, and remembers your choices.
 
-Social preview message: No prep, no install. Open the case file and try the AI Keeper in your browser.
+Social preview message: No prep, no install. Open the case file and try the AI Case Curator in your browser.

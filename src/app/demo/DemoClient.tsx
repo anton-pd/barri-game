@@ -657,7 +657,7 @@ function DemoDiceRoller({
 
 const DEMO_COPY = {
   en: {
-    keeper: 'Keeper',
+    keeper: 'Case Curator',
     objective: 'Find a way into the secret archive',
     objectiveLabel: 'Objective',
     stateSummary:
@@ -665,7 +665,7 @@ const DEMO_COPY = {
     intro:
       'Rain needles the high windows of the Bureau. You stand before a sealed archive door marked PARANORMAL CASES DIVISION. Brass hinges. No handle. A thin keyhole listens back.',
     briefing:
-      'Find a way into the secret archive. Tell the Keeper what you do in your own words.',
+      'Find a way into the secret archive. Tell the Case Curator what you do in your own words.',
     backLabel: 'Back to Barri landing',
     fileLabel: 'Demo file / Archive 7',
     languageLabel: 'Demo language',
@@ -690,12 +690,12 @@ const DEMO_COPY = {
     },
     lastCheckLabel: 'Last check',
     resolvedLabel: 'Resolved',
-    keeperDrivenLabel: 'Keeper driven',
-    transcriptLabel: 'Keeper transcript',
+    keeperDrivenLabel: 'Case Curator driven',
+    transcriptLabel: 'Case Curator transcript',
     liveTranscriptLabel: 'Live transcript',
-    keeperOnlineLabel: 'Keeper online',
+    keeperOnlineLabel: 'Case Curator online',
     joinWaitlist: 'Join waitlist',
-    thinking: 'The Keeper consults the file...',
+    thinking: 'The Case Curator consults the file...',
     suggestionsLabel: 'Suggested actions',
     suggestions: {
       waitlist: 'Join the waitlist',
@@ -704,9 +704,9 @@ const DEMO_COPY = {
       hasPin: ['Use the silver pin on the lock', 'Listen at the keyhole', 'Open the archive door'],
       hasPassphrase: ['Say the passphrase into the keyhole', 'Search the intake desk', 'Inspect the brass door'],
     },
-    inputPlaceholder: 'Tell the Keeper what you do...',
+    inputPlaceholder: 'Tell the Case Curator what you do...',
     rollInputPlaceholder: 'Resolve the d100 check above...',
-    inputLabel: 'Tell the Keeper what you do',
+    inputLabel: 'Tell the Case Curator what you do',
     send: 'Send',
     guard: {
       meta: 'Guard patrol',
@@ -715,12 +715,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Archive notice',
-      notice: 'The Keeper closes the preview file at ten entries. The full dossier waits beyond access.',
+      notice: 'The Case Curator closes the preview file at ten entries. The full dossier waits beyond access.',
     },
     connection: {
       meta: 'Connection',
-      error: 'The Keeper cannot reach the file right now.',
-      errorPrefix: 'The Keeper cannot reach the file right now:',
+      error: 'The Case Curator cannot reach the file right now.',
+      errorPrefix: 'The Case Curator cannot reach the file right now:',
     },
     closed: {
       completed: 'The archive file is complete. Join the waiting list to continue beyond the demo.',
@@ -730,7 +730,7 @@ const DEMO_COPY = {
     dice: {
       title: 'd100 check',
       threshold: 'Need',
-      contextFallback: 'The Keeper is waiting for the result.',
+      contextFallback: 'The Case Curator is waiting for the result.',
       tens: 'tens',
       units: 'units',
       result: 'result',
@@ -752,7 +752,7 @@ const DEMO_COPY = {
       },
       message_limit: {
         stamp: 'Filed',
-        title: 'The Keeper closes the preview file.',
+        title: 'The Case Curator closes the preview file.',
         body: 'Ten entries are enough to prove the file is alive. Join the queue and the Bureau will summon you for the full case.',
       },
       guard: {
@@ -776,7 +776,7 @@ const DEMO_COPY = {
     },
   },
   uk: {
-    keeper: 'Хранитель',
+    keeper: 'Куратор справи',
     objective: 'Знайти шлях у секретний архів',
     objectiveLabel: 'Мета',
     stateSummary:
@@ -784,7 +784,7 @@ const DEMO_COPY = {
     intro:
       'Дощ січе високі вікна Бюро. Перед вами запечатані архівні двері з написом: ВІДДІЛ ПАРАНОРМАЛЬНИХ СПРАВ. Латунні петлі. Жодної ручки. Тонка замкова щілина ніби слухає у відповідь.',
     briefing:
-      'Знайдіть шлях у секретний архів. Напишіть Хранителю своїми словами, що робите.',
+      'Знайдіть шлях у секретний архів. Напишіть Куратору справи своїми словами, що робите.',
     backLabel: 'Повернутися на лендинг Barri',
     fileLabel: 'Демо-файл / Архів 7',
     languageLabel: 'Мова демо',
@@ -809,12 +809,12 @@ const DEMO_COPY = {
     },
     lastCheckLabel: 'Остання перевірка',
     resolvedLabel: 'Вирішено',
-    keeperDrivenLabel: 'Веде Хранитель',
-    transcriptLabel: 'Протокол Хранителя',
+    keeperDrivenLabel: 'Веде Куратор справи',
+    transcriptLabel: 'Протокол Куратора справи',
     liveTranscriptLabel: 'Живий протокол',
-    keeperOnlineLabel: 'Хранитель на звʼязку',
+    keeperOnlineLabel: 'Куратор справи на звʼязку',
     joinWaitlist: 'Стати в чергу',
-    thinking: 'Хранитель звіряється з файлом...',
+    thinking: 'Куратор справи звіряється з файлом...',
     suggestionsLabel: 'Запропоновані дії',
     suggestions: {
       waitlist: 'Стати в чергу',
@@ -823,9 +823,9 @@ const DEMO_COPY = {
       hasPin: ['Скористатися срібною шпилькою', 'Послухати біля замкової щілини', 'Відчинити двері архіву'],
       hasPassphrase: ['Прошепотіти фразу в замкову щілину', 'Обшукати стіл реєстрації', 'Оглянути латунні двері'],
     },
-    inputPlaceholder: 'Скажіть Хранителю, що ви робите...',
+    inputPlaceholder: 'Скажіть Куратору справи, що ви робите...',
     rollInputPlaceholder: 'Спершу вирішіть d100 перевірку вище...',
-    inputLabel: 'Скажіть Хранителю, що ви робите',
+    inputLabel: 'Скажіть Куратору справи, що ви робите',
     send: 'Надіслати',
     guard: {
       meta: 'Обхід сторожа',
@@ -834,12 +834,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Повідомлення архіву',
-      notice: 'Хранитель закриває превʼю після десяти записів. Повне досьє чекає після доступу.',
+      notice: 'Куратор справи закриває превʼю після десяти записів. Повне досьє чекає після доступу.',
     },
     connection: {
       meta: 'Звʼязок',
-      error: 'Хранитель не може дістатися файлу зараз.',
-      errorPrefix: 'Хранитель не може дістатися файлу зараз:',
+      error: 'Куратор справи не може дістатися файлу зараз.',
+      errorPrefix: 'Куратор справи не може дістатися файлу зараз:',
     },
     closed: {
       completed: 'Архівний файл завершено. Станьте в чергу, щоб продовжити після демо.',
@@ -849,7 +849,7 @@ const DEMO_COPY = {
     dice: {
       title: 'd100 перевірка',
       threshold: 'Потрібно',
-      contextFallback: 'Хранитель чекає результат.',
+      contextFallback: 'Куратор справи чекає результат.',
       tens: 'десятки',
       units: 'одиниці',
       result: 'результат',
@@ -871,7 +871,7 @@ const DEMO_COPY = {
       },
       message_limit: {
         stamp: 'Закрито',
-        title: 'Хранитель закриває превʼю.',
+        title: 'Куратор справи закриває превʼю.',
         body: 'Десяти записів достатньо, щоб довести: файл живий. Станьте в чергу, і Бюро викличе вас до повної справи.',
       },
       guard: {
@@ -895,7 +895,7 @@ const DEMO_COPY = {
     },
   },
   es: {
-    keeper: 'Guardián',
+    keeper: 'Curador del caso',
     objective: 'Encontrar la entrada al archivo secreto',
     objectiveLabel: 'Objetivo',
     stateSummary:
@@ -903,7 +903,7 @@ const DEMO_COPY = {
     intro:
       'La lluvia golpea los altos ventanales del Buró. Estás ante una puerta de archivo sellada: DIVISIÓN DE CASOS PARANORMALES. Bisagras de latón. Sin pomo. Una cerradura fina parece escuchar.',
     briefing:
-      'Encuentra la forma de entrar al archivo secreto. Dile al Guardián qué haces con tus propias palabras.',
+      'Encuentra la forma de entrar al archivo secreto. Dile al Curador qué haces con tus propias palabras.',
     backLabel: 'Volver al inicio de Barri',
     fileLabel: 'Archivo demo / Archivo 7',
     languageLabel: 'Idioma de la demo',
@@ -928,12 +928,12 @@ const DEMO_COPY = {
     },
     lastCheckLabel: 'Última prueba',
     resolvedLabel: 'Resuelta',
-    keeperDrivenLabel: 'Guía del Guardián',
-    transcriptLabel: 'Transcripción del Guardián',
+    keeperDrivenLabel: 'Guía del Curador',
+    transcriptLabel: 'Transcripción del Curador',
     liveTranscriptLabel: 'Transcripción en vivo',
-    keeperOnlineLabel: 'Guardián en línea',
+    keeperOnlineLabel: 'Curador en línea',
     joinWaitlist: 'Unirse a la lista',
-    thinking: 'El Guardián consulta el expediente...',
+    thinking: 'El Curador del caso consulta el expediente...',
     suggestionsLabel: 'Acciones sugeridas',
     suggestions: {
       waitlist: 'Unirse a la lista',
@@ -942,9 +942,9 @@ const DEMO_COPY = {
       hasPin: ['Usar el alfiler en la cerradura', 'Escuchar por la cerradura', 'Abrir la puerta del archivo'],
       hasPassphrase: ['Susurrar la contraseña en la cerradura', 'Registrar el escritorio', 'Inspeccionar la puerta de latón'],
     },
-    inputPlaceholder: 'Dile al Guardián qué haces...',
+    inputPlaceholder: 'Dile al Curador qué haces...',
     rollInputPlaceholder: 'Resuelve primero la prueba d100...',
-    inputLabel: 'Dile al Guardián qué haces',
+    inputLabel: 'Dile al Curador qué haces',
     send: 'Enviar',
     guard: {
       meta: 'Ronda del guardia',
@@ -953,12 +953,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Aviso del archivo',
-      notice: 'El Guardián cierra la vista previa tras diez entradas. El expediente completo espera tras el acceso.',
+      notice: 'El Curador del caso cierra la vista previa tras diez entradas. El expediente completo espera tras el acceso.',
     },
     connection: {
       meta: 'Conexión',
-      error: 'El Guardián no puede alcanzar el expediente ahora.',
-      errorPrefix: 'El Guardián no puede alcanzar el expediente ahora:',
+      error: 'El Curador del caso no puede alcanzar el expediente ahora.',
+      errorPrefix: 'El Curador del caso no puede alcanzar el expediente ahora:',
     },
     closed: {
       completed: 'El expediente de archivo está completo. Únete a la lista para continuar después de la demo.',
@@ -968,7 +968,7 @@ const DEMO_COPY = {
     dice: {
       title: 'Prueba d100',
       threshold: 'Necesitas',
-      contextFallback: 'El Guardián espera el resultado.',
+      contextFallback: 'El Curador del caso espera el resultado.',
       tens: 'decenas',
       units: 'unidades',
       result: 'resultado',
@@ -990,7 +990,7 @@ const DEMO_COPY = {
       },
       message_limit: {
         stamp: 'Archivado',
-        title: 'El Guardián cierra la vista previa.',
+        title: 'El Curador del caso cierra la vista previa.',
         body: 'Diez entradas bastan para demostrar que el expediente vive. Únete a la lista y el Buró te convocará al caso completo.',
       },
       guard: {

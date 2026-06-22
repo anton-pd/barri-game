@@ -81,8 +81,8 @@ function getStatusMeta(session: GameSession) {
     isReadOnly: false,
     badge: isCampaign ? 'Кампанійна сесія' : 'Активна сесія',
     summary: isCampaign
-      ? 'Сесія триває. Кіпер має завершити вечір, коли історія природно дійде до фіналу.'
-      : 'Сесія триває. Кіпер має завершити сесію, коли сценарій справді пройдено.',
+      ? 'Сесія триває. Куратор справи має завершити вечір, коли історія природно дійде до фіналу.'
+      : 'Сесія триває. Куратор справи має завершити сесію, коли сценарій справді пройдено.',
     completeLabel: isCampaign ? 'Завершити кампанію достроково' : 'Закрити сесію достроково',
     finishLabel: isCampaign ? 'Завершити вечір достроково' : '',
     badgeClass: 'border-stone-700 bg-stone-800 text-stone-300',
@@ -1374,10 +1374,10 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               ? 'Достроково завершити кампанію? Після цього чат лишиться доступним лише для перегляду.'
               : 'Достроково закрити цю сесію? Після цього чат лишиться доступним лише для перегляду.')
         : (mode === 'finish-evening'
-            ? 'Кіпер завершує цей вечір кампанії та створює наступну сесію.'
+            ? 'Куратор справи завершує цей вечір кампанії та створює наступну сесію.'
             : session.campaign_id
-              ? 'Кіпер завершує кампанію.'
-              : 'Кіпер завершує цю сесію.');
+              ? 'Куратор справи завершує кампанію.'
+              : 'Куратор справи завершує цю сесію.');
       if (!window.confirm(confirmText)) {
         return;
       }
@@ -1494,16 +1494,16 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       {showSettings && (
         <div className="chat-settings-panel flex flex-wrap items-center gap-2 text-xs">
           {/* KeeperStyle selector */}
-          <span className="chat-settings-group-label">Стиль Кіпера</span>
+          <span className="chat-settings-group-label">Стиль куратора</span>
           <div className="chat-settings-keeper-group">
             {(['passive', 'balanced', 'active'] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => changeKeeperStyle(s)}
                 title={
-                  s === 'passive'  ? 'Кіпер чекає дій гравців' :
-                  s === 'balanced' ? 'Кіпер підказує при пасивності (3+ ходи)' :
-                  'Кіпер активно підштовхує сюжет'
+                  s === 'passive'  ? 'Куратор справи чекає дій гравців' :
+                  s === 'balanced' ? 'Куратор справи підказує при пасивності (3+ ходи)' :
+                  'Куратор справи активно підштовхує сюжет'
                 }
                 className={`chat-settings-keeper-btn${keeperStyle === s ? ' chat-settings-keeper-btn--active' : ''}`}
               >
@@ -1552,7 +1552,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <div className="chat-settings-stats">
                 <span>{statusMeta.summary}</span>
                 <span className="chat-settings-stat-pill">Повідомлень: {completionStats.messageCount}</span>
-                <span className="chat-settings-stat-pill">Від кіпера: {completionStats.keeperMessageCount}</span>
+                <span className="chat-settings-stat-pill">Від куратора: {completionStats.keeperMessageCount}</span>
                 <span className="chat-settings-stat-pill">Тривалість: {completionStats.durationMinutes} хв</span>
               </div>
             </>
@@ -1601,7 +1601,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           <div className="flex w-full flex-col overflow-hidden rounded-t-2xl border border-stone-700 bg-stone-950 sm:max-h-[85vh] sm:max-w-4xl sm:rounded-2xl">
             <div className="flex items-center justify-between gap-2 border-b border-stone-800 px-4 py-3">
               <div>
-                <h2 className="text-sm font-semibold text-stone-100">Keeper message debug</h2>
+                <h2 className="text-sm font-semibold text-stone-100">Case Curator message debug</h2>
                 <p className="text-[11px] text-stone-500 break-all">msg {debugFor}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -1662,7 +1662,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                 <p className="chat-completion-desc">
                   {completionRequest.endedEarly
                     ? 'Сесія завершиться вручну раніше природного фіналу. За бажанням можна лишити оцінку та короткий коментар.'
-                    : 'Кіпер завершить історію, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.'}
+                    : 'Куратор справи завершить історію, а сесія залишиться доступною лише для перегляду. Перед завершенням можна лишити оцінку та короткий коментар.'}
                 </p>
               </div>
               <button
@@ -1795,8 +1795,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                   onClick={() => sendMessage(session.language === 'en' ? 'Continue.' : 'Продовжуй.')}
                   className="chat-replay-btn"
                   title={session.language === 'en'
-                    ? 'The reply was cut short by the length limit — ask the Keeper to continue'
-                    : 'Відповідь обірвалась через ліміт довжини — попросити Кіпера продовжити'}
+                    ? 'The reply was cut short by the length limit — ask the Case Curator to continue'
+                    : 'Відповідь обірвалась через ліміт довжини — попросити Куратора справи продовжити'}
                 >
                   {session.language === 'en' ? 'continue' : 'продовжити'}
                 </button>
@@ -1850,7 +1850,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
                       <div key={si} className="flex justify-start">
                         <div className="max-w-[92%]">
                           {si === 0 && !sameAsPrev && (
-                            <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+                            <p className="chat-bubble-label chat-bubble-label--keeper">Куратор справи</p>
                           )}
                           <div className="chat-bubble--keeper">
                             {renderText(seg.text)}
@@ -1885,7 +1885,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             <div key={msg.id} className={`flex justify-start${rowClass}`}>
               <div className="max-w-[92%]">
                 {!sameAsPrev && (
-                  <p className="chat-bubble-label chat-bubble-label--keeper">Кіпер</p>
+                  <p className="chat-bubble-label chat-bubble-label--keeper">Куратор справи</p>
                 )}
                 <div className="chat-bubble--keeper">
                   {renderText(displayContent)}

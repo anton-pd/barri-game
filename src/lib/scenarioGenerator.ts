@@ -87,9 +87,9 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
     "premise": "What happened. What players know at the start.",
     "objective": "What players need to accomplish."
   },
-  "systemPrompt": "Full Keeper instruction (see format below)",
+  "systemPrompt": "Full Case Curator instruction (see format below)",
   "railguards": [
-    { "trigger": "players try to [problematic action]", "response": "Keeper provides [specific obstacle or consequence]" }
+    { "trigger": "players try to [problematic action]", "response": "Case Curator provides [specific obstacle or consequence]" }
   ],
   "criticalSuccessRules": {
     "investigation": "What extreme/hard success reveals",
@@ -150,7 +150,7 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
       "id": "standard",
       "label": "Стандартний",
       "startingLocation": "location_id",
-      "introHint": "One sentence for the Keeper about this variant's entry point and tone."
+      "introHint": "One sentence for the Case Curator about this variant's entry point and tone."
     },
     {
       "id": "alternative",
@@ -168,7 +168,7 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 }
 
 ## systemPrompt format:
-Ти — Кіпер (Keeper of Arcane Lore) для настільної RPG «Поклик Ктулху». Ведеш сценарій «[Title]». [City, year].
+Ти — Куратор справи для настільної RPG-розслідування. Ведеш сценарій «[Title]». [City, year].
 
 ПРИРОДА ЖАХУ: [The full truth — what the threat really is, its motivation or absence, what it has done and will do.]
 

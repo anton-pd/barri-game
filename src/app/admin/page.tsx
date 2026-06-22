@@ -20,7 +20,7 @@ export default async function AdminPage() {
     <div className="min-h-screen bg-stone-950 text-stone-200">
       <div className="border-b border-stone-800 px-6 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-amber-500 text-lg tracking-widest uppercase">Keeper&apos;s Archive</h1>
+          <h1 className="text-amber-500 text-lg tracking-widest uppercase">Case Curator&apos;s Archive</h1>
           <p className="text-stone-500 text-xs mt-0.5">Admin Panel</p>
         </div>
         <Link href="/sessions" className="text-stone-400 hover:text-stone-200 text-sm transition-colors">

@@ -3232,3 +3232,21 @@ On mobile, the public demo case dossier stayed in the document flow above the ch
 - `npm run build` passes.
 - Local main session browser verification was blocked by auth redirect to `/auth/login`; main chat fix was verified statically through the shared breakpoint/state path.
 - Vignette follow-up: `npm run lint` and `npx tsc --noEmit` still pass before main deploy.
+
+---
+
+## Case Curator terminology pass — 2026-06-22
+
+### Context
+Anton обрав новий нуарний термін замість "Keeper": **Куратор справи** / **Case Curator**. Мета цієї ітерації — змінити видимий і prompt-facing шар без міграції внутрішніх `keeperStyle` / `keeper_style` імен.
+
+### Changes
+- Public landing/SEO/OG/demo copy: `AI Keeper` → `AI Case Curator`, `Хранитель` → `Куратор справи`, ES copy → `Curador del caso`.
+- Full game chat UI: assistant bubble label, style selector, completion text, debug heading, read-only stats, truncated-reply hint now use "Куратор справи" / "Case Curator".
+- Prompt-facing strings updated in `prompts.ts`, `/api/ai` passive-style section, demo scenario, demo API route, active scenario `systemPrompt` and railguards, and scenario generator template.
+- TTS multi-speaker prompt now labels narration as `Case Curator` while keeping the existing voice helpers/internal `keeper` voice style for compatibility.
+- Docs/metadata updated in `PROJECT_CONTEXT.md`, `SCENARIO_GUIDE.md`, and `LAUNCH_METADATA.md`.
+
+### Notes
+- Internal identifiers (`keeperStyle`, `keeper_style`, CSS classes, route `/api/demo/keeper`, component/file names) intentionally left unchanged to avoid a migration/refactor in a terminology-only pass.
+- `node_modules` was initially absent, so the project-local Next docs path from `AGENTS.md` was unavailable before edits; after `npm ci`, `node_modules/next/dist/docs/01-app/index.md` was read and verification ran against lockfile-installed dependencies.

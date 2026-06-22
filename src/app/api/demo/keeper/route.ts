@@ -263,7 +263,7 @@ export async function POST(request: Request) {
     const priorUserTurns = history.filter((entry) => entry.role === 'player').length;
     if (priorUserTurns >= 10) {
       return NextResponse.json({
-        text: 'The Keeper closes the preview file at ten entries. The full dossier waits beyond registration.',
+        text: 'The Case Curator closes the preview file at ten entries. The full dossier waits beyond registration.',
         meta: 'Archive notice',
         completed: true,
         completionReason: 'message_limit',
@@ -371,7 +371,7 @@ export async function POST(request: Request) {
       ? 'Objective complete'
       : worldState.pendingRollResult
         ? `Roll ${worldState.pendingRollResult.skillName}: <= ${worldState.pendingRollResult.goodThreshold}`
-        : 'Keeper';
+        : 'Case Curator';
 
     return NextResponse.json({
       text: cleanText,
@@ -389,8 +389,8 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Demo Keeper route failed:', error);
-    return NextResponse.json({ error: 'Failed to get Keeper response' }, { status: 500 });
+    console.error('Demo Case Curator route failed:', error);
+    return NextResponse.json({ error: 'Failed to get Case Curator response' }, { status: 500 });
   }
 }
 
@@ -410,7 +410,7 @@ function buildDemoKeeperSection(lang: 'en' | 'uk' | 'es', worldState: WorldState
         : `\n\n## PENDING DEMO ROLL\nThe player is sending the d100 result for "${pending.skillName}". Threshold: ${pending.goodThreshold}. If the number is ≤ threshold, it succeeds; otherwise it fails. Narrate the consequence and always append [CLEAR_PENDING_ROLL]. If success opens the archive, append [DEMO_CLUE:archive_open] [LOCATION:inner_archive] [COMPLETE_SESSION].`
     : '';
 
-  return `\n\n## DEMO KEEPER MODE
+  return `\n\n## DEMO CASE CURATOR MODE
 ${languageLine}
 This is a public instant demo. Keep momentum high, keep replies short, and guide the fiction toward opening Archive 7 without railroading the player's exact method.
 

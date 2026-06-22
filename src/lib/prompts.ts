@@ -214,7 +214,7 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     npcSectionTitle: '## NPC',
     npcNoneMet: '## NPC\n(у сценарії немає прописаних NPC — імпровізуй за потреби)',
     npcRosterTitle: '### Решта складу сценарію (гравці ще не зустрічали)',
-    npcRosterRule: `Ти як Кіпер знаєш увесь склад. Вводь персонажів у гру, коли цього вимагає сцена чи локація — не перелічуй їх гравцям наперед.
+    npcRosterRule: `Ти як Куратор справи знаєш увесь склад. Вводь персонажів у гру, коли цього вимагає сцена чи локація — не перелічуй їх гравцям наперед.
 ПЕРША Ж репліка будь-кого з них — обов'язково в [NPC:Ім'я]...[/NPC]: без тегу персонаж не з'явиться на панелі гравців.`,
     npcSecrets: 'Секрети',
     npcSecretsRule: 'Секрети NPC розкривай ЛИШЕ через успішні кидки (Psychology, Persuade тощо), вагомі важелі або фінальні сцени — ніколи у звичайній розмові без приводу.',
@@ -368,7 +368,7 @@ Do not set these tags for a pause, a retreat, an unresolved failure, or while ke
     npcSectionTitle: '## NPCS',
     npcNoneMet: '## NPCS\n(the scenario defines no NPCs — improvise as needed)',
     npcRosterTitle: '### Remaining scenario cast (not met by the players yet)',
-    npcRosterRule: `As the Keeper you know the full cast. Bring characters in when the scene or location calls for it — never list them to the players in advance.
+    npcRosterRule: `As the Case Curator you know the full cast. Bring characters in when the scene or location calls for it — never list them to the players in advance.
 The VERY FIRST line any of them speaks must be wrapped in [NPC:Name]...[/NPC]: without the tag the character will not appear on the players' panel.`,
     npcSecrets: 'Secrets',
     npcSecretsRule: 'Reveal NPC secrets ONLY through successful rolls (Psychology, Persuade etc.), strong leverage, or finale scenes — never in casual conversation without cause.',
@@ -655,7 +655,7 @@ export function buildSummarizePrompt(
 ): string {
   if (lang === 'en') {
     const transcript = messages
-      .map((m) => `${m.role === 'user' ? 'PLAYER' : 'KEEPER'}: ${m.content}`)
+      .map((m) => `${m.role === 'user' ? 'PLAYER' : 'CASE CURATOR'}: ${m.content}`)
       .join('\n\n');
 
     return `Analyze this RPG session and return a WorldState JSON object.

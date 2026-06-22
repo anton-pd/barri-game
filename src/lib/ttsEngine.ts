@@ -23,16 +23,16 @@ export async function fetchGeminiPcm(
     const lines = segments.map((s) => {
       const clean = stripDiceForTts(s.text);
       return s.type === 'narration'
-        ? `Keeper: ${clean}`
+        ? `Case Curator: ${clean}`
         : `${(s as Extract<Segment, { type: 'npc' }>).name}: ${clean}`;
     });
 
     const seen = new Set<string>();
     const speakerVoiceConfigs: object[] = [];
 
-    seen.add('Keeper');
+    seen.add('Case Curator');
     speakerVoiceConfigs.push({
-      speaker: 'Keeper',
+      speaker: 'Case Curator',
       voiceConfig: { prebuiltVoiceConfig: { voiceName: getGeminiKeeperVoice() } },
     });
 

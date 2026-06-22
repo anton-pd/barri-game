@@ -78,7 +78,7 @@ export default function LandingClient() {
       <section className="hero">
         <div className="scratches" aria-hidden />
         <span className="hero-bg-mark m1" aria-hidden>Barri</span>
-        <span className="hero-bg-mark m2" aria-hidden>Keeper</span>
+        <span className="hero-bg-mark m2" aria-hidden>Curator</span>
 
         <div className="hero-inner">
           <div>
@@ -338,7 +338,7 @@ export default function LandingClient() {
             <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, letterSpacing: "0.22em", color: "var(--paper-0)" }}>
               BARRI
             </div>
-            <div style={{ marginTop: 4, fontSize: 10 }}>The AI Keeper · barrigame.es</div>
+            <div style={{ marginTop: 4, fontSize: 10 }}>The AI Case Curator · barrigame.es</div>
           </div>
         </div>
 
@@ -384,7 +384,7 @@ const CASE_COPY = {
       id: "File № 00 · Demo",
       badge: "Demo",
       title: "The Cursed Archive",
-      sub: "A sealed Bureau door. Five minutes with the Keeper.",
+      sub: "A sealed Bureau door. Five minutes with the Case Curator.",
       meta: [
         { k: "Access", v: "Open" },
         { k: "Players", v: "1" },
@@ -392,9 +392,9 @@ const CASE_COPY = {
         { k: "Duration", v: "≈ 2 min" },
       ],
       brief:
-        "Stand before Archive 7 and find a way inside. The Keeper responds through the real Barri prompt pipeline, tracks what you discover, and closes the file when the door opens.",
+        "Stand before Archive 7 and find a way inside. The Case Curator responds through the real Barri prompt pipeline, tracks what you discover, and closes the file when the door opens.",
       replayable: "Public preview · no account required",
-      cta: "Try Keeper",
+      cta: "Try Case Curator",
       stamp: "Open Demo",
     },
     locked: {
@@ -432,7 +432,7 @@ const CASE_COPY = {
       id: "Справа № 00 · Демо",
       badge: "Демо",
       title: "Проклятий Архів",
-      sub: "Запечатані двері Бюро. П'ять хвилин із Хранителем.",
+      sub: "Запечатані двері Бюро. П'ять хвилин із Куратором справи.",
       meta: [
         { k: "Доступ", v: "Відкрито" },
         { k: "Гравці", v: "1" },
@@ -440,9 +440,9 @@ const CASE_COPY = {
         { k: "Тривалість", v: "≈ 2 хв" },
       ],
       brief:
-        "Станьте перед Архівом 7 і знайдіть шлях усередину. Хранитель відповідає через реальний prompt pipeline Barri, веде знахідки й закриває файл, коли двері відчиняються.",
+        "Станьте перед Архівом 7 і знайдіть шлях усередину. Куратор справи відповідає через реальний prompt pipeline Barri, веде знахідки й закриває файл, коли двері відчиняються.",
       replayable: "Публічне прев'ю · акаунт не потрібен",
-      cta: "Спробувати Хранителя",
+      cta: "Спробувати Куратора",
       stamp: "Демо",
     },
     locked: {
@@ -480,7 +480,7 @@ const CASE_COPY = {
       id: "Expediente № 00 · Demo",
       badge: "Demo",
       title: "El Archivo Maldito",
-      sub: "Una puerta sellada del Buró. Cinco minutos con el Guardián.",
+      sub: "Una puerta sellada del Buró. Cinco minutos con el Curador del caso.",
       meta: [
         { k: "Acceso", v: "Abierto" },
         { k: "Jugadores", v: "1" },
@@ -488,9 +488,9 @@ const CASE_COPY = {
         { k: "Duración", v: "≈ 2 min" },
       ],
       brief:
-        "Ponte frente al Archivo 7 y encuentra el modo de entrar. El Guardián responde con el prompt real de Barri, registra tus hallazgos y cierra el expediente cuando la puerta se abre.",
+        "Ponte frente al Archivo 7 y encuentra el modo de entrar. El Curador del caso responde con el prompt real de Barri, registra tus hallazgos y cierra el expediente cuando la puerta se abre.",
       replayable: "Vista pública · sin cuenta",
-      cta: "Probar Guardián",
+      cta: "Probar Curador",
       stamp: "Demo",
     },
     locked: {

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 
 export const SITE_URL = "https://barrigame.es";
 export const SITE_NAME = "Barri";
-export const DEFAULT_TITLE = "Barri — AI Keeper for Browser Tabletop RPGs";
+export const DEFAULT_TITLE = "Barri — AI Case Curator for Browser Tabletop RPGs";
 export const DEFAULT_DESCRIPTION =
-  "Play browser-based tabletop horror investigations with an AI Keeper that narrates scenes, tracks clues, handles d100 rolls, and remembers your choices.";
+  "Play browser-based tabletop horror investigations with an AI Case Curator that narrates scenes, tracks clues, handles d100 rolls, and remembers your choices.";
 export const OG_IMAGE = "/opengraph-image";
 
 export function absoluteUrl(path = "/") {
@@ -43,7 +43,7 @@ export function publicMetadata({
           url: image,
           width: 1200,
           height: 630,
-          alt: "Barri AI Keeper tabletop horror investigation preview",
+          alt: "Barri AI Case Curator tabletop horror investigation preview",
         },
       ],
     },
