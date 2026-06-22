@@ -3222,6 +3222,7 @@ On mobile, the public demo case dossier stayed in the document flow above the ch
 - `/demo`: added a localized "Case file" button and moved the dossier into a mobile/tablet drawer (`<=920px`). The console now owns the mobile viewport by default; the dossier opens as an overlay sheet with scrim + close button.
 - Main `GameChat`: changed the case-file toggle breakpoint to `<=1024px`, so mobile/tablet opens the drawer instead of collapsing the desktop rail.
 - `chat.css`: added final mobile/tablet drawer overrides for `.chat-sidebar`, disabled desktop collapsed rail behavior below `1025px`, and kept the composer padded above the safe-area inset.
+- Follow-up: removed the dark radial vignette from `/demo`'s root overlay, keeping only the subtle archival line texture.
 
 ### Verification
 - Browser mobile repro at `390x844` on `/demo`: before fix, dossier occupied ~704px before the console and input ended below viewport; after fix, console starts under the header, input ends inside the viewport, dossier is fixed offscreen until opened.
@@ -3230,3 +3231,4 @@ On mobile, the public demo case dossier stayed in the document flow above the ch
 - `npx tsc --noEmit` passes.
 - `npm run build` passes.
 - Local main session browser verification was blocked by auth redirect to `/auth/login`; main chat fix was verified statically through the shared breakpoint/state path.
+- Vignette follow-up: `npm run lint` and `npx tsc --noEmit` still pass before main deploy.

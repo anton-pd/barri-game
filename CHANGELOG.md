@@ -987,6 +987,7 @@ Per-change detail is in the `0.4.x` entries below.
 - **Public copy**: acquisition-тексти зроблено більш trademark-safe: прямі Call of Cthulhu/CoC claims прибрані з hero/cases, а affiliation disclaimer лишився у footer.
 - **Mobile landing**: hero/topbar/CTA адаптовано без horizontal overflow; demo CTA видно у першому mobile viewport.
 - **Legal footer**: footer тепер веде на Privacy, Cookies, Terms і Legal Notice; fallback consent banner містить посилання на Cookie Policy.
+- **Demo atmosphere**: з `/demo` прибрано темну віньєтку по краях, лишено легку архівну текстуру.
 
 ### Fixed
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.

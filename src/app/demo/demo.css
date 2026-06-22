@@ -46,8 +46,7 @@
   z-index: 29;
   background:
     linear-gradient(90deg, transparent 24%, rgba(216, 200, 166, 0.08) 24.1%, transparent 24.25%),
-    linear-gradient(88deg, transparent 66%, rgba(216, 200, 166, 0.07) 66.1%, transparent 66.24%),
-    radial-gradient(circle at 50% 50%, transparent 42%, rgba(0, 0, 0, 0.7) 100%);
+    linear-gradient(88deg, transparent 66%, rgba(216, 200, 166, 0.07) 66.1%, transparent 66.24%);
 }
 
 .demo-shell {
