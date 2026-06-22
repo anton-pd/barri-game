@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Added
+- **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
+
 ### Changed
 - **Renamed the AI host from Keeper to Case Curator.** Public landing/SEO/demo copy, game-chat labels, completion text, admin headings, TTS speaker labels, and LLM-facing prompt instructions now use **Case Curator** / **Куратор справи** / **Curador del caso**. Internal compatibility names such as `keeperStyle` and `keeper_style` remain unchanged.
 

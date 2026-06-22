@@ -3346,3 +3346,25 @@ Temporary approved QA users were created directly in prod/staging DBs and remove
 - `/tmp/barri-prod-no-cookiebot-mobile.png`
 - `/tmp/barri-dice-before.png`
 - `/tmp/barri-dice-after.png`
+
+---
+
+## ANT-176 v2 test scenario — 2026-06-22
+
+### Context
+Anton asked to add one new scenario under the new scenario-authoring rules so the updated prompt/rules direction can be tested in real play. Linear issue: `ANT-176`.
+
+### Changes
+- Added `scenarios/the-black-ledger.json` (`The Black Ledger` / `Чорна книга`), an original 1931 noir horror one-shot about a debt ledger that counts guilt rather than money.
+- The scenario keeps current runtime compatibility (`rulesetId: "coc_7e"`, legacy-compatible required fields) while adding v2 playtest fields:
+  - `schemaVersion`, `reviewStatus`, `designGoals`
+  - `structuredMustHappenEvents` with explicit completion criteria
+  - `casePlanSeeds`, `npcHooks`, `imageMoments`, `variantDeltas`
+  - `clueGraph`, `finaleGates`, `deepseekRuntimeNotes`
+- Visible/prompt content uses `Куратор справи` and avoids old IP/GM terminology.
+
+### Verification
+- `jq empty scenarios/the-black-ledger.json` passes.
+- Custom structural check passes: required fields present, starting location exists, referenced NPC/location IDs resolve, 4 role presets, 3 variants, 4 event hint groups.
+- Old terminology grep against the new scenario returns no matches for `Keeper`, `Call of Cthulhu`, `Cthulhu`, `Поклик`, `Ктулху`, `Хранитель`, `Mythos`, or `Lovecraft`.
+- `npm test -- scenarioFiles` passes: 1 file, 2 tests.
