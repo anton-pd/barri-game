@@ -3405,3 +3405,37 @@ Anton asked to remove `sagrada mystery` and `the haunting v2`, and to add admin 
   - prod `GET /api/admin/scenarios` returns the 4 live scenarios.
   - staging `GET /api/admin/scenarios/the-black-ledger` returns full scenario detail and file metadata.
 - Post-deploy unauthenticated admin smoke: staging/prod `GET /api/admin/scenarios` return 403.
+
+---
+
+## ANT-178 empty/truncated AI replies — 2026-06-23
+
+### Context
+Anton reported that some Case Curator messages get cut off and some hang as empty bubbles. Investigated the latest prod session named `Test`.
+
+Session:
+- DB: `barri_prod`
+- session id: `842e6402-365c-46a5-90fe-27a9d38911f7`
+- scenario: `the-black-ledger`
+- updated at: `2026-06-22 22:37:36 UTC`
+
+### Findings
+- Empty assistant messages in the session:
+  - `ed97be1b-ef89-43e4-b8cd-65a43f421cb4`: `content_len=0`, `raw_len=0`, `finish_reason=max_tokens`, `output_tokens=1200`
+  - `4f622860-3439-4f4e-9a6d-dff2c3f89fd2`: `content_len=0`, `raw_len=0`, `finish_reason=max_tokens`, `output_tokens=1200`
+- Truncated non-empty assistant messages also hit the output cap:
+  - intro `5e1ebd96-5bb2-4aa2-8894-1417f37f002b`: `finish_reason=max_tokens`, `output_tokens=1400`
+  - `e5c7491c-2b4a-4635-9d07-62e10c1fec28`: `finish_reason=max_tokens`, `output_tokens=1200`
+  - `5c69fe49-e1b9-4a4c-bc3b-59aff268c353`: `finish_reason=max_tokens`, `output_tokens=1200`
+- Root cause for empty bubbles: DeepSeek V4 hidden reasoning can consume the entire output budget while streaming no final `delta.content`. The server only accumulated `delta.content`, then treated empty text as a valid assistant message, saved it, and sent an empty `done.response` to the client.
+
+### Changes
+- Added `src/lib/deepseekStream.ts` to centralize DeepSeek/OpenRouter streaming request body and content-delta extraction.
+- Direct DeepSeek game turns now send `thinking: { type: "disabled" }`.
+- OpenRouter pro turns now send `reasoning: { effort: "none", exclude: true }` instead of the DeepSeek-native `thinking` parameter.
+- Server now rejects an empty final AI output before message persistence, logs `[AI_EMPTY_OUTPUT]`, and returns an SSE error so the client rolls back the optimistic empty bubble instead of saving a blank Case Curator message.
+- Added `tests/deepseekStream.test.ts` for thinking/reasoning request controls and reasoning-only delta handling.
+
+### Verification
+- `npm test -- deepseekStream` passes: 1 file, 3 tests.
+- `npx tsc --noEmit` passes.

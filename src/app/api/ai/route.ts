@@ -19,6 +19,7 @@ import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupId
 import { applyDeltaToPlayer } from '@/lib/statUtils';
 import { supportsPendingRollTag } from '@/lib/rulesets';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
+import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStreamChunk } from '@/lib/deepseekStream';
 import type { WorldState } from '@/types';
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
@@ -155,23 +156,16 @@ async function callDeepSeekChatStream(
   const apiKey = process.env[arm.apiKeyEnv];
   if (!apiKey) throw new Error(`${arm.apiKeyEnv} not set`);
 
-  const body: Record<string, unknown> = {
+  const body = buildDeepSeekChatBody({
     model: arm.model,
     messages,
-    max_tokens: maxTokens,
+    maxTokens,
     // ANT-146: 0.7 beat 1.0 in the temperature A/B — better tag/roll
     // discipline, judge prose scores unchanged (0.85 wrote nicer but fired a
     // false IMAGE and lost roll tags).
     temperature: 0.7,
-    stream: true,
-    stream_options: { include_usage: true },
-  };
-  if (arm.orProvider) {
-    // allow_fallbacks: a turn on another OpenRouter host (cache miss, slower
-    // TTFT) beats a failed turn when Cloudflare has an outage.
-    body.provider = { order: [arm.orProvider], allow_fallbacks: true };
-    body.usage = { include: true };
-  }
+    orProvider: arm.orProvider,
+  });
 
   const res = await fetch(arm.url, {
     method: 'POST',
@@ -191,6 +185,7 @@ async function callDeepSeekChatStream(
     completion_tokens?: number;
     prompt_cache_hit_tokens?: number;
     prompt_tokens_details?: { cached_tokens?: number };
+    completion_tokens_details?: { reasoning_tokens?: number };
   } = {};
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -204,8 +199,8 @@ async function callDeepSeekChatStream(
     for (const line of lines) {
       if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
       try {
-        const chunk = JSON.parse(line.slice(6));
-        const delta = chunk.choices?.[0]?.delta?.content;
+        const chunk = JSON.parse(line.slice(6)) as DeepSeekStreamChunk;
+        const delta = extractDeepSeekContentDelta(chunk);
         if (delta) {
           text += delta;
           onDelta(delta);
@@ -214,6 +209,14 @@ async function callDeepSeekChatStream(
         if (chunk.usage) usage = chunk.usage;
       } catch { /* partial SSE line at buffer edge */ }
     }
+  }
+  if (!text.trim()) {
+    const reasoningTokens = usage.completion_tokens_details?.reasoning_tokens;
+    console.error(
+      `[AI_EMPTY_OUTPUT] provider=${arm.trackProvider} model=${arm.model} finish=${finishReason ?? 'unknown'} ` +
+      `completion_tokens=${usage.completion_tokens ?? 0} reasoning_tokens=${reasoningTokens ?? 0}`
+    );
+    throw new Error('DeepSeek returned no final content');
   }
   return {
     text,
