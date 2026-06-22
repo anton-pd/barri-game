@@ -3439,3 +3439,16 @@ Session:
 ### Verification
 - `npm test -- deepseekStream` passes: 1 file, 3 tests.
 - `npx tsc --noEmit` passes.
+- Full local verification before deploy:
+  - `npm test` passes: 16 files, 98 tests.
+  - `npm run lint` passes with the existing `<img>` warnings only.
+  - `npm run build` passes.
+- Deployed staging and prod/main from commit `045bad7`.
+- Staging smoke with a temporary admin user/session:
+  - `POST /api/ai` returned non-empty chunks and done payload: `chunkLen=982`, `doneLen=959`, `truncated=false`.
+  - Debug row: assistant `content_len=982`, `raw_len=982`, `finish_reason=stop`, `output_tokens=446`.
+  - Temporary session and user were deleted.
+- Prod smoke with a temporary admin user/session:
+  - `POST /api/ai` returned non-empty chunks and done payload: `chunkLen=634`, `doneLen=611`, `truncated=false`.
+  - Debug row: assistant `content_len=634`, `raw_len=634`, `finish_reason=stop`, `output_tokens=288`.
+  - Temporary session and user were deleted.
