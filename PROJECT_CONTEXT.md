@@ -39,7 +39,7 @@ Code checkouts:
 ├── /opt/apps/barri      — Prod repo (branch main)
 └── /opt/apps/barri-dev  — Staging repo (branch staging)
 
-Shared persistent data (mounted into BOTH containers as /app/scenarios and /app/public/scenarios):
+Shared persistent data (mounted into BOTH containers; scenario JSON path is selected by `SCENARIOS_DIR`):
 └── /opt/apps/shared_data/
     ├── scenarios/         — Scenario JSONs (shared prod+staging)
     └── public/scenarios/  — Generated images (shared prod+staging)
@@ -237,6 +237,8 @@ Files in `/opt/apps/shared_data/scenarios/` (shared by both prod and staging):
 - `the-last-telegram.json` — CoC 7e, intermediate, isCampaign: true, 4 location groups
 
 Key fields: `rulesetId`, `supportedRoles`, `sessionConfig`, `locationGroups`, `eventHints`, `ambientFile` per location.
+
+Source of truth: live scenario JSON is `/opt/apps/shared_data/scenarios`, mounted into both containers and exposed to the app via `SCENARIOS_DIR`. The repo `scenarios/` folder is the local-development fallback/template set, not the live runtime source.
 
 **Authoring guide:** `SCENARIO_GUIDE.md`
 

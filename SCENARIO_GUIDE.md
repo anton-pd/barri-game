@@ -7,8 +7,10 @@
 ## 1. Де зберігати файл
 
 ```
-/opt/apps/cthulhu/scenarios/<id>.json
+/opt/apps/shared_data/scenarios/<id>.json
 ```
+
+Live prod/staging scenarios have one source of truth: `/opt/apps/shared_data/scenarios`, mounted into both containers and exposed as `SCENARIOS_DIR`. The repo `scenarios/` directory is only the local fallback/template set.
 
 `id` — унікальний, лише латинські літери та дефіси. Приклади: `the-haunting`, `the-last-telegram`, `death-on-the-orient`.
 
@@ -395,7 +397,7 @@ ID першої локації де починається гра. Має бут
 POST /api/scenarios/<id>/images
 ```
 
-Зображення зберігаються у `/opt/apps/cthulhu/public/scenarios/<id>/`.  
+Зображення зберігаються у `/opt/apps/shared_data/public/scenarios/<id>/`.
 Після додавання нових файлів у `public/` — потрібен рестарт:
 
 ```bash

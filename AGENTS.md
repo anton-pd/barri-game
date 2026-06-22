@@ -12,7 +12,7 @@ Full architecture, DB schema, AI tag protocol, and conventions are in **PROJECT_
 - `src/app/` — App Router pages and API routes
 - `src/components/` — UI components for chat, sessions, admin, and controls
 - `src/lib/` — DB access, prompts, rulesets, cost tracking, AI helpers, and shared logic
-- `scenarios/` — persistent scenario JSON files
+- `scenarios/` — local fallback/template scenario JSON files; live prod/staging JSON lives in `/opt/apps/shared_data/scenarios` and is read through `SCENARIOS_DIR`
 - `public/scenarios/` — generated and cached scenario assets
 - `NOTES.md` / `CHANGELOG.md` — append-only task journal and user-facing release notes
 

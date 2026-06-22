@@ -995,6 +995,7 @@ Per-change detail is in the `0.4.x` entries below.
 - **Demo atmosphere**: з `/demo` прибрано темну віньєтку по краях, лишено легку архівну текстуру.
 
 ### Fixed
+- **Scenario source of truth**: runtime scenario JSON can now be pinned with `SCENARIOS_DIR`, and direct `process.cwd()/scenarios` readers were moved onto the shared helper. Production/staging should read one shared scenario directory instead of drifting between repo, image, and mounted data copies.
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.
 - **Cookiebot reliability**: consent flow тепер слухає повний набір Cookiebot lifecycle events (`ConsentReady`, `Load`, `Accept`, `Decline`, `DialogInit`, `DialogDisplay`), не показує fallback поверх живого CMP і має Privacy-page кнопку для зміни/відкликання cookie settings.
 - **Mobile chat layout**: демо-досьє та основна панель матеріалів справи на mobile/tablet тепер відкриваються як drawer, а чат і поле вводу лишаються основним видимим екраном.

@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import type { Scenario, StaticImage } from '@/types';
 import { ensureScenarioStaticImagesGenerated } from '@/lib/staticImages';
+import { readScenarioFile } from '@/lib/scenarioFiles';
 
 export async function POST(
   _request: Request,
@@ -10,12 +11,13 @@ export async function POST(
 ) {
   const { id } = await params;
 
-  const scenarioPath = path.join(process.cwd(), 'scenarios', `${id}.json`);
-  if (!fs.existsSync(scenarioPath)) {
+  let scenario: Scenario;
+  try {
+    scenario = readScenarioFile(id);
+  } catch {
     return NextResponse.json({ error: 'Scenario not found' }, { status: 404 });
   }
 
-  const scenario = JSON.parse(fs.readFileSync(scenarioPath, 'utf-8')) as Scenario;
   const result = await ensureScenarioStaticImagesGenerated({ scenarioId: id, scenario });
   return NextResponse.json(result);
 }
@@ -26,12 +28,13 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const scenarioPath = path.join(process.cwd(), 'scenarios', `${id}.json`);
-  if (!fs.existsSync(scenarioPath)) {
+  let scenario: Scenario;
+  try {
+    scenario = readScenarioFile(id);
+  } catch {
     return NextResponse.json({ error: 'Scenario not found' }, { status: 404 });
   }
 
-  const scenario = JSON.parse(fs.readFileSync(scenarioPath, 'utf-8')) as Scenario;
   const images   = scenario.staticImages ?? [];
   const dir      = path.join(process.cwd(), 'public', 'scenarios', id);
 

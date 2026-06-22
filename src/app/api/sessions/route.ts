@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getSessionsByUserId, createSession, ensureSchema, getUserById } from '@/lib/queries';
@@ -7,6 +5,7 @@ import { verifyJwt } from '@/lib/auth';
 import type { Player } from '@/types';
 import { createCampaign } from '@/lib/campaigns';
 import { evaluateAccessGate } from '@/lib/accessGate';
+import { readScenarioFile } from '@/lib/scenarioFiles';
 
 function getScenarioSessionMeta(scenarioId: string): {
   startingLocation?: string;
@@ -15,8 +14,7 @@ function getScenarioSessionMeta(scenarioId: string): {
   isCampaign: boolean;
 } {
   try {
-    const file = path.join(process.cwd(), 'scenarios', `${scenarioId}.json`);
-    const scenario = JSON.parse(fs.readFileSync(file, 'utf-8')) as {
+    const scenario = readScenarioFile(scenarioId) as {
       startingLocation?: string;
       variants?: { id: string; startingLocation: string; introHint?: string }[];
       sessionConfig?: { isCampaign?: boolean };

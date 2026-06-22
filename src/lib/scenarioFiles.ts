@@ -3,7 +3,7 @@ import path from 'path';
 import type { Scenario } from '@/types';
 
 export function getScenariosDir(): string {
-  return path.join(process.cwd(), 'scenarios');
+  return process.env.SCENARIOS_DIR || path.join(process.cwd(), 'scenarios');
 }
 
 export function getScenarioFilePath(scenarioId: string): string {
@@ -18,6 +18,7 @@ export function readScenarioFile(scenarioId: string): Scenario {
 
 export function writeScenarioFile(scenarioId: string, scenario: Scenario): void {
   const filePath = getScenarioFilePath(scenarioId);
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(scenario, null, 2), 'utf-8');
 }
 

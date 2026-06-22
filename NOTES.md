@@ -3250,3 +3250,31 @@ Anton обрав новий нуарний термін замість "Keeper":
 ### Notes
 - Internal identifiers (`keeperStyle`, `keeper_style`, CSS classes, route `/api/demo/keeper`, component/file names) intentionally left unchanged to avoid a migration/refactor in a terminology-only pass.
 - `node_modules` was initially absent, so the project-local Next docs path from `AGENTS.md` was unavailable before edits; after `npm ci`, `node_modules/next/dist/docs/01-app/index.md` was read and verification ran against lockfile-installed dependencies.
+
+---
+
+## Scenario generator and main scenario audit — 2026-06-22
+
+### Scope
+Reviewed the active repo scenarios (`the-haunting`, `the-last-telegram`), the staging/prod shared scenario directory, and the generator/runtime prompt path with DeepSeek v4 Flash in mind.
+
+### Findings
+- Generator still prompts as a Call of Cthulhu scenario designer, hardcodes `coc_7e`, SAN-era role stats, and does not model newer runtime features such as living case plan seeds, structured must-event triggers, NPC update hooks, campaign evening arcs, or richer variant deltas.
+- Shared scenario storage is ahead of git: staging/prod volume contains three additional generated JSONs with old `Keeper`/`Поклик Ктулху` wording, while the repo tracks only two scenario files.
+- Existing scenarios have good basic clue/location/NPC coverage, but the data is mostly prose. DeepSeek runtime would benefit from more explicit ids, trigger criteria, clue redundancy maps, finale gates, and structured instructions for when to emit tags.
+- `the-last-telegram` is marked as a campaign but has one-shot-like structure: 6 must events and no explicit session/evening chapter beats.
+
+---
+
+## ANT-173 scenario source-of-truth fix — 2026-06-22
+
+### Context
+Anton confirmed that scenario JSON must have one live location available to both staging and prod. Linear key was found in `/opt/apps/.env`; `CODEX_LINEAR_API_KEY` maps to the Codex Linear user. Issue created: `ANT-173`.
+
+### Changes
+- `src/lib/scenarioFiles.ts` now supports `SCENARIOS_DIR` as the explicit runtime scenario directory, with fallback to repo `scenarios/` for local development.
+- `/api/sessions` and `/api/scenarios/[id]/images` now read scenario JSON through the shared helper instead of rebuilding `process.cwd()/scenarios` locally.
+- Docker runtime image no longer copies repo `scenarios/` into the standalone image, preventing a stale baked-in scenario copy from existing beside the mounted shared data.
+- VPS `/opt/apps/docker-compose.yml` now sets `SCENARIOS_DIR: /app/scenarios` for both `barri-dev` and `barri`, with the existing shared mount `/opt/apps/shared_data/scenarios:/app/scenarios`.
+- Docs now describe `/opt/apps/shared_data/scenarios` as the live source of truth and repo `scenarios/` as local fallback/templates.
+- Added `tests/scenarioFiles.test.ts` to lock the `SCENARIOS_DIR` behavior.
