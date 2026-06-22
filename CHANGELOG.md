@@ -8,10 +8,14 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Admin scenario library and delete controls (ANT-177).** Admins can now view live scenario files, inspect full scenario JSON, and delete scenarios from the shared runtime directory. Deletes also clear cached scenario assets when present.
 - **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
 
 ### Changed
 - **Renamed the AI host from Keeper to Case Curator.** Public landing/SEO/demo copy, game-chat labels, completion text, admin headings, TTS speaker labels, and LLM-facing prompt instructions now use **Case Curator** / **Куратор справи** / **Curador del caso**. Internal compatibility names such as `keeperStyle` and `keeper_style` remain unchanged.
+
+### Removed
+- **Removed two legacy live scenarios from shared storage (ANT-177).** `barcelona-sagrada-mystery` and `the-haunting-v2-pilot` were removed from the staging/prod shared scenario catalog, along with their cached generated assets.
 
 ## [0.5.10] — 2026-06-20
 

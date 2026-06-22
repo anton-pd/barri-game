@@ -1,0 +1,93 @@
+import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import fs from 'fs';
+import path from 'path';
+import { verifyJwt } from '@/lib/auth';
+import {
+  deleteScenarioFile,
+  getScenarioFilePath,
+  isValidScenarioId,
+  readScenarioFile,
+} from '@/lib/scenarioFiles';
+
+export const runtime = 'nodejs';
+
+interface Params {
+  params: Promise<{ id: string }>;
+}
+
+async function requireAdmin() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('auth_token')?.value;
+  const payload = token ? await verifyJwt(token) : null;
+
+  if (!payload || payload.role !== 'admin') {
+    return null;
+  }
+
+  return payload;
+}
+
+function deleteCachedAssets(scenarioId: string): boolean {
+  const assetDir = path.join(process.cwd(), 'public', 'scenarios', scenarioId);
+  if (!fs.existsSync(assetDir)) return false;
+  fs.rmSync(assetDir, { recursive: true, force: true });
+  return true;
+}
+
+export async function GET(_request: Request, { params }: Params) {
+  try {
+    const payload = await requireAdmin();
+    if (!payload) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    if (!isValidScenarioId(id)) {
+      return NextResponse.json({ error: 'Invalid scenario id' }, { status: 400 });
+    }
+
+    try {
+      const scenario = readScenarioFile(id);
+      const stat = fs.statSync(getScenarioFilePath(id));
+      return NextResponse.json({
+        scenario,
+        file: {
+          path: getScenarioFilePath(id),
+          size: stat.size,
+          updatedAt: stat.mtime.toISOString(),
+        },
+      });
+    } catch {
+      return NextResponse.json({ error: 'Scenario not found' }, { status: 404 });
+    }
+  } catch (error) {
+    console.error('Admin scenario detail error:', error);
+    return NextResponse.json({ error: 'Failed to load scenario' }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, { params }: Params) {
+  try {
+    const payload = await requireAdmin();
+    if (!payload) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { id } = await params;
+    if (!isValidScenarioId(id)) {
+      return NextResponse.json({ error: 'Invalid scenario id' }, { status: 400 });
+    }
+
+    const deleted = deleteScenarioFile(id);
+    if (!deleted) {
+      return NextResponse.json({ error: 'Scenario not found' }, { status: 404 });
+    }
+
+    const deletedCachedAssets = deleteCachedAssets(id);
+    return NextResponse.json({ deleted: id, deletedCachedAssets });
+  } catch (error) {
+    console.error('Admin scenario delete error:', error);
+    return NextResponse.json({ error: 'Failed to delete scenario' }, { status: 500 });
+  }
+}

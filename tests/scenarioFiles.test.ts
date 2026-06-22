@@ -3,8 +3,10 @@ import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  deleteScenarioFile,
   getScenarioFilePath,
   getScenariosDir,
+  isValidScenarioId,
   listScenarioFiles,
   readScenarioFile,
   writeScenarioFile,
@@ -61,5 +63,23 @@ describe('scenarioFiles', () => {
     delete process.env.SCENARIOS_DIR;
 
     expect(getScenariosDir()).toBe(path.join(process.cwd(), 'scenarios'));
+  });
+
+  it('deletes scenario files from the configured scenarios directory', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'barri-scenarios-'));
+    tempRoots.push(dir);
+    process.env.SCENARIOS_DIR = dir;
+
+    writeScenarioFile('case-to-delete', makeScenario('case-to-delete'));
+
+    expect(deleteScenarioFile('case-to-delete')).toBe(true);
+    expect(listScenarioFiles()).toEqual([]);
+    expect(deleteScenarioFile('case-to-delete')).toBe(false);
+  });
+
+  it('rejects invalid scenario ids before resolving file paths', () => {
+    expect(isValidScenarioId('safe-case-1')).toBe(true);
+    expect(isValidScenarioId('../unsafe')).toBe(false);
+    expect(() => getScenarioFilePath('../unsafe')).toThrow('Invalid scenario id format');
   });
 });

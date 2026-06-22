@@ -7,6 +7,7 @@ import AccessControl from './AccessControl';
 import type { AccessStatus } from '@/types';
 import KeeperSettings from './KeeperSettings';
 import ScenarioGenerator from './ScenarioGenerator';
+import ScenarioLibrary from './ScenarioLibrary';
 import ScenarioStats from './ScenarioStats';
 import UsageTab from './UsageTab';
 import PricingEditor from './PricingEditor';
@@ -280,6 +281,10 @@ export default function AdminTabs({
       {activeTab === 'usage'     && <UsageTab />}
       {activeTab === 'scenarios' && (
         <div className="space-y-10">
+          <ScenarioLibrary
+            refreshToken={scenarioRefreshToken}
+            onChanged={() => setScenarioRefreshToken((token) => token + 1)}
+          />
           <ScenarioStats refreshToken={scenarioRefreshToken} />
           <ScenarioGenerator onSaved={() => setScenarioRefreshToken((token) => token + 1)} />
         </div>

@@ -3368,3 +3368,33 @@ Anton asked to add one new scenario under the new scenario-authoring rules so th
 - Custom structural check passes: required fields present, starting location exists, referenced NPC/location IDs resolve, 4 role presets, 3 variants, 4 event hint groups.
 - Old terminology grep against the new scenario returns no matches for `Keeper`, `Call of Cthulhu`, `Cthulhu`, `Поклик`, `Ктулху`, `Хранитель`, `Mythos`, or `Lovecraft`.
 - `npm test -- scenarioFiles` passes: 1 file, 2 tests.
+
+---
+
+## ANT-177 admin scenario library and cleanup — 2026-06-22
+
+### Context
+Anton asked to remove `sagrada mystery` and `the haunting v2`, and to add admin functionality for viewing and deleting scenarios without manual VPS file operations. Linear issue: `ANT-177`.
+
+### Changes
+- Added admin-only scenario APIs:
+  - `GET /api/admin/scenarios` lists live scenario JSON files from `SCENARIOS_DIR`, including file metadata and cached-asset presence.
+  - `GET /api/admin/scenarios/:id` returns full scenario JSON and file metadata.
+  - `DELETE /api/admin/scenarios/:id` deletes the scenario JSON and removes `/public/scenarios/:id` cached assets when present.
+- Added `ScenarioLibrary` to the admin `Scenarios` tab with refresh, JSON preview, and delete controls.
+- Added safe scenario-id validation and `deleteScenarioFile` helper in `src/lib/scenarioFiles.ts`.
+- Removed deleted ids from `scripts/generate-covers.mjs` so cover tooling no longer includes retired scenarios.
+- Removed live shared-storage scenario JSON:
+  - `/opt/apps/shared_data/scenarios/barcelona-sagrada-mystery.json`
+  - `/opt/apps/shared_data/scenarios/the-haunting-v2-pilot.json`
+- Removed matching cached asset directories through the running Docker container as root because the files were container-owned:
+  - `/opt/apps/shared_data/public/scenarios/barcelona-sagrada-mystery`
+  - `/opt/apps/shared_data/public/scenarios/the-haunting-v2-pilot`
+
+### Verification
+- Staging `/api/scenarios` returns 4 ids: `barcelona-stones-of-the-unfinished`, `the-black-ledger`, `the-haunting`, `the-last-telegram`.
+- Prod `/api/scenarios` returns the same 4 ids.
+- `npm test -- scenarioFiles` passes: 1 file, 4 tests.
+- `npx tsc --noEmit` passes.
+- `npm run lint` passes with the existing `<img>` warnings only.
+- `npm run build` passes and includes `/api/admin/scenarios` plus `/api/admin/scenarios/[id]`.

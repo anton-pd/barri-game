@@ -24,16 +24,9 @@ const SUBJECTS = {
   'the-haunting':
     'a foreboding derelict Victorian house looming over a rain-slicked Boston street at dusk in the 1920s, ' +
     'one dim amber-lit window, bare twisted trees, wet cobblestones reflecting gaslight, a sense of dread',
-  'the-haunting-v2-pilot':
-    'a foreboding derelict Victorian house looming over a rain-slicked Boston street at dusk in the 1920s, ' +
-    'one dim amber-lit window, bare twisted trees, wet cobblestones reflecting gaslight, a sense of dread',
   'the-last-telegram':
     'a lonely Boston telegraph office on a grim rainy November morning in the 1920s, a single ominous telegram ' +
     'on a worn wooden desk, telegraph wires vanishing into cold fog, faint silhouette at a frosted window',
-  'barcelona-sagrada-mystery':
-    'the unfinished Sagrada Familia cathedral towers rising into a stormy night sky over 1920s Barcelona, ' +
-    'twisted gothic spires casting eerie elongated shadows, scaffolding and cranes, a lone investigator ' +
-    'silhouette far below, sea fog rolling through the streets',
   'barcelona-stones-of-the-unfinished':
     'the unfinished Sagrada Familia rising like the ribcage of a giant against a brooding autumn dusk in 1920s ' +
     'Barcelona, half-carved stone facades, scaffolding shrouded in sea mist, an ancient symbol faintly glowing ' +

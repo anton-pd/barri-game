@@ -2,11 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import type { Scenario } from '@/types';
 
+export function isValidScenarioId(scenarioId: string): boolean {
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(scenarioId);
+}
+
 export function getScenariosDir(): string {
   return process.env.SCENARIOS_DIR || path.join(process.cwd(), 'scenarios');
 }
 
 export function getScenarioFilePath(scenarioId: string): string {
+  if (!isValidScenarioId(scenarioId)) {
+    throw new Error('Invalid scenario id format');
+  }
   return path.join(getScenariosDir(), `${scenarioId}.json`);
 }
 
@@ -20,6 +27,13 @@ export function writeScenarioFile(scenarioId: string, scenario: Scenario): void 
   const filePath = getScenarioFilePath(scenarioId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(scenario, null, 2), 'utf-8');
+}
+
+export function deleteScenarioFile(scenarioId: string): boolean {
+  const filePath = getScenarioFilePath(scenarioId);
+  if (!fs.existsSync(filePath)) return false;
+  fs.unlinkSync(filePath);
+  return true;
 }
 
 export function listScenarioFiles(): string[] {
