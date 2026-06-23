@@ -1,5 +1,18 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-06-23 · Codex] — ANT-180: staging verification for admin waitlist invites
+
+### Verification
+- Deployed `feature/ANT-180` to staging (`apps-barri-dev-1`) via fast-forward `staging`.
+- Ran end-to-end staging smoke on `https://staging.barrigame.es` with temporary records, then cleaned them up:
+  - public waitlist submit returned 200;
+  - admin waitlist API returned the row as `waiting`;
+  - admin invite API returned the row as `invited`;
+  - invite preview returned `account_exists=false`, `locale=uk`;
+  - invite registration returned 200 and created an approved user;
+  - `/api/auth/me` returned `access_status=approved`, `role=user`;
+  - admin waitlist API returned the same row as `active_user`.
+
 ## [2026-06-23 · Codex] — ANT-111: launch assets for Product Hunt + itch.io
 
 ### Problem
