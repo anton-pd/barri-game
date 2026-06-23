@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Agent workflow helpers.** Added local Codex bootstrap, Linear CLI, repo doctor, and a fixed-port dev server script so routine task setup avoids manual env hunting, GraphQL boilerplate, and ad-hoc local server ports.
 - **Admin scenario library and delete controls (ANT-177).** Admins can now view live scenario files, inspect full scenario JSON, and delete scenarios from the shared runtime directory. Deletes also clear cached scenario assets when present.
 - **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
 

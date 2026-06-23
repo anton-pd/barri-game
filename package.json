@@ -3,10 +3,14 @@
   "version": "0.5.0",
   "private": true,
   "scripts": {
+    "codex:bootstrap": "bash scripts/codex-bootstrap.sh",
     "dev": "next dev",
+    "dev:test": "next dev -p ${PORT:-3100}",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "linear": "node scripts/linear.mjs",
+    "repo:doctor": "node scripts/repo-doctor.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

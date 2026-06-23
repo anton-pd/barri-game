@@ -141,7 +141,19 @@ If any condition is not true, treat as complex and go through `Planned`.
 
 ## Linear API usage (API only)
 
-Use GraphQL API directly for reads and writes:
+Prefer the local helper for routine reads/writes. It loads the canonical env files, verifies the Codex/Claude key, preserves existing labels when applying workflow labels, and knows the Barri team/project/state IDs:
+
+```bash
+npm run codex:bootstrap
+npm run linear -- viewer
+npm run linear -- mine
+npm run linear -- issue ANT-180
+npm run linear -- take ANT-179 --small "Small UI-only fix; no DB/auth/infra/AI protocol changes."
+npm run linear -- plan ANT-180 --body-file /tmp/ant-180-plan.md
+echo "Progress note" | npm run linear -- comment ANT-180
+```
+
+Use raw GraphQL only when the helper does not cover the operation:
 
 ```bash
 # Claude
@@ -158,8 +170,21 @@ curl -s -H "Authorization: $CODEX_LINEAR_API_KEY" \
 ```
 
 If API access appears unavailable, verify in this order:
-1. Load the right env file for the current machine (`./.env.linear.local` locally, `/opt/apps/.env` on VPS).
-2. Check key mapping with `viewer` query:
+1. Run `npm run codex:bootstrap`; it will link a local `.env.linear.local` from the canonical machine env when possible and run the viewer check.
+2. If bootstrap is unavailable, load the right env file for the current machine (`./.env.linear.local` locally, `/opt/apps/.env` on VPS).
+3. Check key mapping with `viewer` query:
    - `CLAUDE_LINEAR_API_KEY` → `Claude` (`4e483311-d106-4708-82a4-421812e84721`)
    - `CODEX_LINEAR_API_KEY` → `Codex` (`3f8713c1-72d2-4781-b3c0-1ed4e1017a4b`)
 Only if the correct key is still unavailable or auth fails after that should you ask Anton to restore API access. Do not switch to MCP.
+
+## Local agent setup helpers
+
+Use these before starting implementation work in a fresh Codex worktree:
+
+```bash
+npm run codex:bootstrap   # env link/check + npm deps + Linear viewer + repo doctor
+npm run repo:doctor       # branch/upstream/main-vs-staging/dirty-worktree check
+npm run dev:test          # predictable local Next dev server on :3100
+```
+
+`repo:doctor` exits non-zero on detached or dirty worktrees so agents notice unsafe starting conditions early. It intentionally reports `origin/main` vs `origin/staging` drift because deploy sync issues have caused confusion during task setup.

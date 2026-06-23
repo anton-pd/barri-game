@@ -3452,3 +3452,37 @@ Session:
   - `POST /api/ai` returned non-empty chunks and done payload: `chunkLen=634`, `doneLen=611`, `truncated=false`.
   - Debug row: assistant `content_len=634`, `raw_len=634`, `finish_reason=stop`, `output_tokens=288`.
   - Temporary session and user were deleted.
+
+---
+
+## Agent workflow friction fixes — 2026-06-23
+
+### Context
+Anton noted that too much task time was being lost on operational friction: finding Linear keys, writing raw GraphQL, checking branch/ref state, and starting local test servers on ad-hoc ports.
+
+### Changes
+- Added `scripts/codex-bootstrap.sh` and `npm run codex:bootstrap`:
+  - links `.env.linear.local` from the canonical local checkout or VPS env when missing
+  - ensures npm dependencies are present
+  - runs a Codex Linear viewer check
+  - runs repo diagnostics
+- Added `scripts/linear.mjs` and `npm run linear -- ...` for routine Linear API-only workflow:
+  - `viewer`, `mine`, `issue ANT-123`
+  - `take ANT-123 --small "reason"`
+  - `plan ANT-123 --body-file plan.md`
+  - `comment ANT-123` via stdin/body/body-file
+- Added `scripts/repo-doctor.mjs` and `npm run repo:doctor`:
+  - reports branch, upstream, ahead/behind, `origin/main` vs `origin/staging` drift, and dirty worktree state
+  - exits non-zero on detached or dirty worktrees
+- Added `npm run dev:test` for a predictable local Next dev server on port 3100.
+- Updated `LINEAR.md` and `AGENTS.md` to make these helpers the preferred fast path before falling back to raw GraphQL or ad-hoc setup.
+
+### Verification
+- `node --check scripts/linear.mjs` passes.
+- `node --check scripts/repo-doctor.mjs` passes.
+- `bash -n scripts/codex-bootstrap.sh` passes.
+- `npm run linear -- viewer --json` maps to Codex.
+- `npm run linear -- mine` lists Codex active issues without manual env sourcing.
+- `npm run codex:bootstrap` successfully links `.env.linear.local`, verifies Linear, and reports repo drift/dirty state.
+- `npm run lint` passes with the existing `<img>` warnings only.
+- `npm run build` passes.

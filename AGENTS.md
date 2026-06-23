@@ -32,6 +32,7 @@ Canonical workflow lives in **LINEAR.md**. This section is only a short checklis
 
 - **Access policy**: Linear is **API-only**. Use canonical keys: `CLAUDE_LINEAR_API_KEY` (Claude), `CODEX_LINEAR_API_KEY` (Codex).
 - **API availability**: keys live in one env file per machine: local `./.env.linear.local`, VPS `/opt/apps/.env` (both contain both keys). Verify key-to-viewer mapping before treating API access as broken.
+- **Fast path**: run `npm run codex:bootstrap` in fresh worktrees; use `npm run linear -- ...` instead of hand-written GraphQL for routine issue operations.
 - **Identity**: Claude takes only Claude tasks, Codex takes only Codex tasks (unless Anton explicitly asks otherwise).
 - **Project scope**: all issues must be in **Barri** (`ffeca0b2-16b3-4d2e-a7e6-0181ea2e991c`) / team **Anton_ux** (`c5959f1e-2ee7-4087-a234-20a44b69d8f0`).
 
@@ -44,6 +45,8 @@ Canonical workflow lives in **LINEAR.md**. This section is only a short checklis
 7. **Deploy**: when Anton moves to `Ready for deploy` and assigns back, deploy (`staging` → `main`) and close as `Done`.
 
 If API access looks broken, first load the machine env file (`./.env.linear.local` locally or `/opt/apps/.env` on VPS), then verify mapping: `CLAUDE_LINEAR_API_KEY` → Claude, `CODEX_LINEAR_API_KEY` → Codex. Only after that should you ask Anton to restore API access. Do not switch to MCP flow.
+
+Use `npm run repo:doctor` before branch setup when the current branch/ref looks surprising. Use `npm run dev:test` for a predictable local dev server on port 3100 instead of ad-hoc ports.
 
 When Anton asks for a plan/audit, create separate issues in `AI Improvements` (one issue per fix/feature), assigned to self.
 
