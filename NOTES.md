@@ -3632,3 +3632,33 @@ Anton asked to run Impeccable to improve the landing page, fix reported issues, 
 - `npx impeccable detect http://localhost:3000 --json` reports `0` findings after the polish.
 - `npm run lint` passes with only 6 pre-existing Next `<img>` warnings in `GameChat.tsx` and `SessionList.tsx`.
 - `npm run build` passes.
+
+---
+
+## Catalog/chat Impeccable pass + landing copy — 2026-06-23
+
+### Context
+Anton asked to run Impeccable across the catalog and game chat, refresh staging landing copy, fix findings, and deploy to staging.
+
+### Changes
+- Ran Impeccable source checks against:
+  - `src/components/SessionList.tsx`
+  - `src/app/sessions/sessions.css`
+  - `src/components/GameChat.tsx`
+  - `src/app/session/[id]/chat.css`
+- Fixed game chat CSS findings:
+  - replaced thick side-tab borders on NPC bubbles with full border / inset accent treatment
+  - renamed the loading dot motion away from the flagged bounce pattern
+  - removed the explicit `transition: width` stat bar animation pattern
+- Refined landing copy across EN/UK/ES:
+  - clearer hero/product promise and secondary CTA
+  - less repetitive Case Curator phrasing
+  - cleaner localized case names and microcopy
+  - removed stale model alias copy from dossier text
+
+### Verification
+- `npx impeccable detect src/app/page.tsx src/app/LandingClient.tsx src/app/content.ts src/app/landing.css --json` reports `0` findings.
+- `npx impeccable detect src/components/SessionList.tsx src/app/sessions/sessions.css src/components/GameChat.tsx src/app/session/[id]/chat.css --json` reports `0` findings.
+- `npx impeccable detect http://localhost:3000 --json` reports `0` rendered landing findings.
+- `npm run lint` passes with only the existing 6 Next `<img>` warnings.
+- `npm run build` passes.

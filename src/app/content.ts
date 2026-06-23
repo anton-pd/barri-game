@@ -12,15 +12,15 @@ export const CONTENT = {
     hero: {
       caseNo: "Case Nº 1929 / BRR",
       filed: "Filed: 04 / 20 / 2026",
-      kicker: "AI Case Curator for browser tabletop horror",
+      kicker: "Browser horror investigations with an AI Case Curator",
       t1: "The Case Curator",
       t2: "is already",
       t3: "listening",
-      lede: "Play a tabletop horror investigation in your browser. Speak or type in character, roll d100, and let the Case Curator track clues, injuries, sanity, and consequences.",
+      lede: "Open a horror investigation in your browser. Speak or type as your investigator, roll d100, and let the Case Curator track clues, wounds, sanity, and consequences.",
       cta: "Try Free Demo",
-      ghost: "See How It Works",
-      proofLabel: "Product highlights",
-      proofs: ["No account demo", "Voice or text", "1-4 investigators"],
+      ghost: "Read the Dossier",
+      proofLabel: "What opens immediately",
+      proofs: ["Free demo file", "Voice or text", "1-4 investigators"],
     },
     preview: {
       label: "Live game preview",
@@ -28,7 +28,7 @@ export const CONTENT = {
       messageMeta: "Case Curator",
       message: "Rain needles the Bureau windows. A sealed archive door waits ahead. No handle. A thin keyhole listens back.",
       objectiveLabel: "Objective",
-      objective: "Tell the Case Curator what you do. Inspect, listen, improvise, or risk a d100 check.",
+      objective: "Describe your next move. Inspect, listen, improvise, or risk a d100 check.",
       stats: [
         { k: "Clues", v: "0/3" },
         { k: "Roll", v: "d100" },
@@ -43,7 +43,7 @@ export const CONTENT = {
       rows: [
         { k: "Classification", v: "Case Curator / Narrator" },
         { k: "Active since", v: "the small hours" },
-        { k: "Known aliases", v: "Sonnet-4.6, Haiku-4.5" },
+        { k: "Known aliases", v: "Keeper engine, archive clerk" },
         { k: "Jurisdiction", v: "barrigame.es" },
       ],
       stamp: "Classified",
@@ -59,37 +59,37 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "Evidence docket",
-      heading: ["What the Case Curator ", "knows", ",\xa0the Case Curator records."],
-      desc: "Six exhibits, logged by the Bureau. Read each in full, and you begin to grasp why the Case Curator never leaves the desk.",
+      heading: ["What you ", "do", ",\xa0the Case Curator remembers."],
+      desc: "Six exhibits from the Bureau logbook. Together they show how Barri turns a browser tab into a persistent horror table.",
       items: [
         {
           num: "I", tag: "Exhibit A",
-          title: "The Case Curator Never Closes the File.",
+          title: "The Case Curator never closes the file",
           body: "An AI case handler narrates every scene in real time. It remembers the matchbook in your pocket, the name you gave the barkeep, and the lie you told three sessions ago.",
         },
         {
           num: "II", tag: "Exhibit B",
-          title: "The Dice Don't Lie.",
-          body: "A d100 horror rules engine runs under the hood. Roll against your skills on the virtual table, or call it out and the Case Curator will adjudicate on the spot.",
+          title: "The dice do not lie",
+          body: "A d100 horror rules engine runs under the hood. Roll against your skills on the virtual table, or call it out and the Case Curator adjudicates on the spot.",
         },
         {
           num: "III", tag: "Exhibit C",
-          title: "The Record Remembers.",
+          title: "The record remembers",
           body: "Multi-session campaigns persist between visits. NPCs carry grudges, locations stay changed, and the scars on your investigator follow them into the next case.",
         },
         {
           num: "IV", tag: "Exhibit D",
-          title: "Voices from the Dark.",
+          title: "Voices from the dark",
           body: "Every character speaks in their own voice. Ambient gramophone loops and location-specific soundscapes turn your browser into a dimly-lit parlour at 2 a.m.",
         },
         {
           num: "V", tag: "Exhibit E",
-          title: "No Two Runs the Same.",
+          title: "No two runs are the same",
           body: "Every session is a new investigation. Different choices, different suspects, different outcomes. The case is the same — the truth is always somewhere else.",
         },
         {
           num: "VI", tag: "Exhibit F",
-          title: "Bring Your Party.",
+          title: "Bring your party",
           body: "One to four investigators at the same table. Assign roles — detective, scholar, reporter — and let the AI Case Curator track injuries, sanity, and luck for everyone.",
         },
       ],
@@ -123,7 +123,7 @@ export const CONTENT = {
     cases: {
       label: "Case cabinet",
       heading: ["Open ", "case files."],
-      desc: "One demo file is open. The rest of the cabinet is real, sealed, and waiting for registered investigators.",
+      desc: "One demo file is open now. Additional cases are staged in the cabinet and unlock for registered investigators.",
       files: [
         {
           id: "File № 01 · d100 Horror", badge: "Open", badgeSealed: false,
@@ -181,7 +181,7 @@ export const CONTENT = {
         {
           q: "I have run investigative horror tables for fifteen years. This is the first digital Case Curator that let me stop running and start playing.",
           name: "Mrs. E. Orne",
-          role: "Longtime Case Curator · Arkham",
+          role: "Longtime table GM · Arkham",
         },
         {
           q: "We ran the telegram case twice. Different suspects, different ending. The second run we trusted the wrong man on purpose — just to see. The Case Curator obliged.",
@@ -194,7 +194,7 @@ export const CONTENT = {
       label: "Final notice",
       h1: "The file is open.",
       h2: "Will you read it?",
-      body: "No install. No download. Join the queue for full access, or try the open demo file while the Bureau reviews your request.",
+      body: "No install. No download. Try the open demo file now, or join the queue while the Bureau prepares full access.",
       btn: "Join the Waitlist",
     },
     footer: {
@@ -216,15 +216,15 @@ export const CONTENT = {
     hero: {
       caseNo: "Справа №1929 / ЗГ",
       filed: "Подано: 20 / 04 / 2026",
-      kicker: "AI-Куратор справи для браузерного настільного горору",
+      kicker: "Браузерні horror-розслідування з AI-Куратором справи",
       t1: "Куратор справи",
       t2: "вже",
       t3: "слухає",
-      lede: "Грайте в настільне горор-розслідування у браузері. Пишіть або говоріть від імені персонажа, кидайте d100, а Куратор справи веде зачіпки, рани, розсуд і наслідки.",
+      lede: "Відкрийте horror-розслідування прямо в браузері. Пишіть або говоріть від імені слідчого, кидайте d100, а Куратор справи веде зачіпки, рани, психіку й наслідки.",
       cta: "Спробувати демо",
-      ghost: "Як це працює",
-      proofLabel: "Переваги продукту",
-      proofs: ["Демо без акаунта", "Голос або текст", "1-4 слідчих"],
+      ghost: "Прочитати досьє",
+      proofLabel: "Що відкрито одразу",
+      proofs: ["Безкоштовне демо", "Голос або текст", "1-4 слідчих"],
     },
     preview: {
       label: "Прев'ю гри",
@@ -232,7 +232,7 @@ export const CONTENT = {
       messageMeta: "Куратор справи",
       message: "Дощ б'є по вікнах Бюро. Попереду запечатані архівні двері. Без ручки. Тонка шпарина слухає у відповідь.",
       objectiveLabel: "Ціль",
-      objective: "Скажіть Куратору справи, що робите. Оглядайте, слухайте, імпровізуйте або ризикуйте перевіркою d100.",
+      objective: "Опишіть наступну дію. Оглядайте, слухайте, імпровізуйте або ризикуйте перевіркою d100.",
       stats: [
         { k: "Зачіпки", v: "0/3" },
         { k: "Кидок", v: "d100" },
@@ -247,7 +247,7 @@ export const CONTENT = {
       rows: [
         { k: "Класифікація", v: "Куратор справи / Розповідач" },
         { k: "Активний з", v: "глибокої ночі" },
-        { k: "Псевдоніми", v: "Sonnet-4.6, Haiku-4.5" },
+        { k: "Псевдоніми", v: "Рушій Куратора, архівний писар" },
         { k: "Юрисдикція", v: "barrigame.es" },
       ],
       stamp: "Таємно",
@@ -263,37 +263,37 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "Реєстр доказів",
-      heading: ["Що Куратор справи ", "знає", ",\xa0Куратор справи пам'ятає."],
-      desc: "Шість доказів, внесених до реєстру. Прочитайте кожен — і ви почнете розуміти, чому Куратор справи не лишає файл без нагляду.",
+      heading: ["Що ви ", "робите", ",\xa0Куратор справи пам'ятає."],
+      desc: "Шість записів із реєстру Бюро. Разом вони показують, як Barri перетворює вкладку браузера на живий horror-стіл.",
       items: [
         {
           num: "I", tag: "Доказ А",
-          title: "Куратор справи не закриває файл.",
-          body: "AI-куратор веде розповідь у реальному часі. Він пам'ятає сірники у вашій кишені, ім'я, яке ви дали бармену, і брехню, яку ви сказали три сесії тому.",
+          title: "Куратор справи не закриває файл",
+          body: "AI-куратор веде розповідь у реальному часі. Він пам'ятає сірники у вашій кишені, ім'я, яке ви дали бармену, і брехню, сказану три сесії тому.",
         },
         {
           num: "II", tag: "Доказ Б",
-          title: "Кубики не брешуть.",
+          title: "Кубики не брешуть",
           body: "Під капотом працює d100-рушій для горор-розслідувань. Кидайте проти своїх навичок на віртуальному столі — Куратор справи розсудить на місці.",
         },
         {
           num: "III", tag: "Доказ В",
-          title: "Архів пам'ятає.",
+          title: "Архів пам'ятає",
           body: "Багатосесійні кампанії зберігаються між відвідуваннями. Персонажі тримають образи, локації залишаються зміненими, а шрами слідчого переходять у наступну справу.",
         },
         {
           num: "IV", tag: "Доказ Г",
-          title: "Голоси з темряви.",
+          title: "Голоси з темряви",
           body: "Кожен персонаж говорить власним голосом. Фонові петлі та звуки локацій перетворюють ваш браузер на тьмяно освітлений салон о другій ночі.",
         },
         {
           num: "V", tag: "Доказ Д",
-          title: "Кожен раз — по-іншому.",
+          title: "Кожне проходження інше",
           body: "Кожна сесія — нове розслідування. Різні вибори, різні підозрювані, різні кінці. Справа та сама — правда щоразу деінде.",
         },
         {
           num: "VI", tag: "Доказ Е",
-          title: "Беріть команду.",
+          title: "Беріть команду",
           body: "Від одного до чотирьох слідчих за одним столом. Обирайте ролі — детектив, вчений, журналіст — Куратор справи веде стан, здоров'я та удачу для кожного.",
         },
       ],
@@ -320,39 +320,39 @@ export const CONTENT = {
         {
           n: "4", tag: "Архів",
           title: "Закрити справу",
-          body: "Кожна сесія завершується письмовим підсумком у записах кампанії. Повертайтесь на новий run — інший підхід, інша правда.",
+          body: "Кожна сесія завершується письмовим підсумком у записах кампанії. Повертайтесь на нове проходження — інший підхід, інша правда.",
         },
       ],
     },
     cases: {
       label: "Шухляда справ",
       heading: ["Відкриті ", "справи."],
-      desc: "Одна демо-справа відкрита. Решта архіву реальна, запечатана і чекає зареєстрованих слідчих.",
+      desc: "Одна демо-справа відкрита вже зараз. Інші справи стоять у шухляді й відкриються для зареєстрованих слідчих.",
       files: [
         {
           id: "Справа № 01 · d100 горор", badge: "Відкрита", badgeSealed: false,
           cls: "case-1",
-          title: "Переслідування",
+          title: "Примарний будинок",
           sub: "Будинок із протягом на вулиці Елм.",
           meta: [
             { k: "Сесії", v: "1" }, { k: "Гравці", v: "1 – 4" },
             { k: "Тон", v: "Класичний жах" }, { k: "Тривалість", v: "≈ 3 год" },
           ],
           brief: "Родина Армітедж наймає вас, щоб перевірити будинок Корбіта на вулиці Елм перед покупкою. Попередні мешканці пішли поспіхом — їхні речі досі там. Щось у підвалі їх збирало. І чекало. Щоразу — новий маршрут: слідуйте за слідом священника, розкопайте історію культу або ризикуйте обрядовою кімнатою на самоті. Кінець залежить від того, чому ви вирішили вірити.",
-          replayable: "Повністю перегравуване · кінець змінюється щоразу",
+          replayable: "Можна проходити знову · фінал змінюється щоразу",
           cta: "Відкрити справу",
           stamp: null,
         },
         {
           id: "Справа № 02 · d100 горор · Кампанія", badge: "Декілька сесій", badgeSealed: true,
           cls: "case-2",
-          title: "Остання Телеграма",
+          title: "Остання телеграма",
           sub: "Чотири локації. Одне повідомлення від мертвого.",
           meta: [
             { k: "Сесії", v: "3 – 5" }, { k: "Гравці", v: "2 – 4" },
             { k: "Тон", v: "Розслідування" }, { k: "Тривалість", v: "≈ 12 год" },
           ],
-          brief: "О 22:14 до аркхемського бюро надходить телеграма. Ім'я відправника на надгробку за шість миль — похований одинадцять днів тому. В повідомленні три слова і координати. Розслідування через чотири локації: хто надіслав, як загинув і чи є відповідь гіршою за незнання. Кожен run — різні свідки, яким ви довіряєте, різна ціна.",
+          brief: "О 22:14 до аркхемського бюро надходить телеграма. Ім'я відправника на надгробку за шість миль — похований одинадцять днів тому. У повідомленні три слова й координати. Розслідування через чотири локації: хто надіслав, як загинув і чи є відповідь гіршою за незнання. Кожне проходження обирає інших свідків — і платить іншу ціну.",
           replayable: "Кампанія · кілька шляхів до правди",
           cta: "Відкрити справу",
           stamp: "Кампанія",
@@ -360,7 +360,7 @@ export const CONTENT = {
         {
           id: "Справа № — · В підготовці", badge: "Засекречено", badgeSealed: true,
           cls: "case-3",
-          title: "Червоні Ризи",
+          title: "Червоні ризи",
           sub: "Докази зібрано. Каталогізація триває.",
           meta: [
             { k: "Сесії", v: "—" }, { k: "Гравці", v: "—" },
@@ -398,11 +398,11 @@ export const CONTENT = {
       label: "Фінальне повідомлення",
       h1: "Справа відкрита.",
       h2: "Ви готові читати?",
-      body: "Жодного встановлення. Жодного завантаження. Станьте в чергу на повний доступ або спробуйте відкритий демо-файл, поки Бюро розглядає запит.",
+      body: "Жодного встановлення. Жодного завантаження. Спробуйте відкритий демо-файл зараз або станьте в чергу, поки Бюро готує повний доступ.",
       btn: "Стати в чергу",
     },
     footer: {
-      credit1: "© 1929 – 2026 · Barri — Бюро незрозумілих справ",
+      credit1: "© 1929 – 2026 · Barri — Бюро невимовних справ",
       credit2: "Жоден слідчий офіційно не постраждав під час складання цього досьє.",
       disclaimer: "Незалежний фанатський інструмент. Не пов'язаний з Chaosium або Call of Cthulhu.",
     },
@@ -420,15 +420,15 @@ export const CONTENT = {
     hero: {
       caseNo: "Expediente Nº 1929 / BRR",
       filed: "Fechado: 20 / 04 / 2026",
-      kicker: "Curador de caso IA para terror de mesa en navegador",
+      kicker: "Investigaciones de terror en navegador con un Curador de IA",
       t1: "El Curador del caso",
       t2: "ya está",
       t3: "escuchando",
-      lede: "Juega una investigación de terror de mesa en tu navegador. Escribe o habla como tu personaje, tira d100 y deja que el Curador del caso registre pistas, heridas, cordura y consecuencias.",
+      lede: "Abre una investigación de terror en tu navegador. Escribe o habla como investigador, tira d100 y deja que el Curador registre pistas, heridas, cordura y consecuencias.",
       cta: "Probar demo gratis",
-      ghost: "Cómo funciona",
-      proofLabel: "Ventajas del producto",
-      proofs: ["Demo sin cuenta", "Voz o texto", "1-4 investigadores"],
+      ghost: "Leer el dosier",
+      proofLabel: "Disponible al instante",
+      proofs: ["Demo gratis", "Voz o texto", "1-4 investigadores"],
     },
     preview: {
       label: "Vista de partida",
@@ -436,7 +436,7 @@ export const CONTENT = {
       messageMeta: "Curador",
       message: "La lluvia golpea las ventanas del Buró. Una puerta de archivo sellada espera delante. Sin pomo. Una cerradura fina escucha.",
       objectiveLabel: "Objetivo",
-      objective: "Dile al Curador qué haces. Inspecciona, escucha, improvisa o arriesga una tirada d100.",
+      objective: "Describe tu siguiente movimiento. Inspecciona, escucha, improvisa o arriesga una tirada d100.",
       stats: [
         { k: "Pistas", v: "0/3" },
         { k: "Tirada", v: "d100" },
@@ -451,7 +451,7 @@ export const CONTENT = {
       rows: [
         { k: "Clasificación", v: "Curador del caso / Narrador" },
         { k: "Activo desde", v: "las horas pequeñas" },
-        { k: "Alias conocidos", v: "Sonnet-4.6, Haiku-4.5" },
+        { k: "Alias conocidos", v: "Motor del Curador, archivero" },
         { k: "Jurisdicción", v: "barrigame.es" },
       ],
       stamp: "Clasificado",
@@ -467,37 +467,37 @@ export const CONTENT = {
     ],
     exhibits: {
       label: "Registro de pruebas",
-      heading: ["Lo que el Curador ", "sabe", ",\xa0el Curador lo registra."],
-      desc: "Seis pruebas registradas por el Buró. Léelas todas y comenzarás a entender por qué el Curador nunca abandona el escritorio.",
+      heading: ["Lo que ", "haces", ",\xa0el Curador lo recuerda."],
+      desc: "Seis pruebas del registro del Buró. Juntas muestran cómo Barri convierte una pestaña del navegador en una mesa de terror persistente.",
       items: [
         {
           num: "I", tag: "Prueba A",
-          title: "El Curador del caso nunca duerme.",
+          title: "El Curador nunca cierra el expediente",
           body: "Un curador de caso IA narra cada escena en tiempo real. Recuerda las cerillas en tu bolsillo, el nombre que le diste al barman y la mentira que contaste hace tres sesiones.",
         },
         {
           num: "II", tag: "Prueba B",
-          title: "Los dados no mienten.",
+          title: "Los dados no mienten",
           body: "Un motor d100 para terror investigativo funciona bajo el capó. Tira contra tus habilidades en la mesa virtual — el Curador juzgará en el acto.",
         },
         {
           num: "III", tag: "Prueba C",
-          title: "El registro recuerda.",
+          title: "El registro recuerda",
           body: "Las campañas de varias sesiones persisten entre visitas. Los PNJ guardan rencores, las ubicaciones permanecen alteradas y las cicatrices de tu investigador le siguen al siguiente caso.",
         },
         {
           num: "IV", tag: "Prueba D",
-          title: "Voces desde la oscuridad.",
+          title: "Voces desde la oscuridad",
           body: "Cada personaje habla con su propia voz. Los bucles de gramófono ambiental y los paisajes sonoros convierten tu navegador en un salón tenuemente iluminado a las 2 a.m.",
         },
         {
           num: "V", tag: "Prueba E",
-          title: "Nunca hay dos partidas iguales.",
+          title: "Nunca hay dos partidas iguales",
           body: "Cada sesión es una investigación nueva. Diferentes elecciones, diferentes sospechosos, diferentes desenlaces. El caso es el mismo — la verdad siempre está en otro lugar.",
         },
         {
           num: "VI", tag: "Prueba F",
-          title: "Trae tu grupo.",
+          title: "Trae tu grupo",
           body: "De uno a cuatro investigadores en la misma mesa. Elige roles — detective, erudito, periodista — y deja que el Curador lleve el control de lesiones, cordura y suerte.",
         },
       ],
@@ -531,12 +531,12 @@ export const CONTENT = {
     cases: {
       label: "Archivo de casos",
       heading: ["Expedientes ", "abiertos."],
-      desc: "Un expediente demo está abierto. El resto del archivo es real, sellado y reservado para investigadores registrados.",
+      desc: "Un expediente demo está abierto ahora. Los demás casos esperan en el archivo y se desbloquean para investigadores registrados.",
       files: [
         {
           id: "Expediente № 01 · d100 terror", badge: "Abierto", badgeSealed: false,
           cls: "case-1",
-          title: "La Persecución",
+          title: "La casa encantada",
           sub: "Una casa fría en Elm Street.",
           meta: [
             { k: "Sesiones", v: "1" }, { k: "Jugadores", v: "1 – 4" },
@@ -550,7 +550,7 @@ export const CONTENT = {
         {
           id: "Expediente № 02 · d100 terror · Campaña", badge: "Multi-sesión", badgeSealed: true,
           cls: "case-2",
-          title: "El Último Telegrama",
+          title: "El último telegrama",
           sub: "Cuatro ubicaciones. Un mensaje del más allá.",
           meta: [
             { k: "Sesiones", v: "3 – 5" }, { k: "Jugadores", v: "2 – 4" },
@@ -564,7 +564,7 @@ export const CONTENT = {
         {
           id: "Expediente № — · En preparación", badge: "Sellado", badgeSealed: true,
           cls: "case-3",
-          title: "Las Vestiduras Rojas",
+          title: "Las vestiduras rojas",
           sub: "Pruebas reunidas. Catalogación en curso.",
           meta: [
             { k: "Sesiones", v: "—" }, { k: "Jugadores", v: "—" },
@@ -602,7 +602,7 @@ export const CONTENT = {
       label: "Aviso final",
       h1: "El expediente está abierto.",
       h2: "¿Lo leerás?",
-      body: "Sin instalación. Sin descarga. Únete a la lista para acceso completo, o prueba el expediente demo mientras el Buró revisa tu solicitud.",
+      body: "Sin instalación. Sin descarga. Prueba el expediente demo ahora o únete a la lista mientras el Buró prepara el acceso completo.",
       btn: "Unirse a la lista",
     },
     footer: {

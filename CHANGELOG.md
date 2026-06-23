@@ -1026,6 +1026,8 @@ Per-change detail is in the `0.4.x` entries below.
 
 ### Changed
 - **Landing polish**: hero, section labels, case metadata, footer і color tokens відполіровано під Impeccable: менше generic eyebrow/all-caps патернів, краща читабельність і контраст.
+- **Landing copy**: EN/UK/ES тексти уточнено для staging-перевірки: чіткіший product promise, менше повторів Case Curator, акуратніші локалізовані назви справ і CTA.
 
 ### Fixed
 - **Landing accessibility**: виправлено skipped heading у footer та rendered contrast/tracking issues; локальний Impeccable detector тепер повертає `0` findings для `/`.
+- **Game chat polish**: виправлено Impeccable findings у chat CSS: side-tab borders, bounce-pattern loading dots і `transition: width` на stat bars.
