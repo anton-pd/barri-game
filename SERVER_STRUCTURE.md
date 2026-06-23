@@ -55,7 +55,25 @@ sudo journalctl --vacuum-size=300M
 df -h /
 ```
 
-## Deploy Commands
+## Auto-Deploy
+
+GitHub Actions deploys Barri automatically through `.github/workflows/deploy.yml`:
+
+- Push/merge to `staging` deploys `/opt/apps/barri-dev` and rebuilds `barri-dev` (`staging.barrigame.es`).
+- Push/merge to `main` deploys `/opt/apps/barri` and rebuilds `barri` (`barrigame.es`).
+- Manual runs are available from GitHub Actions via `workflow_dispatch` with `staging` or `production`.
+
+The workflow connects to the VPS with a dedicated restricted SSH key. The key is forced through `/opt/apps/vps-deploy-barri-ssh.sh`, which only accepts `deploy staging` and `deploy production`, then delegates to `/opt/apps/vps-deploy-barri.sh`.
+
+Required GitHub repository secrets:
+
+- `VPS_SSH_HOST`
+- `VPS_SSH_USER`
+- `VPS_SSH_PORT`
+- `VPS_DEPLOY_SSH_KEY`
+- `VPS_SSH_KNOWN_HOSTS`
+
+## Manual Deploy Fallback
 
 Staging:
 
