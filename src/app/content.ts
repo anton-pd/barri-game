@@ -58,7 +58,7 @@ export const CONTENT = {
       "Do not read the file after sundown",
     ],
     exhibits: {
-      label: "§ I · The Evidence",
+      label: "Evidence docket",
       heading: ["What the Case Curator ", "knows", ",\xa0the Case Curator records."],
       desc: "Six exhibits, logged by the Bureau. Read each in full, and you begin to grasp why the Case Curator never leaves the desk.",
       items: [
@@ -95,7 +95,7 @@ export const CONTENT = {
       ],
     },
     procedure: {
-      label: "§ II · Procedure",
+      label: "Procedure log",
       heading: ["How an ", "investigation", " is run."],
       steps: [
         {
@@ -121,7 +121,7 @@ export const CONTENT = {
       ],
     },
     cases: {
-      label: "§ III · The Cabinet",
+      label: "Case cabinet",
       heading: ["Open ", "case files."],
       desc: "One demo file is open. The rest of the cabinet is real, sealed, and waiting for registered investigators.",
       files: [
@@ -170,7 +170,7 @@ export const CONTENT = {
       ],
     },
     testimony: {
-      label: "§ IV · Sworn Testimony",
+      label: "Witness statements",
       heading: ["Statements ", "from the record."],
       notes: [
         {
@@ -191,7 +191,7 @@ export const CONTENT = {
       ],
     },
     cta: {
-      label: "§ V · Final Notice",
+      label: "Final notice",
       h1: "The file is open.",
       h2: "Will you read it?",
       body: "No install. No download. Join the queue for full access, or try the open demo file while the Bureau reviews your request.",
@@ -262,7 +262,7 @@ export const CONTENT = {
       "Не читайте справу після заходу сонця",
     ],
     exhibits: {
-      label: "§ I · Докази",
+      label: "Реєстр доказів",
       heading: ["Що Куратор справи ", "знає", ",\xa0Куратор справи пам'ятає."],
       desc: "Шість доказів, внесених до реєстру. Прочитайте кожен — і ви почнете розуміти, чому Куратор справи не лишає файл без нагляду.",
       items: [
@@ -299,7 +299,7 @@ export const CONTENT = {
       ],
     },
     procedure: {
-      label: "§ II · Процедура",
+      label: "Протокол процедури",
       heading: ["Як проводиться ", "розслідування", "."],
       steps: [
         {
@@ -325,7 +325,7 @@ export const CONTENT = {
       ],
     },
     cases: {
-      label: "§ III · Шухляда",
+      label: "Шухляда справ",
       heading: ["Відкриті ", "справи."],
       desc: "Одна демо-справа відкрита. Решта архіву реальна, запечатана і чекає зареєстрованих слідчих.",
       files: [
@@ -374,7 +374,7 @@ export const CONTENT = {
       ],
     },
     testimony: {
-      label: "§ IV · Свідчення під присягою",
+      label: "Свідчення з архіву",
       heading: ["Заяви ", "з протоколу."],
       notes: [
         {
@@ -395,7 +395,7 @@ export const CONTENT = {
       ],
     },
     cta: {
-      label: "§ V · Фінальне повідомлення",
+      label: "Фінальне повідомлення",
       h1: "Справа відкрита.",
       h2: "Ви готові читати?",
       body: "Жодного встановлення. Жодного завантаження. Станьте в чергу на повний доступ або спробуйте відкритий демо-файл, поки Бюро розглядає запит.",
@@ -466,7 +466,7 @@ export const CONTENT = {
       "No leas el expediente después del atardecer",
     ],
     exhibits: {
-      label: "§ I · Las pruebas",
+      label: "Registro de pruebas",
       heading: ["Lo que el Curador ", "sabe", ",\xa0el Curador lo registra."],
       desc: "Seis pruebas registradas por el Buró. Léelas todas y comenzarás a entender por qué el Curador nunca abandona el escritorio.",
       items: [
@@ -503,7 +503,7 @@ export const CONTENT = {
       ],
     },
     procedure: {
-      label: "§ II · Procedimiento",
+      label: "Protocolo",
       heading: ["Cómo se conduce ", "una investigación", "."],
       steps: [
         {
@@ -529,7 +529,7 @@ export const CONTENT = {
       ],
     },
     cases: {
-      label: "§ III · El archivo",
+      label: "Archivo de casos",
       heading: ["Expedientes ", "abiertos."],
       desc: "Un expediente demo está abierto. El resto del archivo es real, sellado y reservado para investigadores registrados.",
       files: [
@@ -578,7 +578,7 @@ export const CONTENT = {
       ],
     },
     testimony: {
-      label: "§ IV · Testimonio bajo juramento",
+      label: "Testimonios",
       heading: ["Declaraciones ", "del registro."],
       notes: [
         {
@@ -599,7 +599,7 @@ export const CONTENT = {
       ],
     },
     cta: {
-      label: "§ V · Aviso final",
+      label: "Aviso final",
       h1: "El expediente está abierto.",
       h2: "¿Lo leerás?",
       body: "Sin instalación. Sin descarga. Únete a la lista para acceso completo, o prueba el expediente demo mientras el Buró revisa tu solicitud.",

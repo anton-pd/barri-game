@@ -1016,3 +1016,16 @@ Per-change detail is in the `0.4.x` entries below.
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.
 - **Cookiebot reliability**: consent flow тепер слухає повний набір Cookiebot lifecycle events (`ConsentReady`, `Load`, `Accept`, `Decline`, `DialogInit`, `DialogDisplay`), не показує fallback поверх живого CMP і має Privacy-page кнопку для зміни/відкликання cookie settings.
 - **Mobile chat layout**: демо-досьє та основна панель матеріалів справи на mobile/tablet тепер відкриваються як drawer, а чат і поле вводу лишаються основним видимим екраном.
+
+---
+
+## [0.3.21] — 2026-06-23
+
+### Added
+- **Design guardrails**: додано локальний Impeccable контекст `PRODUCT.md`/`DESIGN.md` для Barri landing-дизайну.
+
+### Changed
+- **Landing polish**: hero, section labels, case metadata, footer і color tokens відполіровано під Impeccable: менше generic eyebrow/all-caps патернів, краща читабельність і контраст.
+
+### Fixed
+- **Landing accessibility**: виправлено skipped heading у footer та rendered contrast/tracking issues; локальний Impeccable detector тепер повертає `0` findings для `/`.
