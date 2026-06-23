@@ -328,12 +328,25 @@ export async function initializeSchema() {
       message_count INTEGER,
       notes         TEXT,
       user_agent    TEXT,
+      invite_token  VARCHAR(64),
+      invite_expires TIMESTAMPTZ,
+      invited_at    TIMESTAMPTZ,
+      last_invite_sent_at TIMESTAMPTZ,
+      access_opened_at TIMESTAMPTZ,
+      invite_locale VARCHAR(12),
       created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS invite_token VARCHAR(64)`;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS invite_expires TIMESTAMPTZ`;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS last_invite_sent_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS access_opened_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS invite_locale VARCHAR(12)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_waitlist_entries_source ON waitlist_entries(source)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_waitlist_entries_created_at ON waitlist_entries(created_at)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_waitlist_entries_invite_token ON waitlist_entries(invite_token)`;
 
   await sql`
     INSERT INTO app_settings (key, value) VALUES
@@ -400,6 +413,283 @@ export async function upsertWaitlistEntry(input: WaitlistEntryInput): Promise<vo
       user_agent = COALESCE(EXCLUDED.user_agent, waitlist_entries.user_agent),
       updated_at = NOW()
   `;
+}
+
+export type WaitlistLifecycleStatus =
+  | 'waiting'
+  | 'invited'
+  | 'account_created'
+  | 'active_user'
+  | 'blocked';
+
+export interface AdminWaitlistEntry {
+  id: string;
+  email: string;
+  source: string;
+  locale: string | null;
+  outcome: string | null;
+  message_count: number | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  invited_at: string | null;
+  last_invite_sent_at: string | null;
+  access_opened_at: string | null;
+  invite_locale: string | null;
+  user_id: string | null;
+  user_role: string | null;
+  email_verified: boolean | null;
+  access_status: 'pending' | 'approved' | 'blocked' | null;
+  session_count: number;
+  lifecycle_status: WaitlistLifecycleStatus;
+}
+
+export interface AdminWaitlistMetrics {
+  total: number;
+  waiting: number;
+  invited: number;
+  accountCreated: number;
+  activeUsers: number;
+  invitedPercent: number;
+  activePercent: number;
+}
+
+export interface AdminWaitlistResult {
+  entries: AdminWaitlistEntry[];
+  metrics: AdminWaitlistMetrics;
+}
+
+function waitlistLifecycle(row: {
+  user_id?: string | null;
+  email_verified?: boolean | null;
+  access_status?: string | null;
+  invited_at?: string | Date | null;
+  access_opened_at?: string | Date | null;
+}): WaitlistLifecycleStatus {
+  if (row.access_status === 'blocked') return 'blocked';
+  if (row.user_id && row.email_verified && row.access_status === 'approved') return 'active_user';
+  if (row.user_id) return 'account_created';
+  if (row.invited_at || row.access_opened_at) return 'invited';
+  return 'waiting';
+}
+
+export async function getAdminWaitlist(): Promise<AdminWaitlistResult> {
+  const rows = await sql`
+    SELECT
+      w.id,
+      w.email,
+      w.source,
+      w.locale,
+      w.outcome,
+      w.message_count,
+      w.notes,
+      w.created_at,
+      w.updated_at,
+      w.invited_at,
+      w.last_invite_sent_at,
+      w.access_opened_at,
+      w.invite_locale,
+      u.id AS user_id,
+      u.role AS user_role,
+      u.email_verified,
+      u.access_status,
+      COUNT(DISTINCT gs.id)::int AS session_count
+    FROM waitlist_entries w
+    LEFT JOIN users u ON lower(u.email) = lower(w.email)
+    LEFT JOIN game_sessions gs ON gs.user_id = u.id
+    GROUP BY w.id, u.id
+    ORDER BY
+      CASE
+        WHEN u.id IS NOT NULL AND u.email_verified = true AND u.access_status = 'approved' THEN 3
+        WHEN u.id IS NOT NULL THEN 2
+        WHEN w.invited_at IS NOT NULL OR w.access_opened_at IS NOT NULL THEN 1
+        ELSE 0
+      END ASC,
+      w.created_at DESC
+  `;
+
+  const entries = rows.map((row) => ({
+    ...(row as unknown as Omit<AdminWaitlistEntry, 'lifecycle_status'>),
+    lifecycle_status: waitlistLifecycle(row),
+  })) as AdminWaitlistEntry[];
+
+  const total = entries.length;
+  const invited = entries.filter((entry) => entry.invited_at || entry.access_opened_at || entry.user_id).length;
+  const activeUsers = entries.filter((entry) => entry.lifecycle_status === 'active_user').length;
+  const accountCreated = entries.filter((entry) =>
+    entry.lifecycle_status === 'account_created' || entry.lifecycle_status === 'active_user'
+  ).length;
+  const waiting = entries.filter((entry) => entry.lifecycle_status === 'waiting').length;
+
+  return {
+    entries,
+    metrics: {
+      total,
+      waiting,
+      invited,
+      accountCreated,
+      activeUsers,
+      invitedPercent: total ? Math.round((invited / total) * 100) : 0,
+      activePercent: total ? Math.round((activeUsers / total) * 100) : 0,
+    },
+  };
+}
+
+export interface OpenWaitlistInviteResult {
+  email: string;
+  locale: string;
+  inviteToken: string | null;
+  existingUser: User | null;
+}
+
+export async function openWaitlistAccess(
+  email: string,
+  locale: string
+): Promise<OpenWaitlistInviteResult> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedLocale = locale === 'uk' || locale === 'es' ? locale : 'en';
+  const existingUser = await getUserByEmail(normalizedEmail);
+
+  if (existingUser) {
+    const approved = await updateUserAccessStatus(existingUser.id, 'approved');
+    await sql`
+      INSERT INTO waitlist_entries (
+        email,
+        source,
+        locale,
+        invited_at,
+        last_invite_sent_at,
+        access_opened_at,
+        invite_locale
+      ) VALUES (
+        ${normalizedEmail},
+        'admin',
+        ${normalizedLocale},
+        NOW(),
+        NOW(),
+        NOW(),
+        ${normalizedLocale}
+      )
+      ON CONFLICT (email) DO UPDATE SET
+        invited_at = COALESCE(waitlist_entries.invited_at, NOW()),
+        last_invite_sent_at = NOW(),
+        access_opened_at = COALESCE(waitlist_entries.access_opened_at, NOW()),
+        invite_locale = EXCLUDED.invite_locale,
+        updated_at = NOW()
+    `;
+    return { email: normalizedEmail, locale: normalizedLocale, inviteToken: null, existingUser: approved };
+  }
+
+  const inviteToken = crypto.randomBytes(32).toString('hex');
+  await sql`
+    INSERT INTO waitlist_entries (
+      email,
+      source,
+      locale,
+      invite_token,
+      invite_expires,
+      invited_at,
+      last_invite_sent_at,
+      access_opened_at,
+      invite_locale
+    ) VALUES (
+      ${normalizedEmail},
+      'admin',
+      ${normalizedLocale},
+      ${inviteToken},
+      NOW() + INTERVAL '14 days',
+      NOW(),
+      NOW(),
+      NOW(),
+      ${normalizedLocale}
+    )
+    ON CONFLICT (email) DO UPDATE SET
+      invite_token = EXCLUDED.invite_token,
+      invite_expires = EXCLUDED.invite_expires,
+      invited_at = COALESCE(waitlist_entries.invited_at, NOW()),
+      last_invite_sent_at = NOW(),
+      access_opened_at = COALESCE(waitlist_entries.access_opened_at, NOW()),
+      invite_locale = EXCLUDED.invite_locale,
+      updated_at = NOW()
+  `;
+
+  return { email: normalizedEmail, locale: normalizedLocale, inviteToken, existingUser: null };
+}
+
+export async function getWaitlistInviteByToken(token: string): Promise<{
+  id: string;
+  email: string;
+  locale: string | null;
+  invite_locale: string | null;
+  invite_expires: string;
+} | null> {
+  const rows = await sql`
+    SELECT id, email, locale, invite_locale, invite_expires
+    FROM waitlist_entries
+    WHERE invite_token = ${token}
+      AND invite_expires > NOW()
+  `;
+  return (rows[0] as {
+    id: string;
+    email: string;
+    locale: string | null;
+    invite_locale: string | null;
+    invite_expires: string;
+  } | undefined) ?? null;
+}
+
+export async function createUserFromWaitlistInvite(
+  token: string,
+  passwordHash: string
+): Promise<User | null> {
+  return sql.begin(async (tx) => {
+    const invites = await tx`
+      SELECT id, email
+      FROM waitlist_entries
+      WHERE invite_token = ${token}
+        AND invite_expires > NOW()
+      FOR UPDATE
+    `;
+    const invite = invites[0] as { id: string; email: string } | undefined;
+    if (!invite) return null;
+
+    const existing = await tx`
+      SELECT id FROM users WHERE lower(email) = lower(${invite.email})
+    `;
+    if (existing[0]) return null;
+
+    const users = await tx`
+      INSERT INTO users (
+        email,
+        password_hash,
+        role,
+        email_verified,
+        access_status,
+        verify_token,
+        verify_expires
+      ) VALUES (
+        ${invite.email},
+        ${passwordHash},
+        'user',
+        true,
+        'approved',
+        NULL,
+        NULL
+      )
+      RETURNING id, email, role, email_verified, access_status, created_at, updated_at
+    `;
+
+    await tx`
+      UPDATE waitlist_entries
+      SET invite_token = NULL,
+          invite_expires = NULL,
+          access_opened_at = COALESCE(access_opened_at, NOW()),
+          updated_at = NOW()
+      WHERE id = ${invite.id}
+    `;
+
+    return users[0] as unknown as User;
+  });
 }
 
 // ── Session queries ────────────────────────────────────────────────────────────

@@ -11,10 +11,13 @@ import ScenarioLibrary from './ScenarioLibrary';
 import ScenarioStats from './ScenarioStats';
 import UsageTab from './UsageTab';
 import PricingEditor from './PricingEditor';
+import { useRouter } from 'next/navigation';
+import type { AdminWaitlistResult, WaitlistLifecycleStatus } from '@/lib/queries';
 
-type Tab = 'users' | 'usage' | 'scenarios' | 'settings';
+type Tab = 'waitlist' | 'users' | 'usage' | 'scenarios' | 'settings';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'waitlist',  label: 'Waitlist' },
   { id: 'users',     label: 'Users' },
   { id: 'usage',     label: 'Usage' },
   { id: 'scenarios', label: 'Scenarios' },
@@ -63,9 +66,75 @@ function getSessionStatusMeta(session: {
   };
 }
 
+function lifecycleMeta(status: WaitlistLifecycleStatus): { label: string; className: string } {
+  switch (status) {
+    case 'active_user':
+      return { label: 'active user', className: 'bg-emerald-900/50 text-emerald-300' };
+    case 'account_created':
+      return { label: 'account created', className: 'bg-sky-900/50 text-sky-300' };
+    case 'invited':
+      return { label: 'invited', className: 'bg-violet-900/50 text-violet-300' };
+    case 'blocked':
+      return { label: 'blocked', className: 'bg-red-900/50 text-red-300' };
+    default:
+      return { label: 'waiting', className: 'bg-amber-900/50 text-amber-300' };
+  }
+}
+
+function WaitlistInviteButton({ email, locale, invited }: { email: string; locale?: string | null; invited: boolean }) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function invite() {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/waitlist/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, locale }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Failed');
+        return;
+      }
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <button
+        type="button"
+        onClick={invite}
+        disabled={loading}
+        className="text-xs text-amber-500 hover:text-amber-300 disabled:opacity-50 transition-colors"
+      >
+        {loading ? 'Sending...' : invited ? 'Resend invite' : 'Open access'}
+      </button>
+      {error && <span className="text-[10px] text-red-400">{error}</span>}
+    </div>
+  );
+}
+
+function MetricCard({ label, value, hint }: { label: string; value: string | number; hint: string }) {
+  return (
+    <div className="rounded-xl border border-stone-800 bg-stone-900 px-4 py-3">
+      <div className="text-2xl font-semibold text-amber-400">{value}</div>
+      <div className="mt-1 text-xs uppercase tracking-widest text-stone-500">{label}</div>
+      <div className="mt-2 text-xs text-stone-600">{hint}</div>
+    </div>
+  );
+}
+
 export default function AdminTabs({
   users,
   sessions,
+  waitlist,
   currentUserId,
 }: {
   users: {
@@ -85,9 +154,10 @@ export default function AdminTabs({
     feedback_rating?: number | null;
     feedback_comment?: string | null;
   }[];
+  waitlist: AdminWaitlistResult;
   currentUserId: string;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>('users');
+  const [activeTab, setActiveTab] = useState<Tab>('waitlist');
   const [scenarioRefreshToken, setScenarioRefreshToken] = useState(0);
   const pendingCount = users.filter((u) => u.access_status === 'pending').length;
 
@@ -109,6 +179,102 @@ export default function AdminTabs({
           </button>
         ))}
       </div>
+
+      {/* Waitlist tab */}
+      {activeTab === 'waitlist' && (
+        <div className="space-y-8">
+          <section>
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-stone-300 text-sm tracking-widest uppercase">
+                  Waiting List ({waitlist.metrics.total})
+                </h2>
+                <p className="mt-1 text-xs text-stone-500">
+                  Track people from the public/demo intake, open access, and see who activated an account.
+                </p>
+              </div>
+            </div>
+
+            <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard label="Invited" value={`${waitlist.metrics.invitedPercent}%`} hint={`${waitlist.metrics.invited} of ${waitlist.metrics.total} received access`} />
+              <MetricCard label="Active" value={`${waitlist.metrics.activePercent}%`} hint={`${waitlist.metrics.activeUsers} verified active users`} />
+              <MetricCard label="Waiting" value={waitlist.metrics.waiting} hint="No invite sent yet" />
+              <MetricCard label="Accounts" value={waitlist.metrics.accountCreated} hint="Created from invite or matched by email" />
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-stone-800 bg-stone-900">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-stone-800 text-stone-500 text-xs tracking-wide uppercase">
+                    <th className="px-4 py-3 text-left">Email</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Account</th>
+                    <th className="px-4 py-3 text-left">Source</th>
+                    <th className="px-4 py-3 text-left">Invite</th>
+                    <th className="px-4 py-3 text-left">Joined</th>
+                    <th className="px-4 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {waitlist.entries.map((entry) => {
+                    const lifecycle = lifecycleMeta(entry.lifecycle_status);
+                    const account = entry.user_id
+                      ? `${entry.access_status ?? 'unknown'} · ${entry.email_verified ? 'verified' : 'not verified'}`
+                      : 'no account';
+                    return (
+                      <tr key={entry.id} className="border-b border-stone-800/50 hover:bg-stone-800/30">
+                        <td className="px-4 py-3 text-stone-200">
+                          <div>{entry.email}</div>
+                          {entry.notes && <div className="mt-1 max-w-72 truncate text-xs text-stone-600">{entry.notes}</div>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${lifecycle.className}`}>
+                            {lifecycle.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-stone-500">
+                          <div>{account}</div>
+                          {entry.session_count > 0 && (
+                            <div className="mt-1 text-stone-600">{entry.session_count} sessions</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-stone-500">
+                          <div>{entry.source}</div>
+                          <div className="mt-1 text-stone-600">{entry.locale ?? 'en'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-stone-500">
+                          {entry.last_invite_sent_at
+                            ? new Date(entry.last_invite_sent_at).toLocaleDateString()
+                            : <span className="text-stone-700">not sent</span>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-stone-500">
+                          {new Date(entry.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3">
+                          {entry.lifecycle_status !== 'active_user' && entry.lifecycle_status !== 'blocked' && (
+                            <WaitlistInviteButton
+                              email={entry.email}
+                              locale={entry.locale}
+                              invited={Boolean(entry.invited_at || entry.access_opened_at)}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {waitlist.entries.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-stone-600">
+                        No waitlist entries yet
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* Users tab */}
       {activeTab === 'users' && (

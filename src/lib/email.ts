@@ -14,6 +14,13 @@ function getClient(): Resend {
 const FROM = () => process.env.RESEND_FROM ?? 'Barri Bureau <noreply@barrigame.es>';
 const APP_URL = () => process.env.APP_URL ?? 'http://localhost:3000';
 
+type InviteLocale = 'en' | 'uk' | 'es';
+
+function normalizeInviteLocale(locale?: string | null): InviteLocale {
+  if (locale === 'uk' || locale === 'es') return locale;
+  return 'en';
+}
+
 function noirEmailHtml(opts: {
   fileRef: string;
   stamp: string;
@@ -205,5 +212,141 @@ export async function sendPasswordResetEmail(opts: { to: string; token: string }
     subject: 'Reset your clearance code — Barri Bureau',
     html,
     text,
+  });
+}
+
+const accessInviteCopy: Record<InviteLocale, {
+  subjectNew: string;
+  subjectExisting: string;
+  heading: string;
+  subheadingNew: string;
+  subheadingExisting: string;
+  greeting: string;
+  bodyNew: string;
+  bodyExisting: string;
+  note: string;
+  ctaNew: string;
+  ctaExisting: string;
+  expiryNew: string;
+  expiryExisting: string;
+}> = {
+  en: {
+    subjectNew: 'Your Barri access is open — create your account',
+    subjectExisting: 'Your Barri access is open',
+    heading: 'Access Clearance Granted',
+    subheadingNew: 'Your dossier has cleared the waiting list',
+    subheadingExisting: 'Your existing account has been cleared for play',
+    greeting: 'Investigator,',
+    bodyNew: 'Your place on the waiting list has been called. Create your Barri account, set your clearance code, and enter the case archive.',
+    bodyExisting: 'Your existing Barri account has been cleared. Sign in with your account credentials and continue to the case archive.',
+    note: 'If the button does not open, copy the link below into your browser.',
+    ctaNew: 'Create Account',
+    ctaExisting: 'Enter Barri',
+    expiryNew: 'This invitation seal expires in 14 days',
+    expiryExisting: 'Your clearance is active now',
+  },
+  uk: {
+    subjectNew: 'Ваш доступ до Barri відкрито — створіть акаунт',
+    subjectExisting: 'Ваш доступ до Barri відкрито',
+    heading: 'Доступ відкрито',
+    subheadingNew: 'Вашу справу знято зі списку очікування',
+    subheadingExisting: 'Ваш наявний акаунт допущено до гри',
+    greeting: 'Слідчий,',
+    bodyNew: 'Ваша черга зі списку очікування настала. Створіть акаунт Barri, задайте пароль доступу й заходьте до архіву справ.',
+    bodyExisting: 'Ваш наявний акаунт Barri отримав доступ. Увійдіть зі своїми обліковими даними й продовжуйте до архіву справ.',
+    note: 'Якщо кнопка не відкривається, скопіюйте посилання нижче у браузер.',
+    ctaNew: 'Створити акаунт',
+    ctaExisting: 'Увійти в Barri',
+    expiryNew: 'Це запрошення діє 14 днів',
+    expiryExisting: 'Ваш доступ уже активний',
+  },
+  es: {
+    subjectNew: 'Tu acceso a Barri está abierto — crea tu cuenta',
+    subjectExisting: 'Tu acceso a Barri está abierto',
+    heading: 'Acceso concedido',
+    subheadingNew: 'Tu expediente salió de la lista de espera',
+    subheadingExisting: 'Tu cuenta existente ya tiene acceso',
+    greeting: 'Investigador,',
+    bodyNew: 'Ha llegado tu turno en la lista de espera. Crea tu cuenta de Barri, elige tu contraseña de acceso y entra al archivo de casos.',
+    bodyExisting: 'Tu cuenta existente de Barri ya tiene acceso. Inicia sesión con tus credenciales y entra al archivo de casos.',
+    note: 'Si el botón no se abre, copia el enlace de abajo en tu navegador.',
+    ctaNew: 'Crear cuenta',
+    ctaExisting: 'Entrar en Barri',
+    expiryNew: 'Esta invitación expira en 14 días',
+    expiryExisting: 'Tu acceso ya está activo',
+  },
+};
+
+export function buildAccessInviteEmail(opts: {
+  to: string;
+  locale?: string | null;
+  inviteToken?: string | null;
+  existingAccount?: boolean;
+}): { subject: string; html: string; text: string; href: string; locale: InviteLocale } {
+  const locale = normalizeInviteLocale(opts.locale);
+  const copy = accessInviteCopy[locale];
+  const existingAccount = opts.existingAccount === true || !opts.inviteToken;
+  const href = existingAccount
+    ? `${APP_URL()}/auth/login`
+    : `${APP_URL()}/auth/register?invite=${opts.inviteToken}`;
+
+  const bodyHtml = `
+    <p style="margin:0 0 16px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#14111a;line-height:1.6;">
+      ${copy.greeting}
+    </p>
+    <p style="margin:0 0 18px;font-family:Georgia,serif;font-style:italic;font-size:15px;color:#1c1824;line-height:1.65;">
+      ${existingAccount ? copy.bodyExisting : copy.bodyNew}
+    </p>
+    <p style="margin:0;font-family:'Courier New',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#6b5a3e;border-left:2px solid #8b1a14;padding-left:12px;line-height:1.7;">
+      ${copy.note}
+    </p>`;
+
+  const html = noirEmailHtml({
+    fileRef: 'File: Access/180',
+    stamp: existingAccount ? 'Cleared' : 'Summoned',
+    stampSub: existingAccount ? 'Access Open' : 'Invite',
+    heading: copy.heading,
+    subheading: existingAccount ? copy.subheadingExisting : copy.subheadingNew,
+    bodyHtml,
+    ctaHref: href,
+    ctaLabel: existingAccount ? copy.ctaExisting : copy.ctaNew,
+    fallbackUrl: href,
+    expiry: existingAccount ? copy.expiryExisting : copy.expiryNew,
+  });
+
+  const text = [
+    copy.greeting,
+    '',
+    existingAccount ? copy.bodyExisting : copy.bodyNew,
+    '',
+    `${existingAccount ? copy.ctaExisting : copy.ctaNew}: ${href}`,
+    '',
+    existingAccount ? copy.expiryExisting : copy.expiryNew,
+    '',
+    '— Barri Bureau',
+  ].join('\n');
+
+  return {
+    subject: existingAccount ? copy.subjectExisting : copy.subjectNew,
+    html,
+    text,
+    href,
+    locale,
+  };
+}
+
+export async function sendAccessInviteEmail(opts: {
+  to: string;
+  locale?: string | null;
+  inviteToken?: string | null;
+  existingAccount?: boolean;
+}): Promise<void> {
+  const email = buildAccessInviteEmail(opts);
+  await getClient().emails.send({
+    from: FROM(),
+    to: opts.to,
+    subject: email.subject,
+    html: email.html,
+    text: email.text,
   });
 }

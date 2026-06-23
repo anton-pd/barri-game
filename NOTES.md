@@ -3452,3 +3452,45 @@ Session:
   - `POST /api/ai` returned non-empty chunks and done payload: `chunkLen=634`, `doneLen=611`, `truncated=false`.
   - Debug row: assistant `content_len=634`, `raw_len=634`, `finish_reason=stop`, `output_tokens=288`.
   - Temporary session and user were deleted.
+
+---
+
+## ANT-180 admin waitlist and invite flow — 2026-06-23
+
+### Context
+Anton approved the planned task as priority and clarified scope:
+- Admin must see people in the waiting list.
+- Admin must see account lifecycle/status: waiting, invited/access opened, and active user.
+- Admin must be able to open access/invite.
+- Access-opened email must be designed in 3 languages with English fallback and let the person create an account and enter the platform.
+
+### Changes
+- Added waitlist invite lifecycle columns to `waitlist_entries`:
+  - `invite_token`, `invite_expires`
+  - `invited_at`, `last_invite_sent_at`, `access_opened_at`
+  - `invite_locale`
+- Added admin waitlist query/model helpers:
+  - list entries joined to `users` by normalized email
+  - lifecycle statuses: `waiting`, `invited`, `account_created`, `active_user`, `blocked`
+  - metrics: total, waiting, invited count/percent, account-created count, active count/percent
+- Added admin APIs:
+  - `GET /api/admin/waitlist`
+  - `POST /api/admin/waitlist/invite`
+- Added admin `Waitlist` tab with metric cards, waitlist table, lifecycle chips, account status, source/locale, invite timestamps, and open/resend invite actions.
+- Added invite-only registration:
+  - Direct `/api/auth/register` remains closed without an invite token.
+  - `GET /api/auth/register?invite=TOKEN` validates and previews an invite.
+  - `POST /api/auth/register` with a valid invite creates an `approved`, `email_verified` user and signs them in.
+  - `/auth/register?invite=TOKEN` shows a create-password form instead of the public waitlist form.
+- Added 3-language access invite emails via `buildAccessInviteEmail()` / `sendAccessInviteEmail()`:
+  - `uk`, `es`, and English fallback.
+  - New-account invites link to `/auth/register?invite=TOKEN`.
+  - Existing-account access emails link to `/auth/login`.
+- Existing admin user approval now sends an access-opened email when approving from the Users table.
+
+### Verification
+- `npm test -- accessInviteEmail` passes: 1 file, 3 tests.
+- `npx tsc --noEmit` passes.
+- `npm run lint` passes with existing `<img>` warnings only.
+- `npm run build` passes and includes `/api/admin/waitlist` plus `/api/admin/waitlist/invite`.
+- `npm test` passes: 17 files, 101 tests.

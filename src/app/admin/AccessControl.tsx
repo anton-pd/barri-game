@@ -19,7 +19,7 @@ export default function AccessControl({ userId, currentStatus }: Props) {
       const res = await fetch(`/api/admin/users/${userId}/access`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ access_status: status }),
+        body: JSON.stringify({ access_status: status, send_invite: status === 'approved' }),
       });
       if (res.ok) router.refresh();
     } finally {

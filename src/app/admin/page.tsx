@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { verifyJwt } from '@/lib/auth';
-import { getAllUsers, getAllSessionsWithOwner } from '@/lib/queries';
+import { getAdminWaitlist, getAllUsers, getAllSessionsWithOwner } from '@/lib/queries';
 import AdminTabs from './AdminTabs';
 
 export default async function AdminPage() {
@@ -10,10 +10,12 @@ export default async function AdminPage() {
   const token = cookieStore.get('auth_token')?.value;
   const payload = token ? await verifyJwt(token) : null;
   if (!payload) redirect('/auth/login');
+  if (payload.role !== 'admin') redirect('/sessions');
 
-  const [users, sessions] = await Promise.all([
+  const [users, sessions, waitlist] = await Promise.all([
     getAllUsers(),
     getAllSessionsWithOwner(),
+    getAdminWaitlist(),
   ]);
 
   return (
@@ -47,6 +49,7 @@ export default async function AdminPage() {
           feedback_rating?: number | null;
           feedback_comment?: string | null;
         }[]}
+        waitlist={waitlist}
         currentUserId={payload.sub}
       />
       </div>

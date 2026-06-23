@@ -1,16 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
+  const [inviteToken, setInviteToken] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteAccountExists, setInviteAccountExists] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   // ANT-156: explicit consent to Terms + Privacy is required before we store
   // the email. Submit stays disabled until the box is checked.
   const [consent, setConsent] = useState(false);
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('invite')?.trim() ?? '';
+    if (!token) return;
+
+    setInviteToken(token);
+    setInviteLoading(true);
+    fetch(`/api/auth/register?invite=${encodeURIComponent(token)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error === 'invalid_invite'
+            ? 'This invitation is invalid or expired.'
+            : 'Could not read the invitation.');
+          return;
+        }
+        setEmail(data.email);
+        setInviteAccountExists(Boolean(data.account_exists));
+      })
+      .catch(() => setError('Could not read the invitation.'))
+      .finally(() => setInviteLoading(false));
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,6 +50,21 @@ export default function RegisterPage() {
       return;
     }
 
+    if (inviteToken) {
+      if (inviteAccountExists) {
+        setError('This email already has an account. Please sign in instead.');
+        return;
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Passwords do not match.');
+        return;
+      }
+    }
+
     if (!consent) {
       setError('Please accept the Terms and Privacy Policy to continue.');
       return;
@@ -28,6 +72,22 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
+      if (inviteToken) {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteToken, password }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          router.replace('/sessions');
+        } else {
+          setError(data.message || data.error || 'Could not create the account.');
+        }
+        return;
+      }
+
       const res = await fetch('/api/waitlist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +126,104 @@ export default function RegisterPage() {
       </div>
 
       <div className="auth-card reveal d1">
-        {success ? (
+        {inviteToken ? (
+          <>
+            <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(10deg)' }}>
+              Cleared
+              <small>Invite</small>
+            </div>
+
+            <div className="auth-card-hdr">
+              <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
+              <h2>Create Your Account</h2>
+              <p>Your waiting-list clearance is ready.</p>
+            </div>
+
+            {inviteLoading ? (
+              <div className="auth-success">
+                <span className="auth-success-glyph">…</span>
+                <h2>Reading invitation</h2>
+                <p>The Bureau is checking the seal on this letter.</p>
+              </div>
+            ) : inviteAccountExists ? (
+              <div className="auth-success">
+                <span className="auth-success-glyph">✓</span>
+                <h2>Account already exists</h2>
+                <p>
+                  Access is open for <span className="auth-success-email">{email}</span>.
+                </p>
+                <p className="auth-waitlist-note">
+                  Sign in with your existing credentials. If you forgot the password, use the reset link on the login page.
+                </p>
+                <div className="auth-foot">
+                  <Link href="/auth/login">Access the archive</Link>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="auth-form">
+                <div className="auth-field">
+                  <label>Investigator ID</label>
+                  <input
+                    type="email"
+                    value={email}
+                    readOnly
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div className="auth-field">
+                  <label>Clearance Code</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="At least 8 characters"
+                  />
+                </div>
+
+                <div className="auth-field">
+                  <label>Repeat Clearance Code</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    placeholder="Confirm password"
+                  />
+                </div>
+
+                <label className="auth-consent">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                  />
+                  <span>
+                    I am at least 16 and accept the{' '}
+                    <Link href="/terms" target="_blank">Terms</Link> and{' '}
+                    <Link href="/privacy" target="_blank">Privacy Policy</Link>.
+                  </span>
+                </label>
+
+                {error && <div className="auth-error">{error}</div>}
+
+                <button
+                  type="submit"
+                  disabled={loading || !consent || inviteLoading}
+                  className="auth-submit"
+                >
+                  <span>{loading ? 'Creating account...' : 'Create Account'}</span>
+                  <span>→</span>
+                </button>
+              </form>
+            )}
+          </>
+        ) : success ? (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(8deg)' }}>
               Filed

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
 import { updateUserAccessStatus } from '@/lib/queries';
+import { sendAccessInviteEmail } from '@/lib/email';
 import type { AccessStatus } from '@/types';
 
 const VALID: AccessStatus[] = ['pending', 'approved', 'blocked'];
@@ -21,13 +22,20 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await request.json();
-    const { access_status } = body as { access_status?: string };
+    const { access_status, send_invite } = body as { access_status?: string; send_invite?: boolean };
 
     if (!access_status || !VALID.includes(access_status as AccessStatus)) {
       return NextResponse.json({ error: 'Invalid access_status' }, { status: 400 });
     }
 
     const user = await updateUserAccessStatus(id, access_status as AccessStatus);
+    if (access_status === 'approved' && send_invite) {
+      await sendAccessInviteEmail({
+        to: user.email,
+        locale: 'en',
+        existingAccount: true,
+      });
+    }
     return NextResponse.json(user);
   } catch (error) {
     console.error('Admin access update error:', error);
