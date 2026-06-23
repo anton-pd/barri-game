@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Codex Ops runbook.** Added `CODEX_OPS.md` with a concise VPS-side operating guide for Codex Ops: Codex Dev/Ops role split, request template, read-only checks, staging/prod deploy commands, live shared-data inspection, and Git/env/shared-data guardrails.
 - **Admin waitlist access console (ANT-180).** Admins can now see waitlist entries, lifecycle statuses (`waiting`, `invited`, `account created`, `active user`), invited/active percentages, and open access from the admin panel.
 - **Invite-only account creation (ANT-180).** Opening waitlist access sends a localized invitation email (Ukrainian, Spanish, English fallback) with a secure registration link so invited users can create an approved account and enter Barri.
 - **Launch asset pack for Product Hunt and itch.io (ANT-111).** Added public launch-ready thumbnails, gallery images, itch cover art, screenshots, and copy metadata under `public/launch-assets/` / `LAUNCH_METADATA.md`, so staging and production can serve the same publication assets.

@@ -3534,3 +3534,18 @@ Anton approved the planned task as priority and clarified scope:
 - `npm run lint` passes with existing `<img>` warnings only.
 - `npm run build` passes and includes `/api/admin/waitlist` plus `/api/admin/waitlist/invite`.
 - `npm test` passes: 17 files, 101 tests.
+
+---
+
+## Codex Ops runbook — 2026-06-23
+
+### Context
+Anton asked whether we can keep Codex Dev in a cloud workspace and call a short-lived Codex Ops agent on the VPS only when live server context is needed.
+
+### Changes
+- Added `CODEX_OPS.md` as a concise VPS-side runbook for Codex Ops.
+- Documented the Codex Dev vs Codex Ops role split.
+- Added request template, standard read-only checks, staging/prod deploy commands, live shared-data inspection commands, and guardrails for Git/env/shared data safety.
+
+### Verification
+- Documentation-only change; reviewed generated Markdown and repository diff.
