@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildAccessInviteEmail } from '@/lib/email';
+import { buildAccessInviteEmail, getEmailSender } from '@/lib/email';
 
 const originalAppUrl = process.env.APP_URL;
+const originalResendFrom = process.env.RESEND_FROM;
 
 afterEach(() => {
   if (originalAppUrl === undefined) {
@@ -9,6 +10,20 @@ afterEach(() => {
   } else {
     process.env.APP_URL = originalAppUrl;
   }
+
+  if (originalResendFrom === undefined) {
+    delete process.env.RESEND_FROM;
+  } else {
+    process.env.RESEND_FROM = originalResendFrom;
+  }
+});
+
+describe('getEmailSender', () => {
+  it('uses Barri as the default sender display name', () => {
+    delete process.env.RESEND_FROM;
+
+    expect(getEmailSender()).toBe('Barri <noreply@barrigame.es>');
+  });
 });
 
 describe('buildAccessInviteEmail', () => {

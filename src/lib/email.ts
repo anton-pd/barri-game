@@ -11,7 +11,10 @@ function getClient(): Resend {
   return resendClient;
 }
 
-const FROM = () => process.env.RESEND_FROM ?? 'Barri Bureau <noreply@barrigame.es>';
+export function getEmailSender(): string {
+  return process.env.RESEND_FROM ?? 'Barri <noreply@barrigame.es>';
+}
+
 const APP_URL = () => process.env.APP_URL ?? 'http://localhost:3000';
 
 type InviteLocale = 'en' | 'uk' | 'es';
@@ -168,7 +171,7 @@ export async function sendVerificationEmail(opts: { to: string; token: string })
   const text = `Investigator,\n\nVerify your email address by visiting this link:\n${verifyLink}\n\nThis link expires in 24 hours.\n\n— Barri Bureau`;
 
   await getClient().emails.send({
-    from: FROM(),
+    from: getEmailSender(),
     to: opts.to,
     subject: 'Verify your identity — Barri Bureau',
     html,
@@ -207,7 +210,7 @@ export async function sendPasswordResetEmail(opts: { to: string; token: string }
   const text = `Investigator,\n\nReset your clearance code by visiting this link:\n${resetLink}\n\nThis link expires in 1 hour.\n\nIf you did not request this, ignore this message.\n\n— Barri Bureau`;
 
   await getClient().emails.send({
-    from: FROM(),
+    from: getEmailSender(),
     to: opts.to,
     subject: 'Reset your clearance code — Barri Bureau',
     html,
@@ -343,7 +346,7 @@ export async function sendAccessInviteEmail(opts: {
 }): Promise<void> {
   const email = buildAccessInviteEmail(opts);
   await getClient().emails.send({
-    from: FROM(),
+    from: getEmailSender(),
     to: opts.to,
     subject: email.subject,
     html: email.html,

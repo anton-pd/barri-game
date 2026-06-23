@@ -21,6 +21,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Removed two legacy live scenarios from shared storage (ANT-177).** `barcelona-sagrada-mystery` and `the-haunting-v2-pilot` were removed from the staging/prod shared scenario catalog, along with their cached generated assets.
 
 ### Fixed
+- **Email sender name.** Transactional emails now default to the `Barri` sender name instead of the old Bureau/Keeper branding.
 - **Empty AI replies from DeepSeek reasoning budget exhaustion (ANT-178).** Game turns now explicitly disable hidden reasoning for DeepSeek V4 Flash / OpenRouter pro requests, and the server rejects empty final content instead of saving a blank Case Curator message.
 
 ## [0.5.10] — 2026-06-20
