@@ -3495,6 +3495,33 @@ Session:
 
 ---
 
+## ANT-179 mobile context/account menu — 2026-06-23
+
+### Context
+Anton added two urgent Linear tasks for Codex:
+- `ANT-179` — mobile context/account menu actions are not visible because the menu falls behind/outside screen elements.
+- `ANT-174` — Cookiebot breaks prod session hydration.
+
+Linear handling:
+- `ANT-179` moved `Todo` -> `In Progress`, assigned to Codex, labels `small-task` + `in-execution`, with small-task reasoning comment.
+- `ANT-174` treated as complex because it is a prod-only third-party CMP / Next hydration failure. Moved to `Planned`, assigned to Anton, labels `Bug` + `planned`, with a technical plan comment. Waiting for approval before coding.
+
+### Changes
+- Fixed the sessions-page compact auth menu CSS in `src/app/sessions/sessions.css`.
+- The sessions topbar now overrides the global mobile topbar clipping (`overflow: visible`) and keeps the auth controls in one row.
+- The mobile auth menu panel is now viewport-bound with `position: fixed`, a safe right inset, max viewport height, and scroll overflow for long content.
+
+### Verification
+- `npm run lint` passes with the existing `<img>` warnings only.
+- `npm run build` passes.
+- Mobile viewport harness at 390x844 confirms:
+  - topbar `overflow=visible`, `flexWrap=nowrap`
+  - panel `position=fixed`
+  - panel bounding box stays inside viewport: `left=97`, `right=363`, `top=60`, `bottom=227`
+- Local visual screenshot showed the long-email menu fully visible and not clipped.
+
+---
+
 ## ANT-180 admin waitlist and invite flow — 2026-06-23
 
 ### Context

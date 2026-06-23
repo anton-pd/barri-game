@@ -24,6 +24,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 - **Email sender name.** Transactional emails now default to the `Barri Bureau` sender name instead of the old Keeper branding.
 - **Empty AI replies from DeepSeek reasoning budget exhaustion (ANT-178).** Game turns now explicitly disable hidden reasoning for DeepSeek V4 Flash / OpenRouter pro requests, and the server rejects empty final content instead of saving a blank Case Curator message.
+- **Mobile account menu clipping (ANT-179).** The compact sessions-page account menu now stays inside the phone viewport instead of being clipped by the mobile topbar.
 
 ## [0.5.10] — 2026-06-20
 

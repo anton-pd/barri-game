@@ -116,10 +116,33 @@
 }
 
 @media (max-width: 720px) {
-  .sessions-topbar { flex-wrap: nowrap; gap: 12px; }
+  .sessions-topbar {
+    flex-wrap: nowrap;
+    gap: 12px;
+    justify-content: space-between;
+    overflow: visible;
+  }
+
+  .sessions-topbar .topbar-right {
+    flex: 0 1 auto;
+    width: auto;
+    margin-left: auto;
+    justify-content: flex-end;
+  }
+
   .sessions-version { display: none; }
   .sessions-authbar--inline { display: none; }
   .sessions-authmenu { display: inline-flex; }
+
+  .sessions-authmenu-panel {
+    position: fixed;
+    top: calc(16px + 36px + 8px);
+    right: max(12px, env(safe-area-inset-right));
+    width: min(240px, calc(100vw - 24px));
+    min-width: 0;
+    max-height: calc(100svh - 72px);
+    overflow-y: auto;
+  }
 }
 
 .sessions-authbar-email {
