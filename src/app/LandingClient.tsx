@@ -87,8 +87,6 @@ export default function LandingClient() {
               <span style={{ marginLeft: "auto" }}>{c.hero.filed}</span>
             </div>
 
-            <div className="hero-kicker reveal d1">{c.hero.kicker}</div>
-
             <h1 className="hero-title">
               <span className="line1 reveal d1">{c.hero.t1}</span>
               <span className="line2 reveal d2">{c.hero.t2}</span>
@@ -96,6 +94,8 @@ export default function LandingClient() {
                 {c.hero.t3}<span className="caret" />
               </span>
             </h1>
+
+            <p className="hero-positioning reveal d4">{c.hero.kicker}</p>
 
             <p className="hero-lede reveal d4">
               {c.hero.lede}
@@ -335,7 +335,7 @@ export default function LandingClient() {
         <div className="foot-brand">
           <span className="seal">B</span>
           <div>
-            <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, letterSpacing: "0.22em", color: "var(--paper-0)" }}>
+            <div style={{ fontFamily: "var(--font-serif)", fontSize: 20, letterSpacing: "0.05em", color: "var(--paper-0)" }}>
               BARRI
             </div>
             <div style={{ marginTop: 4, fontSize: 10 }}>The AI Case Curator · barrigame.es</div>
@@ -344,23 +344,23 @@ export default function LandingClient() {
 
         <div className="foot-cols">
           <div className="foot-col">
-            <h4>Bureau</h4>
+            <h3>Bureau</h3>
             <a href="#exhibits">{c.nav.exhibits}</a>
             <a href="#procedure">{c.nav.procedure}</a>
             <a href="#cases">{c.nav.cases}</a>
           </div>
           <div className="foot-col">
-            <h4>Archive</h4>
+            <h3>Archive</h3>
             <a href="/sessions">{lang === "uk" ? "Сесії" : lang === "es" ? "Sesiones" : "Sessions"}</a>
             <a href="/admin">{lang === "uk" ? "Архів" : lang === "es" ? "Registros" : "Records"}</a>
           </div>
           <div className="foot-col">
-            <h4>{lang === "uk" ? "Зв'язок" : lang === "es" ? "Contacto" : "Contact"}</h4>
+            <h3>{lang === "uk" ? "Зв'язок" : lang === "es" ? "Contacto" : "Contact"}</h3>
             <a href="mailto:post@barrigame.es">post@barrigame.es</a>
             <a href="https://barrigame.es">barrigame.es</a>
           </div>
           <div className="foot-col">
-            <h4>{lang === "uk" ? "Правове" : lang === "es" ? "Legal" : "Legal"}</h4>
+            <h3>{lang === "uk" ? "Правове" : lang === "es" ? "Legal" : "Legal"}</h3>
             <a href="/privacy">{lang === "uk" ? "Приватність" : lang === "es" ? "Privacidad" : "Privacy"}</a>
             <a href="/cookies">{lang === "uk" ? "Куки" : lang === "es" ? "Cookies" : "Cookies"}</a>
             <a href="/terms">{lang === "uk" ? "Умови" : lang === "es" ? "Términos" : "Terms"}</a>

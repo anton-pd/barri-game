@@ -3584,3 +3584,51 @@ Anton asked to configure automatic VPS deploys for both `main` and `staging` ins
 - VPS deploy scripts were installed under `/opt/apps/`.
 - A dedicated restricted deploy SSH key was generated for GitHub Actions, added to the VPS authorized keys, and stored in repository secrets.
 - Restricted-key staging deploy smoke succeeded via SSH (`deploy staging`).
+
+---
+
+## Impeccable design tooling — 2026-06-23
+
+### Context
+Anton asked to install Impeccable (`https://impeccable.style/`) on the project and run tests on the landing page.
+
+### Changes
+- Ran `npx impeccable install` from the project root.
+- Installer added project-local Impeccable skills and hooks under:
+  - `.claude/skills/impeccable`
+  - `.github/skills/impeccable`
+  - `.github/hooks/impeccable.json`
+
+### Verification
+- `node --version` reports `v25.6.1`, satisfying Impeccable's Node 24+ requirement.
+- `npx impeccable check` reports installed skills are up to date (`v3.8.0`).
+- `npx impeccable detect src/app/page.tsx src/app/LandingClient.tsx src/app/content.ts src/app/landing.css src/app/globals.css` reports no source-file findings.
+- `npx impeccable detect https://barrigame.es` reports 36 rendered landing-page findings:
+  - `low-contrast`: 16
+  - `all-caps-body`: 13
+  - `repeated-section-kickers`: 5
+  - `hero-eyebrow-chip`: 1
+  - `skipped-heading`: 1
+- Full JSON report saved outside the repo at `/tmp/barri-impeccable-landing.json`.
+
+---
+
+## Landing Impeccable polish — 2026-06-23
+
+### Context
+Anton asked to run Impeccable to improve the landing page, fix reported issues, and deploy the result to staging for review.
+
+### Changes
+- Added `PRODUCT.md` and `DESIGN.md` so Impeccable has project-specific Barri product/design context.
+- Updated the public landing page to address rendered Impeccable findings:
+  - moved the hero product kicker out of an eyebrow chip pattern
+  - replaced repeated `§ I/II/...` section kickers with localized dossier labels
+  - fixed footer heading order by using `h3` footer section headings
+  - reduced all-caps/tracked body-style metadata
+  - adjusted landing color tokens and decorative overlays for accessible contrast
+- Added ESLint ignores for installed Impeccable skill internals under `.claude/skills/**` and `.github/skills/**` so project lint remains focused on app code.
+
+### Verification
+- `npx impeccable detect http://localhost:3000 --json` reports `0` findings after the polish.
+- `npm run lint` passes with only 6 pre-existing Next `<img>` warnings in `GameChat.tsx` and `SessionList.tsx`.
+- `npm run build` passes.
