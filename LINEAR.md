@@ -100,7 +100,8 @@ Before moving to `In Review`, all of the following must be true:
 
 ### 7. Deploy and close
 - Anton moves issue to `Ready for deploy` and assigns back to AI.
-- AI executes deploy flow (`staging` → `main`, push, prod update/restart).
+- AI merges/promotes the approved branch through `staging` and `main`; GitHub Actions auto-deploys pushes to each branch.
+- AI verifies the GitHub Actions deploy run and live environment after each promotion. Use the documented VPS manual deploy fallback only if Actions fails for an infrastructure reason.
 - Move issue: `Ready for deploy` → `Done`.
 - Keep assignee as self on `Done`.
 
@@ -134,6 +135,7 @@ If any condition is not true, treat as complex and go through `Planned`.
 
 - **Environments**: Staging = [staging.barrigame.es](https://staging.barrigame.es) (:3001), Prod = [barrigame.es](https://barrigame.es) (:3000).
 - **Branching**: Feature work from `staging`, branch `feature/ANT-XXX`, delete after merge to `main`.
+- **Auto-deploy**: Pushes to `staging` deploy staging; pushes to `main` deploy production through GitHub Actions.
 - **Assignee swaps**: Self while working; Anton for `Planned` and `In Review`; self again for deploy/finalization.
 - **Coordination**: Before starting, read last 5-10 entries in `NOTES.md`. If overlap exists, leave coordination comments in both related issues.
 - **Post-deploy sync**: After each prod deploy, ensure `origin/main` and `origin/staging` are synchronized (same tree). If drift appears, fast-forward `staging` from `main` immediately or open explicit sync PR.

@@ -3534,3 +3534,26 @@ Anton approved the planned task as priority and clarified scope:
 - `npm run lint` passes with existing `<img>` warnings only.
 - `npm run build` passes and includes `/api/admin/waitlist` plus `/api/admin/waitlist/invite`.
 - `npm test` passes: 17 files, 101 tests.
+
+---
+
+## GitHub Actions auto-deploy — 2026-06-23
+
+### Context
+Anton asked to configure automatic VPS deploys for both `main` and `staging` instead of requiring a manual SSH deploy command after every branch update.
+
+### Changes
+- Added `.github/workflows/deploy.yml`:
+  - push to `staging` deploys staging
+  - push to `main` deploys production
+  - manual `workflow_dispatch` can deploy either target
+- Added versioned VPS helper scripts:
+  - `scripts/vps-deploy-barri.sh`
+  - `scripts/vps-deploy-barri-ssh.sh`
+- Documented the new auto-deploy flow, required GitHub secrets, and manual fallback in `SERVER_STRUCTURE.md`, `LINEAR.md`, and `PROJECT_CONTEXT.md`.
+
+### Verification
+- Local shell syntax checks passed for the workflow helper scripts.
+- VPS deploy scripts were installed under `/opt/apps/`.
+- A dedicated restricted deploy SSH key was generated for GitHub Actions, added to the VPS authorized keys, and stored in repository secrets.
+- Restricted-key staging deploy smoke succeeded via SSH (`deploy staging`).

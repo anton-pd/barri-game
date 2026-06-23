@@ -1,0 +1,98 @@
+name: Deploy Barri
+
+on:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VPS_SSH_HOST: ${{ secrets.VPS_SSH_HOST }}
+      VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || '22' }}
+      VPS_DEPLOY_SSH_KEY: ${{ secrets.VPS_DEPLOY_SSH_KEY }}
+      VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+
+    steps:
+      - name: Select deploy target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            target="${{ inputs.target }}"
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            target="production"
+          elif [[ "${GITHUB_REF_NAME}" == "staging" ]]; then
+            target="staging"
+          else
+            echo "Unsupported deploy ref: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          echo "target=${target}" >> "${GITHUB_OUTPUT}"
+          echo "Selected deploy target: ${target}"
+
+      - name: Validate SSH secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for name in VPS_SSH_HOST VPS_SSH_USER VPS_SSH_PORT VPS_DEPLOY_SSH_KEY VPS_SSH_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required secret: ${name}" >&2
+              missing=1
+            fi
+          done
+
+          if [[ "${missing}" -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${VPS_DEPLOY_SSH_KEY}" > ~/.ssh/barri_deploy_key
+          chmod 600 ~/.ssh/barri_deploy_key
+          printf '%s\n' "${VPS_SSH_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy on VPS
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i ~/.ssh/barri_deploy_key \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -p "${VPS_SSH_PORT}" \
+            "${VPS_SSH_USER}@${VPS_SSH_HOST}" \
+            "deploy ${{ steps.target.outputs.target }}"

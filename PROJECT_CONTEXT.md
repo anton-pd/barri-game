@@ -268,14 +268,10 @@ Source of truth: live scenario JSON is `/opt/apps/shared_data/scenarios`, mounte
 
 ---
 
-1. **Staging Dev**: Work on `feature/ANT-XXX` from `staging`. Review at `staging.barrigame.es`.
-2. **Approval**: User moves Linear task to **Ready for deploy**.
-3. **Deploy**:
-   ```bash
-   # Staging repo (/opt/apps/barri-dev): merge staging → main and push
-   cd /opt/apps/barri-dev && git checkout main && git merge staging && git push origin main
+## Deploy Workflow
 
-   # Prod repo (/opt/apps/barri): pull main and restart prod container
-   cd /opt/apps/barri && git pull origin main && \
-     docker compose -f /opt/apps/docker-compose.yml restart barri
-   ```
+1. **Staging Dev**: Work on `feature/ANT-XXX` from `staging`. Review at `staging.barrigame.es`.
+2. **Staging deploy**: Merge/push approved changes to `staging`; GitHub Actions deploys `/opt/apps/barri-dev` and rebuilds `barri-dev`.
+3. **Approval**: User moves Linear task to **Ready for deploy**.
+4. **Production deploy**: Promote `staging` to `main`; GitHub Actions deploys `/opt/apps/barri` and rebuilds `barri`.
+5. **Fallback**: If Actions fails for infrastructure reasons, use the manual deploy commands in `SERVER_STRUCTURE.md`.
