@@ -1,5 +1,22 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-06-23 · Codex] — ANT-111: launch assets for Product Hunt + itch.io
+
+### Problem
+ANT-111 спочатку був помилково трактований як page/metadata задача. Anton уточнив, що scope — підготувати launch assets для itch.io та Product Hunt.
+
+### Solution
+- Додав canonical launch pack у `public/launch-assets/`, щоб staging і main могли віддавати ті самі файли після деплою.
+- Product Hunt: 240x240 thumbnail + 4 gallery images 1270x760.
+- itch.io: 315x250 cover + 3 screenshots 1280x720.
+- Живі скріншоти зняті зі staging first fold/demo UI; case-cabinet/proof/cover згенеровані через `scripts/generate-launch-assets.mjs` на `sharp`.
+- `LAUNCH_METADATA.md` тепер містить реальні file paths, staging URLs, Product Hunt copy, itch.io short/long description і social metadata.
+- Візуально перевірив проблемні generated assets: прибрав overlap у case cards та proof slide copy.
+
+### Verification
+- `node scripts/generate-launch-assets.mjs`
+- `sharp` metadata check: PH gallery 1270x760, PH thumbnail 240x240, itch cover 315x250, itch screenshots 1280x720.
+
 ## [2026-05-08 · Claude] — ANT-100: reading column + transcript rhythm
 
 ### Problem
