@@ -3584,3 +3584,29 @@ Anton asked to configure automatic VPS deploys for both `main` and `staging` ins
 - VPS deploy scripts were installed under `/opt/apps/`.
 - A dedicated restricted deploy SSH key was generated for GitHub Actions, added to the VPS authorized keys, and stored in repository secrets.
 - Restricted-key staging deploy smoke succeeded via SSH (`deploy staging`).
+
+---
+
+## Impeccable design tooling — 2026-06-23
+
+### Context
+Anton asked to install Impeccable (`https://impeccable.style/`) on the project and run tests on the landing page.
+
+### Changes
+- Ran `npx impeccable install` from the project root.
+- Installer added project-local Impeccable skills and hooks under:
+  - `.claude/skills/impeccable`
+  - `.github/skills/impeccable`
+  - `.github/hooks/impeccable.json`
+
+### Verification
+- `node --version` reports `v25.6.1`, satisfying Impeccable's Node 24+ requirement.
+- `npx impeccable check` reports installed skills are up to date (`v3.8.0`).
+- `npx impeccable detect src/app/page.tsx src/app/LandingClient.tsx src/app/content.ts src/app/landing.css src/app/globals.css` reports no source-file findings.
+- `npx impeccable detect https://barrigame.es` reports 36 rendered landing-page findings:
+  - `low-contrast`: 16
+  - `all-caps-body`: 13
+  - `repeated-section-kickers`: 5
+  - `hero-eyebrow-chip`: 1
+  - `skipped-heading`: 1
+- Full JSON report saved outside the repo at `/tmp/barri-impeccable-landing.json`.

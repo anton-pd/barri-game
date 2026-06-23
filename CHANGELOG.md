@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Impeccable design tooling.** Added project-local Impeccable skills/hooks for AI design review and detector-based landing-page QA.
 - **GitHub Actions auto-deploy for staging and production.** Pushes to `staging` now deploy `staging.barrigame.es`, pushes to `main` deploy `barrigame.es`, and the same workflow can be run manually with a target selector. Deploys use a restricted VPS SSH key that only permits the documented deploy commands.
 - **Admin waitlist access console (ANT-180).** Admins can now see waitlist entries, lifecycle statuses (`waiting`, `invited`, `account created`, `active user`), invited/active percentages, and open access from the admin panel.
 - **Invite-only account creation (ANT-180).** Opening waitlist access sends a localized invitation email (Ukrainian, Spanish, English fallback) with a secure registration link so invited users can create an approved account and enter Barri.
