@@ -3,12 +3,12 @@
 ## [2026-06-23 · Codex] — Email sender display name
 
 ### Problem
-Transactional emails could still show legacy Bureau/Keeper branding through the sender display name.
+Transactional emails could still show legacy Keeper branding through the sender display name.
 
 ### Solution
-- Changed the code fallback sender to `Barri <noreply@barrigame.es>`.
+- Changed the code fallback sender to `Barri Bureau <noreply@barrigame.es>`.
 - Added a unit test for the default sender display name.
-- Updated VPS `RESEND_FROM` separately during deploy so runtime emails use `Barri`.
+- Updated VPS `RESEND_FROM` separately during deploy so runtime emails use `Barri Bureau`.
 
 ## [2026-06-23 · Codex] — ANT-180: staging verification for admin waitlist invites
 

@@ -19,10 +19,10 @@ afterEach(() => {
 });
 
 describe('getEmailSender', () => {
-  it('uses Barri as the default sender display name', () => {
+  it('uses Barri Bureau as the default sender display name', () => {
     delete process.env.RESEND_FROM;
 
-    expect(getEmailSender()).toBe('Barri <noreply@barrigame.es>');
+    expect(getEmailSender()).toBe('Barri Bureau <noreply@barrigame.es>');
   });
 });
 

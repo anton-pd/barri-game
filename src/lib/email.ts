@@ -12,7 +12,7 @@ function getClient(): Resend {
 }
 
 export function getEmailSender(): string {
-  return process.env.RESEND_FROM ?? 'Barri <noreply@barrigame.es>';
+  return process.env.RESEND_FROM ?? 'Barri Bureau <noreply@barrigame.es>';
 }
 
 const APP_URL = () => process.env.APP_URL ?? 'http://localhost:3000';
