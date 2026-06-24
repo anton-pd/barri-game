@@ -1015,3 +1015,14 @@ Per-change detail is in the `0.4.x` entries below.
 - **Cookiebot fallback**: якщо Cookiebot блокується або зависає у браузері на кшталт Dia/adblock (навіть із `window.Cookiebot` stub без ready consent), Barri показує first-party analytics consent banner замість порожнього стану без банера.
 - **Cookiebot reliability**: consent flow тепер слухає повний набір Cookiebot lifecycle events (`ConsentReady`, `Load`, `Accept`, `Decline`, `DialogInit`, `DialogDisplay`), не показує fallback поверх живого CMP і має Privacy-page кнопку для зміни/відкликання cookie settings.
 - **Mobile chat layout**: демо-досьє та основна панель матеріалів справи на mobile/tablet тепер відкриваються як drawer, а чат і поле вводу лишаються основним видимим екраном.
+
+---
+
+## [0.3.21] — 2026-06-24
+
+### Added
+- **App interface language**: logged-in users can now switch the authenticated app UI between Ukrainian, English, and Spanish from the sessions topbar/mobile menu and account page.
+- **Saved language preference**: the selected interface language is stored on the user account and reused after login.
+
+### Changed
+- New sessions default the game/Keeper language from the interface preference where supported: Ukrainian stays Ukrainian; English and Spanish interfaces default game language to English.

@@ -1,5 +1,5 @@
 import sql from './db';
-import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary, SessionFeedback } from '@/types';
+import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary, SessionFeedback, InterfaceLanguage } from '@/types';
 import crypto from 'crypto';
 
 let schemaInitialized = false;
@@ -70,6 +70,9 @@ export async function initializeSchema() {
   `;
   await sql`
     CREATE INDEX IF NOT EXISTS idx_users_access_status ON users(access_status)
+  `;
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS interface_language VARCHAR(5) NOT NULL DEFAULT 'uk'
   `;
 
   await sql`
@@ -1008,6 +1011,27 @@ export async function getUserById(id: string): Promise<User | null> {
   return (rows[0] as unknown as User) || null;
 }
 
+export async function getUserInterfaceLanguage(id: string): Promise<InterfaceLanguage> {
+  const rows = await sql`
+    SELECT interface_language
+    FROM users
+    WHERE id = ${id}
+  `;
+  const lang = rows[0]?.interface_language;
+  return lang === 'en' || lang === 'es' || lang === 'uk' ? lang : 'uk';
+}
+
+export async function updateUserInterfaceLanguage(
+  id: string,
+  interfaceLanguage: InterfaceLanguage
+): Promise<void> {
+  await sql`
+    UPDATE users
+    SET interface_language = ${interfaceLanguage}, updated_at = NOW()
+    WHERE id = ${id}
+  `;
+}
+
 // GDPR Art. 17 — right to erasure (ANT-159).
 //
 // NOTE the FK trap: game_sessions.user_id is ON DELETE SET NULL, so deleting the
@@ -1032,7 +1056,7 @@ export async function deleteUserAccount(userId: string, email: string): Promise<
 
 export interface UserAccountExport {
   exportedAt: string;
-  account: Pick<User, 'id' | 'email' | 'role' | 'email_verified' | 'access_status' | 'created_at' | 'updated_at'>;
+  account: Pick<User, 'id' | 'email' | 'role' | 'email_verified' | 'access_status' | 'interface_language' | 'created_at' | 'updated_at'>;
   sessions: (GameSession & { messages: Message[] })[];
   campaigns: Campaign[];
   sessionSummaries: SessionSummary[];
@@ -1043,7 +1067,7 @@ export interface UserAccountExport {
 // the user as structured JSON. Never includes password_hash or auth tokens.
 export async function getUserAccountExport(userId: string): Promise<UserAccountExport | null> {
   const userRows = await sql`
-    SELECT id, email, role, email_verified, access_status, created_at, updated_at
+    SELECT id, email, role, email_verified, access_status, interface_language, created_at, updated_at
     FROM users WHERE id = ${userId}
   `;
   const account = userRows[0] as unknown as UserAccountExport['account'] | undefined;

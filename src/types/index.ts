@@ -1,4 +1,5 @@
 export type AccessStatus = 'pending' | 'approved' | 'blocked';
+export type InterfaceLanguage = 'uk' | 'en' | 'es';
 
 export interface User {
   id: string;
@@ -6,6 +7,7 @@ export interface User {
   role: 'user' | 'admin';
   email_verified: boolean;
   access_status: AccessStatus;
+  interface_language?: InterfaceLanguage;
   created_at: string;
   updated_at: string;
 }
