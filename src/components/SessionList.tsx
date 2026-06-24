@@ -302,7 +302,6 @@ export default function SessionList() {
   const [sessionName,       setSessionName]        = useState('');
   const [drafts,            setDrafts]             = useState<DraftPlayer[]>([emptyDraft()]);
   const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
-  const [language,          setLanguage]            = useState<'uk' | 'en'>('uk');
   const [isCreating,        setIsCreating]          = useState(false);
   // ANT-137: dialog semantics — focus moves into the sheet on open, Tab cycles
   // inside it, Escape closes, and focus returns to the trigger on close.
@@ -335,7 +334,6 @@ export default function SessionList() {
         setScenarios(Array.isArray(rawScenarios) ? rawScenarios : []);
         setUser(meData ?? null);
         setInterfaceLanguage(nextInterfaceLanguage);
-        setLanguage(gameLanguageForInterface(nextInterfaceLanguage));
       } catch (err) {
         console.error('Network error loading data', err);
       } finally {
@@ -356,10 +354,6 @@ export default function SessionList() {
   async function handleInterfaceLanguageChange(nextLanguage: InterfaceLanguage) {
     setInterfaceLanguage(nextLanguage);
     setUser((prev) => prev ? { ...prev, interface_language: nextLanguage } : prev);
-    setLanguage((prev) => prev === gameLanguageForInterface(interfaceLanguage)
-      ? gameLanguageForInterface(nextLanguage)
-      : prev
-    );
     try {
       const res = await fetch('/api/account', {
         method: 'PATCH',
@@ -383,8 +377,7 @@ export default function SessionList() {
     setSessionName('');
     setDrafts([emptyDraft()]);
     setPickingRoleFor(null);
-    setLanguage(gameLanguageForInterface(interfaceLanguage));
-  }, [interfaceLanguage]);
+  }, []);
 
   function closeModal() {
     setSelectedScenario(null);
@@ -453,6 +446,7 @@ export default function SessionList() {
     if (!canCreate || !selectedScenario) return;
     setIsCreating(true);
     const players: Player[] = drafts.map((d) => makePlayer(d.name.trim(), d.preset!));
+    const language = gameLanguageForInterface(interfaceLanguage);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
@@ -840,23 +834,6 @@ export default function SessionList() {
                       placeholder={copy.modal.casePlaceholder}
                       autoComplete="off"
                     />
-                  </div>
-
-                  {/* Language */}
-                  <div className="nsm-field">
-                    <label>{copy.modal.gameLanguage}</label>
-                    <div className="nsm-lang-toggle">
-                      {(['uk', 'en'] as const).map((lang) => (
-                        <button
-                          key={lang}
-                          className={`nsm-lang-btn${language === lang ? ' nsm-lang-btn--active' : ''}`}
-                          onClick={() => setLanguage(lang)}
-                          type="button"
-                        >
-                          {lang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   {/* Players */}

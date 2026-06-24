@@ -1026,3 +1026,4 @@ Per-change detail is in the `0.4.x` entries below.
 
 ### Changed
 - New sessions default the game/Keeper language from the interface preference where supported: Ukrainian stays Ukrainian; English and Spanish interfaces default game language to English.
+- Removed the game-language selector from case creation; new cases now depend on the saved global language preference.

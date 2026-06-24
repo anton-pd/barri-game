@@ -898,31 +898,6 @@
   font-size: 13px;
 }
 
-.nsm-lang-toggle {
-  display: flex;
-  gap: 8px;
-}
-
-.nsm-lang-btn {
-  flex: 1;
-  font-family: var(--font-typewriter);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 9px 12px;
-  border: 1.5px solid var(--paper-3);
-  background: transparent;
-  color: var(--paper-3);
-  cursor: pointer;
-  transition: all .15s;
-}
-.nsm-lang-btn:hover { border-color: var(--paper-2); color: var(--paper-2); }
-.nsm-lang-btn--active {
-  background: var(--ink-0);
-  border-color: var(--amber-2);
-  color: var(--amber-0);
-}
-
 .nsm-player-card {
   background: rgba(0,0,0,0.1);
   border: 1px solid rgba(107,90,62,0.22);

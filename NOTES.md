@@ -3606,3 +3606,7 @@ Anton asked for an urgent direct-to-production fix: logged-in users need a way t
 
 ### Verification
 - Added regression tests for language normalization and preference persistence query behavior.
+
+### Follow-up
+- Removed the per-session game language selector from the new-case modal.
+- Session creation now always derives `game_sessions.language` from the global account interface language via `gameLanguageForInterface()`.
