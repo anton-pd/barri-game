@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Ukrainian localization for the waitlist intake form (ANT-182).** `/auth/register` (intake form, invite flow, and waiting-list success state) now reads `?lang=uk` and renders fully in Ukrainian instead of English-only; the real selected locale is now sent to `/api/waitlist` instead of a hardcoded `'en'`. The landing page's "Join Waitlist" links now carry the active language into the register page. (Demo Case Curator and landing-page copy were already localized to Ukrainian/Spanish in prior work — audited and confirmed still correct.)
 - **Impeccable design tooling.** Added project-local Impeccable skills/hooks for AI design review and detector-based landing-page QA.
 - **GitHub Actions auto-deploy for staging and production.** Pushes to `staging` now deploy `staging.barrigame.es`, pushes to `main` deploy `barrigame.es`, and the same workflow can be run manually with a target selector. Deploys use a restricted VPS SSH key that only permits the documented deploy commands.
 - **Admin waitlist access console (ANT-180).** Admins can now see waitlist entries, lifecycle statuses (`waiting`, `invited`, `account created`, `active user`), invited/active percentages, and open access from the admin panel.

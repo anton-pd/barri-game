@@ -4,8 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+type Lang = 'en' | 'uk';
+
 export default function RegisterPage() {
   const router = useRouter();
+  const [lang, setLang] = useState<Lang>('en');
   const [email, setEmail] = useState('');
   const [inviteToken, setInviteToken] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -19,8 +22,14 @@ export default function RegisterPage() {
   // the email. Submit stays disabled until the box is checked.
   const [consent, setConsent] = useState(false);
 
+  const t = REGISTER_COPY[lang];
+
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('invite')?.trim() ?? '';
+    const params = new URLSearchParams(window.location.search);
+    const queryLang = params.get('lang');
+    if (queryLang === 'uk') setLang('uk');
+
+    const token = params.get('invite')?.trim() ?? '';
     if (!token) return;
 
     setInviteToken(token);
@@ -29,16 +38,15 @@ export default function RegisterPage() {
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) {
-          setError(data.error === 'invalid_invite'
-            ? 'This invitation is invalid or expired.'
-            : 'Could not read the invitation.');
+          setError(data.error === 'invalid_invite' ? t.errors.inviteInvalid : t.errors.inviteReadFailed);
           return;
         }
         setEmail(data.email);
         setInviteAccountExists(Boolean(data.account_exists));
       })
-      .catch(() => setError('Could not read the invitation.'))
+      .catch(() => setError(t.errors.inviteReadFailed))
       .finally(() => setInviteLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -46,27 +54,27 @@ export default function RegisterPage() {
     setError('');
 
     if (!email.trim()) {
-      setError('Investigator email is required');
+      setError(t.errors.emailRequired);
       return;
     }
 
     if (inviteToken) {
       if (inviteAccountExists) {
-        setError('This email already has an account. Please sign in instead.');
+        setError(t.errors.emailExists);
         return;
       }
       if (password.length < 8) {
-        setError('Password must be at least 8 characters.');
+        setError(t.errors.passwordTooShort);
         return;
       }
       if (password !== confirmPassword) {
-        setError('Passwords do not match.');
+        setError(t.errors.passwordsMismatch);
         return;
       }
     }
 
     if (!consent) {
-      setError('Please accept the Terms and Privacy Policy to continue.');
+      setError(t.errors.consentRequired);
       return;
     }
 
@@ -83,7 +91,7 @@ export default function RegisterPage() {
         if (res.ok) {
           router.replace('/sessions');
         } else {
-          setError(data.message || data.error || 'Could not create the account.');
+          setError(data.message || data.error || t.errors.createAccountFailed);
         }
         return;
       }
@@ -94,7 +102,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email,
           source: 'public-waitlist',
-          locale: 'en',
+          locale: lang,
           outcome: 'requested-access',
           messageCount: 0,
           notes: 'Joined from public waitlist intake form.',
@@ -106,10 +114,10 @@ export default function RegisterPage() {
       if (res.ok) {
         setSuccess(true);
       } else {
-        setError(data.error || 'Could not file the request.');
+        setError(data.error || t.errors.fileRequestFailed);
       }
     } catch {
-      setError('Connection error. Please try again.');
+      setError(t.errors.connectionError);
     } finally {
       setLoading(false);
     }
@@ -122,47 +130,46 @@ export default function RegisterPage() {
           <span className="auth-seal">B</span>
           <span className="auth-wordmark">Barri</span>
         </Link>
-        <span className="auth-caseno">File · Auth/002</span>
+        <span className="auth-caseno">{t.caseno}</span>
       </div>
 
       <div className="auth-card reveal d1">
         {inviteToken ? (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(10deg)' }}>
-              Cleared
-              <small>Invite</small>
+              {t.invite.stamp}
+              <small>{t.invite.stampSmall}</small>
             </div>
 
             <div className="auth-card-hdr">
-              <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
-              <h2>Create Your Account</h2>
-              <p>Your waiting-list clearance is ready.</p>
+              <div className="auth-bureau-line">{t.bureauLine}</div>
+              <h2>{t.invite.title}</h2>
+              <p>{t.invite.subtitle}</p>
             </div>
 
             {inviteLoading ? (
               <div className="auth-success">
                 <span className="auth-success-glyph">…</span>
-                <h2>Reading invitation</h2>
-                <p>The Bureau is checking the seal on this letter.</p>
+                <h2>{t.invite.loadingTitle}</h2>
+                <p>{t.invite.loadingBody}</p>
               </div>
             ) : inviteAccountExists ? (
               <div className="auth-success">
                 <span className="auth-success-glyph">✓</span>
-                <h2>Account already exists</h2>
+                <h2>{t.invite.existsTitle}</h2>
                 <p>
-                  Access is open for <span className="auth-success-email">{email}</span>.
+                  {t.invite.existsBodyPrefix}
+                  <span className="auth-success-email">{email}</span>
                 </p>
-                <p className="auth-waitlist-note">
-                  Sign in with your existing credentials. If you forgot the password, use the reset link on the login page.
-                </p>
+                <p className="auth-waitlist-note">{t.invite.existsNote}</p>
                 <div className="auth-foot">
-                  <Link href="/auth/login">Access the archive</Link>
+                  <Link href="/auth/login">{t.footLink}</Link>
                 </div>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="auth-form">
                 <div className="auth-field">
-                  <label>Investigator ID</label>
+                  <label>{t.investigatorId}</label>
                   <input
                     type="email"
                     value={email}
@@ -172,7 +179,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="auth-field">
-                  <label>Clearance Code</label>
+                  <label>{t.invite.clearanceCode}</label>
                   <input
                     type="password"
                     value={password}
@@ -180,12 +187,12 @@ export default function RegisterPage() {
                     required
                     minLength={8}
                     autoComplete="new-password"
-                    placeholder="At least 8 characters"
+                    placeholder={t.invite.passwordPlaceholder}
                   />
                 </div>
 
                 <div className="auth-field">
-                  <label>Repeat Clearance Code</label>
+                  <label>{t.invite.repeatClearanceCode}</label>
                   <input
                     type="password"
                     value={confirmPassword}
@@ -193,7 +200,7 @@ export default function RegisterPage() {
                     required
                     minLength={8}
                     autoComplete="new-password"
-                    placeholder="Confirm password"
+                    placeholder={t.invite.confirmPasswordPlaceholder}
                   />
                 </div>
 
@@ -204,9 +211,11 @@ export default function RegisterPage() {
                     onChange={(e) => setConsent(e.target.checked)}
                   />
                   <span>
-                    I am at least 16 and accept the{' '}
-                    <Link href="/terms" target="_blank">Terms</Link> and{' '}
-                    <Link href="/privacy" target="_blank">Privacy Policy</Link>.
+                    {t.consent.prefix}
+                    <Link href="/terms" target="_blank">{t.consent.terms}</Link>
+                    {t.consent.mid}
+                    <Link href="/privacy" target="_blank">{t.consent.privacy}</Link>
+                    {t.consent.suffix}
                   </span>
                 </label>
 
@@ -217,7 +226,7 @@ export default function RegisterPage() {
                   disabled={loading || !consent || inviteLoading}
                   className="auth-submit"
                 >
-                  <span>{loading ? 'Creating account...' : 'Create Account'}</span>
+                  <span>{loading ? t.invite.submitLoading : t.invite.submit}</span>
                   <span>→</span>
                 </button>
               </form>
@@ -226,51 +235,52 @@ export default function RegisterPage() {
         ) : success ? (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(8deg)' }}>
-              Filed
-              <small>Waiting List</small>
+              {t.success.stamp}
+              <small>{t.success.stampSmall}</small>
             </div>
 
             <div className="auth-card-hdr">
-              <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
-              <h2>Access Request Filed</h2>
-              <p>Your dossier is waiting for clearance.</p>
+              <div className="auth-bureau-line">{t.bureauLine}</div>
+              <h2>{t.success.title}</h2>
+              <p>{t.success.subtitle}</p>
             </div>
 
             <div className="auth-success">
               <span className="auth-success-glyph">✉</span>
-              <h2>You&apos;re on the waiting list</h2>
+              <h2>{t.success.title2}</h2>
               <p>
-                Your address has been filed as{' '}
+                {t.success.bodyPrefix}
                 <span className="auth-success-email">{email}</span>.
               </p>
               <p className="auth-waitlist-note">
-                The Bureau admits investigators <strong>in controlled batches</strong>. We&apos;ll
-                summon you when the next table opens.
+                {t.success.noteBefore}
+                <strong>{t.success.noteStrong}</strong>
+                {t.success.noteAfter}
               </p>
-              <div className="auth-success-stamp">Waiting List</div>
+              <div className="auth-success-stamp">{t.success.stamp2}</div>
             </div>
 
             <div className="auth-foot">
-              Already cleared?{' '}
-              <Link href="/auth/login">Access the archive</Link>
+              {t.footPrefix}{' '}
+              <Link href="/auth/login">{t.footLink}</Link>
             </div>
           </>
         ) : (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(10deg)' }}>
-              Intake Form
-              <small>New Recruit</small>
+              {t.form.stamp}
+              <small>{t.form.stampSmall}</small>
             </div>
 
             <div className="auth-card-hdr">
-              <div className="auth-bureau-line">Miskatonic Bureau of Investigation</div>
-              <h2>Join the Waiting List</h2>
-              <p>Access opens in small batches. File your email for the next summons.</p>
+              <div className="auth-bureau-line">{t.bureauLine}</div>
+              <h2>{t.form.title}</h2>
+              <p>{t.form.subtitle}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="auth-field">
-                <label>Investigator ID</label>
+                <label>{t.investigatorId}</label>
                 <input
                   type="email"
                   value={email}
@@ -282,7 +292,7 @@ export default function RegisterPage() {
               </div>
 
               <p className="auth-waitlist-note auth-waitlist-note--form">
-                Registration is closed during launch. The waiting list is the only intake route.
+                {t.form.closedNote}
               </p>
 
               <label className="auth-consent">
@@ -292,23 +302,25 @@ export default function RegisterPage() {
                   onChange={(e) => setConsent(e.target.checked)}
                 />
                 <span>
-                  I am at least 16 and accept the{' '}
-                  <Link href="/terms" target="_blank">Terms</Link> and{' '}
-                  <Link href="/privacy" target="_blank">Privacy Policy</Link>.
+                  {t.consent.prefix}
+                  <Link href="/terms" target="_blank">{t.consent.terms}</Link>
+                  {t.consent.mid}
+                  <Link href="/privacy" target="_blank">{t.consent.privacy}</Link>
+                  {t.consent.suffix}
                 </span>
               </label>
 
               {error && <div className="auth-error">{error}</div>}
 
               <button type="submit" disabled={loading || !consent} className="auth-submit">
-                <span>{loading ? 'Filing request...' : 'Join Waiting List'}</span>
+                <span>{loading ? t.form.submitLoading : t.form.submit}</span>
                 <span>→</span>
               </button>
             </form>
 
             <div className="auth-foot">
-              Already cleared?{' '}
-              <Link href="/auth/login">Access the archive</Link>
+              {t.footPrefix}{' '}
+              <Link href="/auth/login">{t.footLink}</Link>
             </div>
           </>
         )}
@@ -316,3 +328,134 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+const REGISTER_COPY = {
+  en: {
+    caseno: 'File · Auth/002',
+    bureauLine: 'Miskatonic Bureau of Investigation',
+    investigatorId: 'Investigator ID',
+    footPrefix: 'Already cleared?',
+    footLink: 'Access the archive',
+    consent: {
+      prefix: 'I am at least 16 and accept the ',
+      terms: 'Terms',
+      mid: ' and ',
+      privacy: 'Privacy Policy',
+      suffix: '.',
+    },
+    invite: {
+      stamp: 'Cleared',
+      stampSmall: 'Invite',
+      title: 'Create Your Account',
+      subtitle: 'Your waiting-list clearance is ready.',
+      loadingTitle: 'Reading invitation',
+      loadingBody: 'The Bureau is checking the seal on this letter.',
+      existsTitle: 'Account already exists',
+      existsBodyPrefix: 'Access is open for ',
+      existsNote: 'Sign in with your existing credentials. If you forgot the password, use the reset link on the login page.',
+      clearanceCode: 'Clearance Code',
+      repeatClearanceCode: 'Repeat Clearance Code',
+      passwordPlaceholder: 'At least 8 characters',
+      confirmPasswordPlaceholder: 'Confirm password',
+      submitLoading: 'Creating account...',
+      submit: 'Create Account',
+    },
+    success: {
+      stamp: 'Filed',
+      stampSmall: 'Waiting List',
+      title: 'Access Request Filed',
+      subtitle: 'Your dossier is waiting for clearance.',
+      title2: "You're on the waiting list",
+      bodyPrefix: 'Your address has been filed as ',
+      noteBefore: 'The Bureau admits investigators ',
+      noteStrong: 'in controlled batches',
+      noteAfter: ". We'll summon you when the next table opens.",
+      stamp2: 'Waiting List',
+    },
+    form: {
+      stamp: 'Intake Form',
+      stampSmall: 'New Recruit',
+      title: 'Join the Waiting List',
+      subtitle: 'Access opens in small batches. File your email for the next summons.',
+      closedNote: 'Registration is closed during launch. The waiting list is the only intake route.',
+      submitLoading: 'Filing request...',
+      submit: 'Join Waiting List',
+    },
+    errors: {
+      emailRequired: 'Investigator email is required',
+      emailExists: 'This email already has an account. Please sign in instead.',
+      passwordTooShort: 'Password must be at least 8 characters.',
+      passwordsMismatch: 'Passwords do not match.',
+      consentRequired: 'Please accept the Terms and Privacy Policy to continue.',
+      createAccountFailed: 'Could not create the account.',
+      connectionError: 'Connection error. Please try again.',
+      fileRequestFailed: 'Could not file the request.',
+      inviteInvalid: 'This invitation is invalid or expired.',
+      inviteReadFailed: 'Could not read the invitation.',
+    },
+  },
+  uk: {
+    caseno: 'Файл · Авт/002',
+    bureauLine: 'Бюро Розслідувань Містичних Справ',
+    investigatorId: 'ID Слідчого',
+    footPrefix: 'Вже маєте допуск?',
+    footLink: 'Увійти до архіву',
+    consent: {
+      prefix: 'Мені виповнилось 16 і я приймаю ',
+      terms: 'Умови використання',
+      mid: ' та ',
+      privacy: 'Політику конфіденційності',
+      suffix: '.',
+    },
+    invite: {
+      stamp: 'Допущено',
+      stampSmall: 'Запрошення',
+      title: 'Створити обліковий запис',
+      subtitle: 'Ваш допуск зі списку очікування готовий.',
+      loadingTitle: 'Читання запрошення',
+      loadingBody: 'Бюро перевіряє печатку на цьому листі.',
+      existsTitle: 'Обліковий запис вже існує',
+      existsBodyPrefix: 'Доступ відкрито для ',
+      existsNote: 'Увійдіть із наявними обліковими даними. Якщо забули пароль — скористайтесь посиланням для відновлення на сторінці входу.',
+      clearanceCode: 'Код допуску',
+      repeatClearanceCode: 'Повторіть код допуску',
+      passwordPlaceholder: 'Щонайменше 8 символів',
+      confirmPasswordPlaceholder: 'Підтвердіть пароль',
+      submitLoading: 'Створення облікового запису...',
+      submit: 'Створити обліковий запис',
+    },
+    success: {
+      stamp: 'Подано',
+      stampSmall: 'Список очікування',
+      title: 'Заявку на доступ подано',
+      subtitle: 'Ваше досьє очікує на допуск.',
+      title2: 'Ви в списку очікування',
+      bodyPrefix: 'Вашу адресу подано як ',
+      noteBefore: 'Бюро приймає слідчих ',
+      noteStrong: 'невеликими групами',
+      noteAfter: '. Ми викличемо вас, щойно відкриється наступний стіл.',
+      stamp2: 'Список очікування',
+    },
+    form: {
+      stamp: 'Форма Допуску',
+      stampSmall: 'Новий Рекрут',
+      title: 'Стати в чергу',
+      subtitle: 'Доступ відкривається невеликими групами. Залиште свій email — ми надішлемо виклик.',
+      closedNote: 'Реєстрація закрита під час запуску. Єдиний шлях — список очікування.',
+      submitLoading: 'Подання заявки...',
+      submit: 'Стати в чергу',
+    },
+    errors: {
+      emailRequired: 'Необхідно вказати email слідчого',
+      emailExists: 'На цю email-адресу вже зареєстровано обліковий запис. Будь ласка, увійдіть.',
+      passwordTooShort: 'Пароль має містити щонайменше 8 символів.',
+      passwordsMismatch: 'Паролі не збігаються.',
+      consentRequired: 'Будь ласка, прийміть Умови використання та Політику конфіденційності, щоб продовжити.',
+      createAccountFailed: 'Не вдалося створити обліковий запис.',
+      connectionError: "Помилка з'єднання. Спробуйте ще раз.",
+      fileRequestFailed: 'Не вдалося подати заявку.',
+      inviteInvalid: 'Це запрошення недійсне або застаріло.',
+      inviteReadFailed: 'Не вдалося прочитати запрошення.',
+    },
+  },
+} as const;

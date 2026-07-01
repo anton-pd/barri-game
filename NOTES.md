@@ -3662,3 +3662,35 @@ Anton asked to run Impeccable across the catalog and game chat, refresh staging 
 - `npx impeccable detect http://localhost:3000 --json` reports `0` rendered landing findings.
 - `npm run lint` passes with only the existing 6 Next `<img>` warnings.
 - `npm run build` passes.
+
+---
+
+## ANT-182: Ukrainian localization for demo & waitlist pages — 2026-07-01
+
+### Problem
+Anton asked to localize the demo (`/demo`) and waitlist (`/auth/register`) pages, plus key landing sections, to Ukrainian.
+
+### Audit first
+Before writing anything, checked current repo state against the ask:
+- Demo Case Curator responding in Ukrainian (`buildDemoKeeperSection` language line in `src/app/api/demo/keeper/route.ts`) — already implemented.
+- Demo UI copy (`DEMO_COPY.uk` in `src/app/demo/DemoClient.tsx`), including intro/objective/UI strings from Anton's list — already implemented, matches (near-verbatim) what was requested.
+- Landing page key sections (`CONTENT.uk` in `src/app/content.ts`, wired through `LandingClient.tsx` with a working `EN/УК/ES` switcher) — already implemented.
+- `/auth/register` (waitlist intake form) — **not implemented**. Fully hardcoded English, no `lang` param handling, `locale` sent to `/api/waitlist` was hardcoded `'en'`.
+
+### Solution
+Only touched the actual gap:
+- `src/app/auth/register/page.tsx`: rewrote as a `REGISTER_COPY` object (`en`/`uk`), covering the intake form, invite/create-account flow, waiting-list success state, and all inline error strings. Reads `?lang=uk` from the query string the same way `DemoClient.tsx` does (`useEffect` + `URLSearchParams`), defaulting to `en`. `/api/waitlist` now receives the real `lang` instead of a hardcoded `'en'`.
+- `src/app/LandingClient.tsx`: `waitlistHref` now carries `?lang=${lang}` (mirrors the existing `demoHref` pattern) so the landing page's "Join Waitlist" nav/CTA/case-card links preserve the visitor's chosen language into the register page.
+- Did not add Spanish copy to the register page (not requested); an `es` query value simply falls back to the `en` copy on this page only, while the correct `locale` is still recorded server-side.
+
+### Key decisions
+- Reused the existing per-page-copy-object + query-param pattern (`DEMO_COPY`, `CONTENT`) instead of introducing a new i18n library — consistent with the rest of the codebase, smallest possible diff.
+- Treated as a Linear small-task (ANT-182): UI copy + query-param wiring only, no schema/infra/auth-logic/AI-protocol changes.
+
+### Verification
+- `npx eslint src/app/auth/register/page.tsx src/app/LandingClient.tsx` — clean.
+- `npx tsc --noEmit` — clean.
+- Browser-verified with a local production build (`npm run build && next start -p 3050`) driven via headless Chrome (chromedp/headless-shell + Playwright CDP, `--network host` so the container can reach the host's loopback):
+  - `next dev`'s HMR websocket fails against this headless Chrome and silently reloads the page shortly after mount, which looked like "language switching doesn't work" until re-tested against a production build — not an app bug, a local dev-server/test-harness artifact worth remembering for future UI verification here.
+  - `/auth/register?lang=uk` renders full Ukrainian copy (stamp, bureau line, title, subtitle, note, consent, submit button, footer link) matching Anton's requested strings; `?lang=en` (and default, no param) unchanged.
+  - Landing page: switching to `УК` updates `.enter-btn` href to `/auth/register?lang=uk`.
