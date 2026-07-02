@@ -7,10 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
-### Fixed
-- **Dice-roll validation now bridges Ukrainian and English skill names (ANT-183).** The Case Curator's roll requests are validated against the character sheet through a skill alias map (uk ↔ en, qualifier-aware), so a tag naming "Spot Hidden" resolves against «Помітити приховане» and vice versa; Luck and SAN rolls are now value-checked against the actual stats too. The roll prompt tells the Curator to copy skill names exactly from the player's sheet, and the "awaiting roll" hint refers to the player by name instead of a numeric index.
-
 ### Added
+- **Five new Ukrainian-market scenarios (ANT-188).** Three one-shots — «Шепіт у колодязі» (Carpathians 1912, beginner), «Останній сеанс» (Kyiv 1918, intermediate), «Катакомби пам'яті» (Odesa 1926, advanced) — and two three-evening campaigns: «Тіні над Дніпром» (Kyiv 1921) and «Кургани не сплять» (Poltava steppe 1928). Each ships with scenario-specific roles and perks, full clue trails, location ambients, static images and pulp-poster covers.
 - **Ukrainian localization for the waitlist intake form (ANT-182).** `/auth/register` (intake form, invite flow, and waiting-list success state) now reads `?lang=uk` and renders fully in Ukrainian instead of English-only; the real selected locale is now sent to `/api/waitlist` instead of a hardcoded `'en'`. The landing page's "Join Waitlist" links now carry the active language into the register page. (Demo Case Curator and landing-page copy were already localized to Ukrainian/Spanish in prior work — audited and confirmed still correct.)
 - **Impeccable design tooling.** Added project-local Impeccable skills/hooks for AI design review and detector-based landing-page QA.
 - **GitHub Actions auto-deploy for staging and production.** Pushes to `staging` now deploy `staging.barrigame.es`, pushes to `main` deploy `barrigame.es`, and the same workflow can be run manually with a target selector. Deploys use a restricted VPS SSH key that only permits the documented deploy commands.
@@ -19,6 +17,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Launch asset pack for Product Hunt and itch.io (ANT-111).** Added public launch-ready thumbnails, gallery images, itch cover art, screenshots, and copy metadata under `public/launch-assets/` / `LAUNCH_METADATA.md`, so staging and production can serve the same publication assets.
 - **Admin scenario library and delete controls (ANT-177).** Admins can now view live scenario files, inspect full scenario JSON, and delete scenarios from the shared runtime directory. Deletes also clear cached scenario assets when present.
 - **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
+
+### Fixed
+- **Dice-roll validation now bridges Ukrainian and English skill names (ANT-183).** The Case Curator's roll requests are validated against the character sheet through a skill alias map (uk ↔ en, qualifier-aware), so a tag naming "Spot Hidden" resolves against «Помітити приховане» and vice versa; Luck and SAN rolls are now value-checked against the actual stats too. The roll prompt tells the Curator to copy skill names exactly from the player's sheet, and the "awaiting roll" hint refers to the player by name instead of a numeric index.
 
 ### Changed
 - **Renamed the AI host from Keeper to Case Curator.** Public landing/SEO/demo copy, game-chat labels, completion text, admin headings, TTS speaker labels, and LLM-facing prompt instructions now use **Case Curator** / **Куратор справи** / **Curador del caso**. Internal compatibility names such as `keeperStyle` and `keeper_style` remain unchanged.

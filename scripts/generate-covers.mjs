@@ -31,6 +31,26 @@ const SUBJECTS = {
     'the unfinished Sagrada Familia rising like the ribcage of a giant against a brooding autumn dusk in 1920s ' +
     'Barcelona, half-carved stone facades, scaffolding shrouded in sea mist, an ancient symbol faintly glowing ' +
     'among the stones, ominous and sacred',
+  'whisper-in-the-well':
+    'an old stone well with a rotting wooden roof at the misty edge of a hutsul carpathian mountain village at dusk, ' +
+    'wooden church and smoke plumes far below, towering dark spruce forest, a faint pale glow rising from the well shaft, ' +
+    'salt scattered on a doorstep in the foreground, folk-horror dread',
+  'the-last-reel':
+    'a grand but decaying 1918 kyiv cinema facade at night during a blackout, one flickering window of the projection ' +
+    'booth glowing sickly green, film strip unspooling down wet steps like a serpent, soldiers silhouettes with rifles ' +
+    'in the foggy street, first snow falling',
+  'catacombs-of-memory':
+    'smugglers with a carbide lamp descending into vast white limestone catacomb tunnels beneath 1926 odesa, chalk-dust ' +
+    'air, crates and rope, a distant tunnel mouth glowing with faint pearlescent spiral light, claustrophobic depth, ' +
+    'one figure looking back with an empty face',
+  'shadows-over-dnipro':
+    'a sunken monastery bell tower rising from the wide calm dnipro river at dusk near 1921 kyiv, unnaturally transparent ' +
+    'water revealing walls below the surface, a lone rowboat with small figures, wet smiling figures standing waist-deep ' +
+    'near the reedy shore, green glow deep underwater',
+  'barrows-dont-sleep':
+    'a huge scythian burial mound in the endless ukrainian steppe under a blazing 1928 summer sky, an excavation trench ' +
+    'cut into its slope with tiny tents nearby, ripening wheat field blackening in a spiral around the mound, a golden ' +
+    'sun disc gleaming in freshly dug earth, oppressive open-horizon dread',
 };
 
 const targetDir = process.argv[2] && !process.argv[2].startsWith('--')

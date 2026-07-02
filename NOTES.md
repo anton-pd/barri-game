@@ -3763,3 +3763,30 @@ Anton flagged that Keeper replies are too long and text-heavy. Follow-up constra
 
 ### Verification
 - `npm run lint` passes with existing `<img>` warnings only.
+
+---
+
+## ANT-188: Scenario pack — 5 Ukrainian-market scenarios — 2026-07-02
+
+### Problem
+Anton requested 5 new scenarios for the Ukrainian market (3 one-shots + 2 campaigns) ahead of the global launch. Pitches approved in chat; full authoring per SCENARIO_GUIDE.md.
+
+### Solution — the five scenarios
+1. **whisper-in-the-well** «Шепіт у колодязі» — one-shot, beginner, Carpathians 1912. Hutsul folk horror: the dead molfar was the warden, the bound thing under the well is naming villagers at dusk. 5 NPCs / 5 locations / 3 groups / 4 roles / 2 variants.
+2. **the-last-reel** «Останній сеанс» — one-shot, intermediate, Kyiv 1918. Occult noir: a cinema lens grinds a window through the veil; midnight reels show next week's deaths; the lens can only be destroyed while projecting. 5/5/2/4/2.
+3. **catacombs-of-memory** «Катакомби пам'яті» — one-shot, advanced, Odesa 1926. Memory-eating descent: nacre veins of a sleeping mind under the limestone; SAN losses narrated as memory loss (prompt-level mechanic). 4/5/3/4/2.
+4. **shadows-over-dnipro** «Тіні над Дніпром» — CAMPAIGN 3 evenings, intermediate, Kyiv 1921. River cult, dry-lunged smiling drowned, island Brotherhood, flooded monastery crypt finale with three-way choice. 9/10/4/5 roles.
+5. **barrows-dont-sleep** «Кургани не сплять» — CAMPAIGN 3 evenings, advanced, Poltava steppe 1928. Kurgan as prison: seven golden sun-discs + annual circular furrow rite vs an archaeologist's ambition and an artel plan. 9/9/3/5 roles.
+
+### Key decisions
+- Live JSONs written to /opt/apps/shared_data/scenarios (SCENARIOS_DIR source of truth); template copies committed to repo scenarios/.
+- Role skill keys follow the guide (English names) — the ANT-183 alias map covers uk-name tags either way. Scenario-specific rolePresets with PERKs and themed inventory per guide (HP 8–14, SAN 50–75, LUCK 45–65 respected).
+- Campaign scenarios have no variants (per guide); both use 3-evening act structure encoded in systemPrompt + mustHappenEvents (6 events each).
+- Political-era settings (1918/1921/1928) used as backdrop only; horror conflicts are pre-political by design.
+- generate-covers.mjs extended with subjects for the 5 new ids. Gotcha: asset dirs created by the container are root-owned, so the host-side script gets EACCES — ran it INSIDE the container instead (docker cp + docker exec, target /app/public/scenarios). All 5 pulp covers generated.
+
+### Verification
+- Structural validation script: all required keys, startingLocation/variant refs, group coverage (every location in exactly one group), role id refs, eventHints ≥2 per type, npc secrets ≥2, clues ≥2, role stat ranges — ALL PASS for the 5 files.
+- Full vitest suite 116/116 after adding repo copies.
+- Staging /api/scenarios lists all 9 scenarios incl. the 5 new (2 flagged isCampaign).
+- Static images (24) and ambient loops (15, one per location group) generated via staging API into the shared public volume; ambientFile paths written back into the live JSONs; container restarted (public/ cache convention) and covers verified resolving for all 5.
