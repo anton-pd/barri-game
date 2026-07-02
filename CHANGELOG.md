@@ -7,6 +7,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+### Fixed
+- **Dice-roll validation now bridges Ukrainian and English skill names (ANT-183).** The Case Curator's roll requests are validated against the character sheet through a skill alias map (uk ↔ en, qualifier-aware), so a tag naming "Spot Hidden" resolves against «Помітити приховане» and vice versa; Luck and SAN rolls are now value-checked against the actual stats too. The roll prompt tells the Curator to copy skill names exactly from the player's sheet, and the "awaiting roll" hint refers to the player by name instead of a numeric index.
+
 ### Added
 - **Ukrainian localization for the waitlist intake form (ANT-182).** `/auth/register` (intake form, invite flow, and waiting-list success state) now reads `?lang=uk` and renders fully in Ukrainian instead of English-only; the real selected locale is now sent to `/api/waitlist` instead of a hardcoded `'en'`. The landing page's "Join Waitlist" links now carry the active language into the register page. (Demo Case Curator and landing-page copy were already localized to Ukrainian/Spanish in prior work — audited and confirmed still correct.)
 - **Impeccable design tooling.** Added project-local Impeccable skills/hooks for AI design review and detector-based landing-page QA.

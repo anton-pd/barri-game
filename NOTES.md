@@ -3712,3 +3712,23 @@ Anton asked for a full mismatch audit between the game engine's system prompt (p
 - textForDB vs parseSegments contract (NPC/IMAGE preserved, data tags stripped) — consistent for well-formed tags (malformed case = ANT-184).
 - supportsPendingRollTag gating of roll instructions/checklist/cheat-sheet — consistently applied in prompts.ts (except the randomEvents roll_event instruction = part of ANT-187).
 - ITEM dedupe-by-name, uses=-1 semantics, EQUIP/BREAK behavior — match the prompt text.
+
+## ANT-183: uk/en skill-name alias map for dice-roll validation — 2026-07-02
+
+### Problem
+The coc_7e dice-rules block teaches English skill names ("Spot Hidden", "Stealth") in both language variants, while character sheets exist in BOTH languages in production: live scenario rolePresets are English, but the global fallback presets in roles.ts are Ukrainian. The ANT-119 server-side [SET_PENDING_ROLL] validation matched skill names by exact case-insensitive string — any language mismatch between tag and sheet silently bypassed it and trusted the LLM's numbers.
+
+### Solution
+- New `src/lib/skillAliases.ts`: alias groups (en + uk variants per skill), qualifier-aware name matching (bare "Firearms" matches "Firearms (Handgun)", but "Language (Spanish)" never matches "Language (Catalan)"), `resolveSkillOnSheet()`, `resolveStatForRoll()` (Удача/Luck → luck, Стійкість/Sanity/Stability → sanity), and `resolveRollSkillValue()` which checks sheet skills first, then Luck/SAN stats.
+- `route.ts`: both the [SET_PENDING_ROLL] validator and the "Кинь X (1к100…)" auto-inject fallback now resolve through `resolveRollSkillValue()`. SAN/Luck rolls are now value-validated too (previously never matched — they're stats, not skills).
+- `route.ts` AWAITING ROLL block now names the player instead of "Гравець 0" (index occasionally echoed into narration). `buildKeeperActivitySection()` gained a `players` param.
+- `rulesets.ts` (prompt contract): uk trigger list now carries en + uk name pairs; both language blocks got an explicit rule — copy the skill name into the tag EXACTLY as written on that player's sheet.
+
+### Key decisions
+- Did NOT fully localize the uk ruleset block to Ukrainian names (the original issue plan) — discovered mid-task that live scenario sheets are English, so a single "sheet language" doesn't exist. The alias map at the validation boundary is the robust fix; the prompt merely nudges the model toward sheet-exact names.
+- Unknown names (scenario perks like «Нюх Пінкертона») resolve as before: keep the LLM's values.
+
+### Verification
+- 14 new unit tests in `tests/skillAliases.test.ts`; full suite 116/116 green; tsc + eslint clean.
+- Eval (`--models ds-t07 --probes roll_request`): both roll probes pass incl. the new `skill-on-sheet` required check; haunting probe emitted `Spot Hidden` with value 70 vs sheet 45 — exactly the case the new resolution corrects server-side.
+- Eval harness updated: `sheetRollRegex()` (alias-expanded sheet alternation) added to both roll_request probes, Ukrainian variants added to the four reactive-probe alternations, awaitingRollSection mirror updated to name-based.

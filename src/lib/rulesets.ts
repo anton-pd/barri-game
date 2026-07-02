@@ -80,6 +80,7 @@ Ask ONLY when the player clearly attempts something with a risk of failure:
 - Picking locks → Locksmith
 - First aid → First Aid
 - Combat → Fighting/Firearms (ALWAYS)
+The character sheet may name skills in English or Ukrainian — in the tag, use the name EXACTLY as written in that player's Skills list.
 
 ### Reactive rolls — the world acts on the player
 When a threat may notice / catch / harm the character, do NOT resolve it by narration — ask for the matching roll:
@@ -111,7 +112,7 @@ EVERY roll (skill, SAN, Luck, combat) requires a tag. Plain "Roll X" without a t
 1. Write the text: "Roll [Skill] (1d100, need X or less)"
 2. Immediately at the end of the response place the tag: [SET_PENDING_ROLL:playerIdx:Skill:value:threshold:context]
    - playerIdx: 0, 1, 2… (player index)
-   - Skill: name (e.g. Psychology)
+   - Skill: name EXACTLY as it appears in the player's Skills list (same language as the sheet)
    - value: exact skill number
    - threshold: the same number (for Regular success)
    - context: one sentence describing what this roll decides
@@ -153,16 +154,17 @@ A pushed roll is IMPOSSIBLE in combat.`;
 
 ### Коли питати кидок
 Питай ТІЛЬКИ коли гравець явно намагається щось зробити з ризиком провалу:
-- Шукає приховане → Spot Hidden
-- Прислуховується → Listen
-- Переконує/залякує NPC → Persuade/Intimidate/Fast Talk
-- Аналізує поведінку NPC → Psychology
-- Шукає в архівах → Library Use
-- Спеціальні знання → Occult/History/Medicine/Law тощо
-- Непомітні дії → Stealth
-- Злом замків → Locksmith
-- Перша допомога → First Aid
-- Бій → Fighting/Firearms (ЗАВЖДИ)
+- Шукає приховане → Spot Hidden / Помітити приховане
+- Прислуховується → Listen / Слухати
+- Переконує/залякує NPC → Persuade / Переконання, Intimidate / Залякування, Fast Talk / Швидка мова
+- Аналізує поведінку NPC → Psychology / Психологія
+- Шукає в архівах → Library Use / Бібліотека
+- Спеціальні знання → Occult / Окультизм, History / Історія, Medicine / Медицина, Law / Право тощо
+- Непомітні дії → Stealth / Скрадання
+- Злом замків → Locksmith / Злом замків
+- Перша допомога → First Aid / Перша допомога
+- Бій → Fighting / Рукопашний бій, Firearms / Вогнепальна зброя (ЗАВЖДИ)
+Аркуш персонажа може називати навички англійською або українською — у тегу вживай назву ТОЧНО так, як вона записана в списку Навички цього гравця.
 
 ### Реактивні кидки — світ діє на гравця
 Коли загроза може помітити / наздогнати / зашкодити персонажу — НЕ вирішуй це наративом, попроси відповідний кидок:
@@ -194,7 +196,7 @@ A pushed roll is IMPOSSIBLE in combat.`;
 1. Напиши текст: "Кинь [Навичка] (1к100, треба X або менше)"
 2. Одразу в кінці відповіді постав тег: [SET_PENDING_ROLL:playerIdx:Навичка:значення:поріг:контекст]
    - playerIdx: 0, 1, 2... (індекс гравця)
-   - Навичка: назва (напр. Психологія)
+   - Навичка: назва ТОЧНО як у списку Навички гравця (тією ж мовою, що на аркуші)
    - значення: точне число навички
    - поріг: те саме число (для Regular success)
    - контекст: одне речення що вирішується цим кидком
