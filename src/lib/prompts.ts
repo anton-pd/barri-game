@@ -120,22 +120,22 @@ const COPY = {
     invSpent: 'витрачений',
     invEquipped: '[В РУКАХ]',
     // static block
-    introInstruction: `Зроби розгорнуте вступне intro, щоб гравці відчули сетинг і зрозуміли, з чим мають справу. Структура (4-5 абзаців, 700-1100 символів загалом):
+    introInstruction: `Зроби компактне вступне intro, щоб гравці швидко відчули сетинг і зрозуміли, з чим мають справу. Структура (2-3 короткі абзаци, 450-700 символів видимого тексту загалом):
 
 1) Кінематографічний план: де персонажі зараз, що бачать, чують, відчувають — конкретні сенсорні деталі (запах, текстура, звук, світло).
-2) Контекст часу й місця: рік, пора року/доби, географія, настрій епохи — щоб гравець зорієнтувався в світі.
-3) Видимі персонажі / NPC / деталі середовища: хто поряд, що роблять, як поводяться. Без повного переліку — 1-2 яскравих образа.
-4) Гачок сюжету: що вже відбулось або ось-ось станеться, яка напруга/таємниця висить у повітрі. **Жирним** виділи 1-2 ключові підказки чи незвичні деталі.
-5) (Опційно) Легкий перехід до дії — натяк на те, що гравці мають вирішувати далі, БЕЗ прямого питання "що ви робите?" і БЕЗ переліку варіантів.
+2) Контекст часу й місця + 1 видима деталь або NPC. Без повного переліку — один яскравий образ.
+3) Гачок сюжету: яка напруга/таємниця висить у повітрі. **Жирним** виділи максимум 1 ключову підказку чи незвичну деталь.
 
 Не питай нічого, не перелічуй можливі дії, не відкривай короткий опис-заготовку. Видай саме готове intro.`,
     headingLang: '## МОВА\nВідповідай ТІЛЬКИ українською мовою. Всі репліки NPC, описи та підказки — виключно українською.',
     headingStyle: `## СТИЛЬ ВІДПОВІДІ
 - Відповідай ТІЛЬКИ українською.
-- Обсяг: 2–4 абзаци залежно від ситуації. Бойова сцена — коротше. Дослідження, атмосфера, NPC-діалог — повніше.
-- Перший абзац: кінематографічна сцена — що персонаж бачить, чує, відчуває. Конкретні сенсорні деталі (запах, текстура, звук).
-- **Жирним** позначай ключові підказки та незвичайні деталі, які варто запам'ятати.
-- NPC: передавай голос через дію та манеру, не лише слова: "Стара жінка стискає шаль..."
+- Видимий текст короткий: 1–2 абзаци, 350–650 символів загалом. Якщо потрібні службові теги — додай їх після короткого тексту.
+- Кожен хід має просувати сцену одним конкретним наслідком або однією новою деталлю; не розписуй все оточення заново.
+- Перший абзац: 1-2 речення про те, що персонаж бачить/чує/відчуває. Одна сенсорна деталь достатня.
+- **Жирним** позначай максимум 1 ключову підказку або незвичайну деталь.
+- NPC: передавай голос через одну коротку дію та одну коротку репліку. Не більше однієї NPC-репліки за хід, якщо сцена не вимагає більшого.
+- Для кидка: одна коротка фраза наслідку + прохання кидка + тег [SET_PENDING_ROLL].
 - Жах — через деталі та атмосферу, а не пряме оголошення.
 - НЕ перераховуй можливі дії та не питай "що ви робите далі?".`,
     hPlot: '## ЗАХИСТ СЮЖЕТУ',
@@ -274,22 +274,22 @@ uses=0 → витрачений, ігноруй при пропозиціях`,
     invBroken: 'broken',
     invSpent: 'spent',
     invEquipped: '[IN HAND]',
-    introInstruction: `Deliver an extended opening intro so players feel the setting and understand what they're dealing with. Structure (4-5 paragraphs, 700-1100 characters total):
+    introInstruction: `Deliver a compact opening intro so players quickly feel the setting and understand what they're dealing with. Structure (2-3 short paragraphs, 450-700 visible characters total):
 
 1) Cinematic shot: where the characters are right now — what they see, hear, feel. Specific sensory detail (smell, texture, sound, light).
-2) Time and place context: year, season/time of day, geography, mood of the era — enough for the player to place themselves in the world.
-3) Visible characters / NPCs / environmental detail: who is nearby, what they're doing, how they behave. Don't list everything — one or two vivid images.
-4) Plot hook: what has already happened or is about to, the tension or mystery hanging in the air. **Bold** one or two key clues or unusual details.
-5) (Optional) A light cue toward action — a hint of what the players need to decide next, WITHOUT asking "what do you do?" and WITHOUT listing options.
+2) Time/place context + one visible detail or NPC. Don't list everything — one vivid image.
+3) Plot hook: the tension or mystery hanging in the air. **Bold** at most one key clue or unusual detail.
 
 Do not ask anything, do not enumerate possible actions, do not hedge with a short draft. Deliver the finished intro.`,
     headingLang: '## LANGUAGE\nRespond ONLY in English. All NPC dialogue, descriptions, and hints must be in English.\nUse "you" (second person) for addressing players.',
     headingStyle: `## RESPONSE STYLE
 - Respond ONLY in English.
-- Length: 2–4 paragraphs depending on situation. Combat — shorter. Exploration, atmosphere, NPC dialogue — fuller.
-- First paragraph: cinematic scene — what the character sees, hears, feels. Specific sensory details (smell, texture, sound).
-- **Bold** key clues and unusual details worth remembering.
-- NPCs: convey voice through action and manner, not just words: "The old woman clutches her shawl..."
+- Keep visible text short: 1–2 paragraphs, 350–650 characters total. If system tags are needed, append them after the short text.
+- Each turn should advance the scene with one concrete consequence or one new detail; do not redescribe the whole environment.
+- First paragraph: 1-2 sentences about what the character sees/hears/feels. One sensory detail is enough.
+- **Bold** at most one key clue or unusual detail.
+- NPCs: convey voice through one short action and one short line. No more than one NPC line per turn unless the scene truly requires it.
+- For a roll: one short consequence phrase + the roll request + the [SET_PENDING_ROLL] tag.
 - Horror through detail and atmosphere, not direct announcement.
 - Do NOT list possible actions or ask "what do you do?".`,
     hPlot: '## PLOT GUARDRAILS',

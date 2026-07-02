@@ -739,10 +739,10 @@ export default function SessionList() {
                           <span className="nsm-role-option-name">{preset.name}</span>
                           <div className="nsm-role-option-stats">
                             {preset.hp !== undefined && (
-                              <span style={{ color: 'var(--blood-0)' }}>HP {preset.hp}</span>
+                              <span className="nsm-stat-hp">HP {preset.hp}</span>
                             )}
                             {preset.sanity !== undefined && (
-                              <span style={{ color: 'var(--amber-2)' }}>SAN {preset.sanity}</span>
+                              <span className="nsm-stat-san">SAN {preset.sanity}</span>
                             )}
                           </div>
                         </div>
@@ -827,10 +827,10 @@ export default function SessionList() {
                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <div className="nsm-role-stats">
                                   {d.preset.hp !== undefined && (
-                                    <span style={{ color: 'var(--blood-0)' }}>HP {d.preset.hp}</span>
+                                    <span className="nsm-stat-hp">HP {d.preset.hp}</span>
                                   )}
                                   {d.preset.sanity !== undefined && (
-                                    <span style={{ color: 'var(--amber-2)' }}>SAN {d.preset.sanity}</span>
+                                    <span className="nsm-stat-san">SAN {d.preset.sanity}</span>
                                   )}
                                 </div>
                                 <span className="nsm-role-change">змінити →</span>

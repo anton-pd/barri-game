@@ -1035,3 +1035,9 @@ Per-change detail is in the `0.4.x` entries below.
 ### Fixed
 - **Landing accessibility**: виправлено skipped heading у footer та rendered contrast/tracking issues; локальний Impeccable detector тепер повертає `0` findings для `/`.
 - **Game chat polish**: виправлено Impeccable findings у chat CSS: side-tab borders, bounce-pattern loading dots і `transition: width` на stat bars.
+
+## [0.3.22] — 2026-07-02
+
+### Fixed
+- **New case role picker**: improved contrast for investigator role cards, HP/SAN stats, and skill tags so class selection remains readable on the aged-paper modal.
+- **Keeper replies**: tightened the prompt style guide so normal turns and intros are shorter while keeping the model token cap unchanged for dialogue and protocol tags.

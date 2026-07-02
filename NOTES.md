@@ -3732,3 +3732,34 @@ The coc_7e dice-rules block teaches English skill names ("Spot Hidden", "Stealth
 - 14 new unit tests in `tests/skillAliases.test.ts`; full suite 116/116 green; tsc + eslint clean.
 - Eval (`--models ds-t07 --probes roll_request`): both roll probes pass incl. the new `skill-on-sheet` required check; haunting probe emitted `Spot Hidden` with value 70 vs sheet 45 — exactly the case the new resolution corrects server-side.
 - Eval harness updated: `sheetRollRegex()` (alias-expanded sheet alternation) added to both roll_request probes, Ukrainian variants added to the four reactive-probe alternations, awaitingRollSection mirror updated to name-based.
+
+---
+
+## New-case role picker readability — 2026-07-02
+
+### Context
+Anton flagged that the new-case role picker had very low contrast, especially role option cards and skill tags on the aged-paper modal background.
+
+### Changes
+- Increased contrast for the new-session player cards, selected-role controls, and role option cards.
+- Reworked HP/SAN stat colors into CSS classes and darkened SAN for readability.
+- Made skill tags larger, darker, and more clearly separated from the card surface.
+
+### Verification
+- `npm run lint` passes with existing `<img>` warnings only.
+
+---
+
+## Keeper response brevity prompt tuning — 2026-07-02
+
+### Context
+Anton flagged that Keeper replies are too long and text-heavy. Follow-up constraint: do not lower the token cap because longer dialogue turns and protocol tags still need headroom.
+
+### Changes
+- Tightened the Ukrainian and English response style instructions from 2-4 paragraphs to 1-2 short paragraphs / 350-650 visible characters.
+- Shortened intro guidance from 4-5 paragraphs to 2-3 short paragraphs / 450-700 visible characters.
+- Added prompt rules to advance each turn with one concrete consequence/detail, avoid redescribing the whole environment, limit bold clues to one, and keep NPC/roll turns compact.
+- Left `/api/ai` token caps unchanged (`1400` intro, `1200` normal).
+
+### Verification
+- `npm run lint` passes with existing `<img>` warnings only.
