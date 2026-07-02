@@ -18,9 +18,10 @@ import { getCampaignContext } from '@/lib/campaigns';
 import { readScenarioFile, resolveAmbientFileForLocation, resolveLocationGroupIdForLocation } from '@/lib/scenarioFiles';
 import { applyDeltaToPlayer } from '@/lib/statUtils';
 import { supportsPendingRollTag } from '@/lib/rulesets';
+import { resolveRollSkillValue } from '@/lib/skillAliases';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStreamChunk } from '@/lib/deepseekStream';
-import type { WorldState } from '@/types';
+import type { Player, WorldState } from '@/types';
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
 //   'deepseek-base' — direct api.deepseek.com. Free/trial tier: cheapest, but cold
@@ -276,22 +277,26 @@ function isPassiveMessage(message: string): boolean {
 function buildKeeperActivitySection(
   keeperStyle: 'passive' | 'balanced' | 'active',
   worldState: WorldState,
-  lang: 'uk' | 'en'
+  lang: 'uk' | 'en',
+  players: Player[]
 ): string {
   const passive = worldState.passiveMessageCount ?? 0;
   const hasPendingRoll = !!worldState.pendingRollResult;
 
   if (hasPendingRoll) {
     const pending = worldState.pendingRollResult!;
+    // ANT-183: refer to the player by name — a bare index reads as jargon and
+    // the model occasionally echoed "Гравець 0" into the narration.
+    const pendingName = players[pending.characterIdx]?.name ?? `#${pending.characterIdx}`;
     if (lang === 'en') {
       return `\n\n## AWAITING ROLL
-Player ${pending.characterIdx} has not reported the result of the "${pending.skillName}" roll yet.
+Player ${pendingName} has not reported the result of the "${pending.skillName}" roll yet.
 If the message contains a number — that is the roll result.
 Compare with threshold ${pending.goodThreshold}: ≤ threshold → success, > threshold → failure.
 After the result — clear it with [CLEAR_PENDING_ROLL].`;
     }
     return `\n\n## ОЧІКУВАНИЙ КИДОК
-Гравець ${pending.characterIdx} ще не повідомив результат кидка "${pending.skillName}".
+Гравець ${pendingName} ще не повідомив результат кидка "${pending.skillName}".
 Якщо повідомлення містить число — це результат кидка.
 Порів з порогом ${pending.goodThreshold}: ≤ поріг → успіх, > поріг → провал.
 Після результату — очисти через [CLEAR_PENDING_ROLL].`;
@@ -431,7 +436,7 @@ export async function POST(request: Request) {
   worldState = applyEventDecision(worldState, eventDecision, currentLocation, scenario);
 
   const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
-  const activitySection = buildKeeperActivitySection(keeperStyle, worldState, sessionLang);
+  const activitySection = buildKeeperActivitySection(keeperStyle, worldState, sessionLang, session.players);
   const imageRequestInstruction = !isIntro && isExplicitImageRequest(message)
     ? (sessionLang === 'en'
         ? 'The player explicitly asks to SEE something. In this response you MUST add exactly one [IMAGE:type:short English description] tag for the most relevant object or scene they ask to see. Pick the type meaningfully: map / letter / photo / artifact / scene / newspaper. The description in the tag must be short, specific, and in English.'
@@ -553,17 +558,21 @@ export async function POST(request: Request) {
             if (!allowPendingRoll) return '';
             // ANT-119: validate tag values against real player data instead of
             // trusting the LLM blindly (the fallback path below already did).
+            // ANT-183: resolution goes through the skill alias map (uk ↔ en
+            // sheet names) and falls through to Luck/SAN stats — an exact-name
+            // lookup silently skipped validation whenever the tag language
+            // differed from the sheet language.
             const rawIdx = Number(idx);
             const characterIdx = session.players[rawIdx] ? rawIdx : playerIdx;
             const trimmedSkill = String(skillName).trim();
             const tagValue = Number(skillValue);
             let goodThreshold = Number(threshold);
             let resolvedValue = tagValue;
-            const skillEntry = Object.entries(session.players[characterIdx]?.skills ?? {}).find(
-              ([k]) => k.toLowerCase() === trimmedSkill.toLowerCase()
-            );
-            if (skillEntry) {
-              resolvedValue = skillEntry[1];
+            const rollTarget = session.players[characterIdx]
+              ? resolveRollSkillValue(session.players[characterIdx], scenario.rulesetId, trimmedSkill)
+              : null;
+            if (rollTarget) {
+              resolvedValue = rollTarget.value;
               // The prompt instructs threshold = skill value for a Regular
               // success; if the LLM followed that but used a wrong number,
               // correct both. An intentionally different threshold is kept.
@@ -615,14 +624,12 @@ export async function POST(request: Request) {
           if (rollTextMatch) {
             const skillNameRaw = rollTextMatch[1].trim();
             const threshold = Number(rollTextMatch[2]);
-            // Match skill to player's actual value; fallback to threshold
+            // Match skill to player's actual value (alias-aware, ANT-183);
+            // fallback to the threshold the model wrote in the text.
             const player = session.players[playerIdx] ?? session.players[0];
-            const skillValue =
-              player?.skills
-                ? (Object.entries(player.skills).find(
-                    ([k]) => k.toLowerCase() === skillNameRaw.toLowerCase()
-                  )?.[1] ?? threshold)
-                : threshold;
+            const skillValue = player
+              ? (resolveRollSkillValue(player, scenario.rulesetId, skillNameRaw)?.value ?? threshold)
+              : threshold;
             updatedWorldState = {
               ...updatedWorldState,
               pendingRollResult: {

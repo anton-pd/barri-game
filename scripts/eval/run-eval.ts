@@ -18,6 +18,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import { buildSystemPromptBlocks } from '@/lib/prompts';
+import { skillAliasNames } from '@/lib/skillAliases';
 import type { Player, Scenario, WorldState } from '@/types';
 
 // ── Config ───────────────────────────────────────────────────────────────────
@@ -109,13 +110,34 @@ interface Probe {
 const IMAGE_INSTRUCTION_UK =
   'Гравець прямо просить щось ПОКАЗАТИ. У цій відповіді ОБОВʼЯЗКОВО додай рівно один тег [IMAGE:type:short English description] для найрелевантнішого обʼєкта або сцени, яку він просить побачити. Обирай type змістовно: map / letter / photo / artifact / scene / newspaper. Опис у тегі має бути коротким, конкретним і англійською.';
 
-function awaitingRollSection(idx: number, skill: string, threshold: number): string {
-  // Mirrors buildKeeperActivitySection() pending-roll branch in route.ts.
+function awaitingRollSection(playerName: string, skill: string, threshold: number): string {
+  // Mirrors buildKeeperActivitySection() pending-roll branch in route.ts (ANT-183: by name).
   return `\n\n## ОЧІКУВАНИЙ КИДОК
-Гравець ${idx} ще не повідомив результат кидка "${skill}".
+Гравець ${playerName} ще не повідомив результат кидка "${skill}".
 Якщо повідомлення містить число — це результат кидка.
 Порівняй з порогом ${threshold}: ≤ поріг → успіх, > поріг → провал.
 Після результату — зніми його тегом [CLEAR_PENDING_ROLL].`;
+}
+
+// ANT-183: a roll tag must name a skill the character can actually roll —
+// anything resolvable on the fixture sheet via the alias map (uk ↔ en),
+// or a Luck/SAN stat roll. Skill names copied from the fixture files.
+const SHEET_HAUNTING = ['Law', 'Listen', 'Handgun', 'Stealth', 'Persuade', 'First Aid', 'Psychology', 'Library Use', 'Spot Hidden'];
+const SHEET_TELEGRAM = ['Listen', 'Science', 'Stealth', 'Persuade', 'Psychology', 'Library Use', 'Spot Hidden', 'Electrical Repair', 'Mechanical Repair'];
+
+function escapeRx(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function sheetRollRegex(sheetSkills: string[]): RegExp {
+  const variants = new Set<string>();
+  for (const name of [...sheetSkills, 'Luck', 'Удача', 'Sanity', 'Стійкість']) {
+    for (const v of skillAliasNames(name)) variants.add(v);
+  }
+  return new RegExp(
+    `\\[SET_PENDING_ROLL:\\d+:\\s*(?:${[...variants].map(escapeRx).join('|')})\\s*:`,
+    'i'
+  );
 }
 
 const RX = {
@@ -135,8 +157,8 @@ function buildProbes(): Probe[] {
       sessionPrefix: 'ef137c56',
       playerIdx: 0,
       message: 'Я обережно обшукую ґанок і двері — шукаю сліди злому чи приховані позначки.',
-      requiredTags: [RX.setPendingRoll],
-      requiredLabels: ['SET_PENDING_ROLL'],
+      requiredTags: [RX.setPendingRoll, sheetRollRegex(SHEET_HAUNTING)],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill-on-sheet'],
       forbiddenTags: [RX.image],
       forbiddenLabels: ['IMAGE'],
     },
@@ -165,7 +187,7 @@ function buildProbes(): Probe[] {
           context: 'Прислухатися до звуків усередині будинку',
         },
       },
-      keeperActivitySection: awaitingRollSection(0, 'Listen', 60),
+      keeperActivitySection: awaitingRollSection('Клод', 'Listen', 60),
       requiredTags: [RX.clearPendingRoll],
       requiredLabels: ['CLEAR_PENDING_ROLL'],
       forbiddenTags: [RX.setPendingRoll],
@@ -206,8 +228,8 @@ function buildProbes(): Probe[] {
       sessionPrefix: '1ec276ae',
       playerIdx: 0,
       message: 'Я уважно оглядаю телеграфний апарат — шукаю сліди стороннього втручання в механізм.',
-      requiredTags: [RX.setPendingRoll],
-      requiredLabels: ['SET_PENDING_ROLL'],
+      requiredTags: [RX.setPendingRoll, sheetRollRegex(SHEET_TELEGRAM)],
+      requiredLabels: ['SET_PENDING_ROLL', 'skill-on-sheet'],
       forbiddenTags: [RX.image],
       forbiddenLabels: ['IMAGE'],
     },
@@ -235,7 +257,7 @@ function buildProbes(): Probe[] {
         'Зсередини будинку чути важкі кроки — хтось іде до вхідних дверей. Я пірнаю за живопліт біля ґанку і завмираю, намагаючись не виказати себе.',
       // Listen accepted: the probe message itself centres on heard footsteps.
       // Удача = Ukrainian Luck; prod keeps unknown sheet names as-is (ANT-119).
-      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Stealth|Listen|Luck|Удача)\b/i],
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Stealth|Скрадання|Listen|Слухати|Luck|Удача)\b/i],
       requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Stealth,Listen,Luck}'],
       forbiddenTags: [RX.image, RX.delta],
       forbiddenLabels: ['IMAGE', 'DELTA'],
@@ -246,7 +268,7 @@ function buildProbes(): Probe[] {
       playerIdx: 0,
       message:
         'Я заходжу в передпокій і ступаю на сходи. Прогнилі дошки тріщать піді мною, сходинка провалюється — я намагаюся відскочити вбік.',
-      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Jump|Luck|Удача)\b/i],
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Ухилення|Jump|Стрибки|Luck|Удача)\b/i],
       requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Dodge,Jump,Luck}'],
       forbiddenTags: [RX.image, RX.delta],
       forbiddenLabels: ['IMAGE', 'DELTA'],
@@ -257,7 +279,7 @@ function buildProbes(): Probe[] {
       playerIdx: 0,
       message:
         'Сабо оговтується, вискакує з лавки слідом за мною і кидається навздогін. Я тікаю вузькою вулицею в бік станції, петляючи між ящиками.',
-      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Stealth|Luck|Удача)\b/i],
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Dodge|Ухилення|Stealth|Скрадання|Luck|Удача)\b/i],
       requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Dodge,Stealth,Luck}'],
       forbiddenTags: [RX.image, RX.delta],
       forbiddenLabels: ['IMAGE', 'DELTA'],
@@ -268,7 +290,7 @@ function buildProbes(): Probe[] {
       playerIdx: 0,
       message:
         'Я повертаюся до Сабо, дивлюся йому просто в очі і брешу: «За тими дверима я нічого не бачила. Мене цікавить лише телеграфний апарат, нічого більше».',
-      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Persuade|Fast Talk|Charm|Psychology|Luck|Удача)\b/i],
+      requiredTags: [RX.setPendingRoll, /\[SET_PENDING_ROLL:\d+:(?:Persuade|Переконання|Fast Talk|Швидка мова|Charm|Чарівність|Psychology|Психологія|Luck|Удача)\b/i],
       requiredLabels: ['SET_PENDING_ROLL', 'skill∈{Persuade,Fast Talk,Charm,Psychology,Luck}'],
       forbiddenTags: [RX.image, RX.delta],
       forbiddenLabels: ['IMAGE', 'DELTA'],
