@@ -3694,3 +3694,21 @@ Only touched the actual gap:
   - `next dev`'s HMR websocket fails against this headless Chrome and silently reloads the page shortly after mount, which looked like "language switching doesn't work" until re-tested against a production build — not an app bug, a local dev-server/test-harness artifact worth remembering for future UI verification here.
   - `/auth/register?lang=uk` renders full Ukrainian copy (stamp, bureau line, title, subtitle, note, consent, submit button, footer link) matching Anton's requested strings; `?lang=en` (and default, no param) unchanged.
   - Landing page: switching to `УК` updates `.enter-btn` href to `/auth/register?lang=uk`.
+
+## Audit: system prompt vs engine capabilities (pre-global-launch) — 2026-07-02
+
+### Problem
+Anton asked for a full mismatch audit between the game engine's system prompt (prompts.ts, rulesets.ts, randomEvents.ts instructions) and what the engine actually parses/enforces (route.ts, inventoryTags.ts, segments.ts, casePlanTags.ts, eventTags.ts, completionTags.ts, statUtils.ts), ahead of Friday's global launch. Audit only — no code changed.
+
+### Findings → Linear issues (all in AI Improvements, assigned to Claude, with «Рекомендована модель»)
+- **ANT-183** (Bug, High): coc_7e ruleset block teaches English skill names (Spot Hidden, Stealth…) in both uk/en variants while character sheets in roles.ts are Ukrainian («Помітити приховане»…) — the ANT-119 SET_PENDING_ROLL value validation matches by exact name and is silently bypassed for most rolls. Plan: skill alias map + localize ruleset skill names + eval probe.
+- **ANT-184** (Bug, High): only well-formed tags are stripped before DB save; malformed tags (missing field, unclosed bracket) leak into chat text and TTS. Plan: catch-all sanitizer for known tag names after structured parsing + compliance warn + tests.
+- **ANT-185** (Bug, High): /api/ai trusts body.aiProvider from the client instead of the documented global app_settings.ai_provider — any user can force the paid deepseek-pro/OpenRouter tier. Plan: resolve tier server-side from settings (already fetched for the access gate).
+- **ANT-186** (Bug, Medium): route.ts:903 `scenario.locations.find(...)` unguarded — scenario without static locations + a location move ⇒ TypeError in the SSE stream, player loses the turn.
+- **ANT-187** (Improvement, Medium, latent — all live scenarios are coc_7e): dnd_5e ships "[Ruleset rules placeholder]" as its dice rules; kids_on_bikes prompt promises Adversity Tokens/injury tracking the engine doesn't track; cheat-sheet DELTA example hardcodes "hp" for every ruleset; roll_event random-event instruction isn't gated by supportsPendingRollTag. Decision at plan gate: gate non-CoC rulesets out for launch (variant A) vs implement fully (variant B).
+
+### Non-findings worth recording (checked, consistent)
+- Tag protocol in PROJECT_CONTEXT vs parser: all documented tags are parsed; [RANDOM_EVENT:] is intentionally absent from the static cheat sheet (injected only when the server fires an event).
+- textForDB vs parseSegments contract (NPC/IMAGE preserved, data tags stripped) — consistent for well-formed tags (malformed case = ANT-184).
+- supportsPendingRollTag gating of roll instructions/checklist/cheat-sheet — consistently applied in prompts.ts (except the randomEvents roll_event instruction = part of ANT-187).
+- ITEM dedupe-by-name, uses=-1 semantics, EQUIP/BREAK behavior — match the prompt text.
