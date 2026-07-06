@@ -92,7 +92,7 @@ async function generateImage(prompt: string, type: string): Promise<Buffer> {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
-    const res = await fetch(url, { headers: { 'User-Agent': 'cthulhu-game/1.0' } });
+    const res = await fetch(url, { headers: { 'User-Agent': 'barri-game/1.0' } });
     const buf = Buffer.from(await res.arrayBuffer());
     if (isValidJpeg(buf)) return buf;
     console.warn(`Pollinations attempt ${attempt + 1} returned non-JPEG (${buf.length}b), retrying...`);

@@ -6,7 +6,7 @@ import type { RulesetConfig } from '@/types';
 export const RULESETS: Record<string, RulesetConfig> = {
   coc_7e: {
     id: 'coc_7e',
-    name: 'Call of Cthulhu 7th Edition',
+    name: 'Classic 1920s Investigative Horror (d100)',
     diceType: 'percentile',
     stats: [
       { id: 'hp',     label: 'HP',   color: '#e05555', hasMax: true,  defaultValue: 10 },
@@ -66,7 +66,7 @@ type Lang = 'uk' | 'en';
 export function buildRulesetPromptBlock(rulesetId: string, lang: Lang = 'uk'): string {
   if (rulesetId === 'coc_7e') {
     if (lang === 'en') {
-      return `## DICE RULES (Call of Cthulhu 7e)
+      return `## DICE RULES (classic d100 roll-under)
 
 ### When to ask for a roll
 Ask ONLY when the player clearly attempts something with a risk of failure:
@@ -150,7 +150,7 @@ On failure → [DELTA] with Luck spend.
 On failure (not a fumble): "You can try again — but if you fail, [consequences]."
 A pushed roll is IMPOSSIBLE in combat.`;
     }
-    return `## ПРАВИЛА КУБИКІВ (Call of Cthulhu 7e)
+    return `## ПРАВИЛА КУБИКІВ (класична d100 roll-under система)
 
 ### Коли питати кидок
 Питай ТІЛЬКИ коли гравець явно намагається щось зробити з ризиком провалу:

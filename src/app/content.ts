@@ -200,7 +200,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri Bureau of Unspeakable Affairs",
       credit2: "No known investigators were harmed in the filing of this dossier.",
-      disclaimer: "Independent fan-built tool. Not affiliated with Chaosium or Call of Cthulhu.",
+      disclaimer: "An independent, original work of interactive horror fiction. Not affiliated with any tabletop RPG publisher.",
     },
   },
 
@@ -404,7 +404,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri — Бюро невимовних справ",
       credit2: "Жоден слідчий офіційно не постраждав під час складання цього досьє.",
-      disclaimer: "Незалежний фанатський інструмент. Не пов'язаний з Chaosium або Call of Cthulhu.",
+      disclaimer: "Незалежний оригінальний твір інтерактивного жаху. Не пов'язаний із жодним видавцем настільних рольових ігор.",
     },
   },
 
@@ -608,7 +608,7 @@ export const CONTENT = {
     footer: {
       credit1: "© 1929 – 2026 · Barri — Buró de Asuntos Indecibles",
       credit2: "Ningún investigador conocido resultó herido durante la elaboración de este expediente.",
-      disclaimer: "Herramienta fan independiente. No afiliada a Chaosium ni a Call of Cthulhu.",
+      disclaimer: "Obra original e independiente de ficción interactiva de terror. No afiliada a ninguna editorial de juegos de rol.",
     },
   },
 } as const;

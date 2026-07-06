@@ -92,8 +92,10 @@ export default function TermsPage() {
           allowed by these Terms.
         </p>
         <p>
-          Barri is an independent fan-built tool and is not affiliated with,
-          endorsed by, or sponsored by Chaosium or Call of Cthulhu.
+          Barri is an independent, original work of interactive fiction. All
+          scenarios, characters, and game materials are original creations.
+          Barri is not affiliated with, endorsed by, or sponsored by any
+          tabletop role-playing game publisher.
         </p>
 
         <h2 className="legal-h2">8. Third-party services</h2>

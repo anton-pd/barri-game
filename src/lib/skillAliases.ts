@@ -46,7 +46,7 @@ const ALIAS_GROUPS: string[][] = [
   ['Swim', 'Плавання'],
   ['Survival', 'Виживання'],
   ['Photography', 'Фотографія'],
-  ['Cthulhu Mythos', 'Міфи Ктулху'],
+  ['Forbidden Lore', 'Заборонені знання', 'Cthulhu Mythos', 'Міфи Ктулху'],
 ];
 
 // SAN and Luck rolls target stats, not sheet skills — the ruleset block asks
