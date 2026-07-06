@@ -353,7 +353,8 @@ export async function initializeSchema() {
       ('ai_provider',             'deepseek-base'),
       ('tts_provider',            'gemini'),
       ('daily_limit_enabled',     'true'),
-      ('daily_user_cost_limit_usd','0.50')
+      ('daily_user_cost_limit_usd','0.50'),
+      ('registration_mode',        'open')
     ON CONFLICT (key) DO NOTHING
   `;
 }
@@ -689,6 +690,44 @@ export async function createUserFromWaitlistInvite(
     `;
 
     return users[0] as unknown as User;
+  });
+}
+
+// ANT-190: self-serve registration (registration_mode = 'open'). Creates an
+// unverified but access-approved user; login still requires email verification,
+// so the caller must send the verification email with the returned token.
+export async function createSelfServeUser(
+  email: string,
+  passwordHash: string
+): Promise<{ user: User; verifyToken: string } | null> {
+  const verifyToken = crypto.randomBytes(32).toString('hex');
+  return sql.begin(async (tx) => {
+    const existing = await tx`
+      SELECT id FROM users WHERE lower(email) = lower(${email})
+    `;
+    if (existing[0]) return null;
+
+    const users = await tx`
+      INSERT INTO users (
+        email,
+        password_hash,
+        role,
+        email_verified,
+        access_status,
+        verify_token,
+        verify_expires
+      ) VALUES (
+        ${email},
+        ${passwordHash},
+        'user',
+        false,
+        'approved',
+        ${verifyToken},
+        NOW() + INTERVAL '24 hours'
+      )
+      RETURNING id, email, role, email_verified, access_status, created_at, updated_at
+    `;
+    return { user: users[0] as unknown as User, verifyToken };
   });
 }
 
