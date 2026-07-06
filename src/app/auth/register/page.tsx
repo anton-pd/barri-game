@@ -18,11 +18,17 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  // ANT-190: 'verify' = self-serve account created, confirmation email sent;
+  // 'waitlist' = the legacy intake outcome.
+  const [successMode, setSuccessMode] = useState<'waitlist' | 'verify'>('waitlist');
+  // ANT-190: which intake the server is running. null = still asking.
+  const [openMode, setOpenMode] = useState<boolean | null>(null);
   // ANT-156: explicit consent to Terms + Privacy is required before we store
   // the email. Submit stays disabled until the box is checked.
   const [consent, setConsent] = useState(false);
 
   const t = REGISTER_COPY[lang];
+  const sc = successMode === 'verify' ? t.verify : t.success;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -30,7 +36,13 @@ export default function RegisterPage() {
     if (queryLang === 'uk') setLang('uk');
 
     const token = params.get('invite')?.trim() ?? '';
-    if (!token) return;
+    if (!token) {
+      fetch('/api/auth/register')
+        .then((res) => res.json())
+        .then((data) => setOpenMode(Boolean(data.open)))
+        .catch(() => setOpenMode(false));
+      return;
+    }
 
     setInviteToken(token);
     setInviteLoading(true);
@@ -58,8 +70,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (inviteToken) {
-      if (inviteAccountExists) {
+    if (inviteToken || openMode) {
+      if (inviteToken && inviteAccountExists) {
         setError(t.errors.emailExists);
         return;
       }
@@ -90,6 +102,26 @@ export default function RegisterPage() {
         const data = await res.json();
         if (res.ok) {
           router.replace('/sessions');
+        } else {
+          setError(data.message || data.error || t.errors.createAccountFailed);
+        }
+        return;
+      }
+
+      // ANT-190: self-serve account creation when registration is open.
+      if (openMode) {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, locale: lang }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          setSuccessMode('verify');
+          setSuccess(true);
+        } else if (data.error === 'account_exists') {
+          setError(t.errors.emailExists);
         } else {
           setError(data.message || data.error || t.errors.createAccountFailed);
         }
@@ -235,30 +267,114 @@ export default function RegisterPage() {
         ) : success ? (
           <>
             <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(8deg)' }}>
-              {t.success.stamp}
-              <small>{t.success.stampSmall}</small>
+              {sc.stamp}
+              <small>{sc.stampSmall}</small>
             </div>
 
             <div className="auth-card-hdr">
               <div className="auth-bureau-line">{t.bureauLine}</div>
-              <h2>{t.success.title}</h2>
-              <p>{t.success.subtitle}</p>
+              <h2>{sc.title}</h2>
+              <p>{sc.subtitle}</p>
             </div>
 
             <div className="auth-success">
               <span className="auth-success-glyph">✉</span>
-              <h2>{t.success.title2}</h2>
+              <h2>{sc.title2}</h2>
               <p>
-                {t.success.bodyPrefix}
+                {sc.bodyPrefix}
                 <span className="auth-success-email">{email}</span>.
               </p>
               <p className="auth-waitlist-note">
-                {t.success.noteBefore}
-                <strong>{t.success.noteStrong}</strong>
-                {t.success.noteAfter}
+                {sc.noteBefore}
+                <strong>{sc.noteStrong}</strong>
+                {sc.noteAfter}
               </p>
-              <div className="auth-success-stamp">{t.success.stamp2}</div>
+              <div className="auth-success-stamp">{sc.stamp2}</div>
             </div>
+
+            <div className="auth-foot">
+              {t.footPrefix}{' '}
+              <Link href="/auth/login">{t.footLink}</Link>
+            </div>
+          </>
+        ) : openMode === null ? (
+          <div className="auth-success">
+            <span className="auth-success-glyph">…</span>
+          </div>
+        ) : openMode ? (
+          <>
+            <div className="auth-stamp" style={{ top: 22, right: -6, transform: 'rotate(10deg)' }}>
+              {t.open.stamp}
+              <small>{t.open.stampSmall}</small>
+            </div>
+
+            <div className="auth-card-hdr">
+              <div className="auth-bureau-line">{t.bureauLine}</div>
+              <h2>{t.open.title}</h2>
+              <p>{t.open.subtitle}</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="auth-form">
+              <div className="auth-field">
+                <label>{t.investigatorId}</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="email"
+                  placeholder="investigator@example.com"
+                />
+              </div>
+
+              <div className="auth-field">
+                <label>{t.invite.clearanceCode}</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder={t.invite.passwordPlaceholder}
+                />
+              </div>
+
+              <div className="auth-field">
+                <label>{t.invite.repeatClearanceCode}</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder={t.invite.confirmPasswordPlaceholder}
+                />
+              </div>
+
+              <label className="auth-consent">
+                <input
+                  type="checkbox"
+                  checked={consent}
+                  onChange={(e) => setConsent(e.target.checked)}
+                />
+                <span>
+                  {t.consent.prefix}
+                  <Link href="/terms" target="_blank">{t.consent.terms}</Link>
+                  {t.consent.mid}
+                  <Link href="/privacy" target="_blank">{t.consent.privacy}</Link>
+                  {t.consent.suffix}
+                </span>
+              </label>
+
+              {error && <div className="auth-error">{error}</div>}
+
+              <button type="submit" disabled={loading || !consent} className="auth-submit">
+                <span>{loading ? t.open.submitLoading : t.open.submit}</span>
+                <span>→</span>
+              </button>
+            </form>
 
             <div className="auth-foot">
               {t.footPrefix}{' '}
@@ -372,6 +488,26 @@ const REGISTER_COPY = {
       noteAfter: ". We'll summon you when the next table opens.",
       stamp2: 'Waiting List',
     },
+    open: {
+      stamp: 'Enlist',
+      stampSmall: 'Open Intake',
+      title: 'Create Your Account',
+      subtitle: 'The Bureau is recruiting. Investigator credentials are issued on the spot.',
+      submitLoading: 'Creating account...',
+      submit: 'Create Account',
+    },
+    verify: {
+      stamp: 'Issued',
+      stampSmall: 'Credentials',
+      title: 'Account Created',
+      subtitle: 'One seal is still missing.',
+      title2: 'Confirm your address',
+      bodyPrefix: 'A verification letter is on its way to ',
+      noteBefore: 'Open the letter and ',
+      noteStrong: 'confirm your email',
+      noteAfter: ' — then sign in and open your first case.',
+      stamp2: 'Verification Pending',
+    },
     form: {
       stamp: 'Intake Form',
       stampSmall: 'New Recruit',
@@ -435,6 +571,26 @@ const REGISTER_COPY = {
       noteStrong: 'невеликими групами',
       noteAfter: '. Ми викличемо вас, щойно відкриється наступний стіл.',
       stamp2: 'Список очікування',
+    },
+    open: {
+      stamp: 'Набір',
+      stampSmall: 'Відкрито',
+      title: 'Створити обліковий запис',
+      subtitle: 'Бюро веде набір. Посвідчення слідчого видаємо одразу.',
+      submitLoading: 'Створення облікового запису...',
+      submit: 'Створити обліковий запис',
+    },
+    verify: {
+      stamp: 'Видано',
+      stampSmall: 'Посвідчення',
+      title: 'Обліковий запис створено',
+      subtitle: 'Бракує однієї печатки.',
+      title2: 'Підтвердіть адресу',
+      bodyPrefix: 'Лист із підтвердженням вже летить на ',
+      noteBefore: 'Відкрийте лист і ',
+      noteStrong: 'підтвердьте email',
+      noteAfter: ' — після цього увійдіть і відкривайте першу справу.',
+      stamp2: 'Очікує підтвердження',
     },
     form: {
       stamp: 'Форма Допуску',

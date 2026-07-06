@@ -3829,3 +3829,21 @@ Engineering enablers filed in AI Improvements: ANT-189 (trademark scrub, blocker
 ### Verification
 - grep sweep over src/, live shared_data scenarios, LAUNCH_METADATA.md, launch-assets: no user-visible "Cthulhu/Chaosium/7th Edition" remain (email quote excepted).
 - vitest 116/116, tsc clean, eslint clean.
+
+---
+
+## ANT-190: self-serve signup behind registration_mode flag — 2026-07-03
+
+### Problem
+Full game access was invite-gated (ANT-180 waitlist) with 1 entry in the list — pure friction between a converted demo player and their first session (RELEASE_STRATEGY.md Phase 0 #1).
+
+### Changes
+- app_settings `registration_mode` seeded 'open' (default = launch mode); admin toggle added to Case Curator Settings (Open ↔ Waitlist).
+- queries.ts: `createSelfServeUser()` — creates user with access_status='approved', email_verified=false + 24h verify token (login already requires verified email, so verification is the only gate left; daily cost cap unchanged).
+- /api/auth/register: GET without invite now reports `{ open }` for the client; POST without inviteToken runs the self-serve path (email+password validation, 409 on existing, sends verification email, NO auth cookie — user verifies then logs in). Invite path unchanged.
+- Register page: mode detection on mount; open mode renders a full create-account form (email+password+confirm+consent); new 'verify' success screen (en/uk); waitlist flow intact behind the flag.
+- 🔒 Security fix in passing: /api/admin/settings and /api/admin/pricing had NO auth — anyone could flip engine tier, cost caps, or the new registration_mode. Both now require an admin session (same guard pattern as the other admin routes).
+
+### Verification
+- tsc + eslint clean, vitest suite green.
+- Staging (post-deploy): GET /api/auth/register → {"open":true}; unauthenticated PATCH /api/admin/settings → 403; self-serve POST creates an unverified approved user and sends the verification letter.

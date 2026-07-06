@@ -20,6 +20,7 @@ export default function KeeperSettings() {
   const [ttsProvider,        setTtsProvider]        = useState<string>('gemini');
   const [dailyLimitEnabled,  setDailyLimitEnabled]  = useState<boolean>(true);
   const [dailyLimitUsd,      setDailyLimitUsd]      = useState<string>('0.50');
+  const [registrationMode,   setRegistrationMode]   = useState<string>('open');
   const [saving, setSaving] = useState<string | null>(null);
   const [saved,  setSaved]  = useState<string | null>(null);
 
@@ -33,6 +34,7 @@ export default function KeeperSettings() {
         if (data.tts_provider) setTtsProvider(data.tts_provider);
         setDailyLimitEnabled(data.daily_limit_enabled !== 'false');
         if (data.daily_user_cost_limit_usd) setDailyLimitUsd(data.daily_user_cost_limit_usd);
+        setRegistrationMode(data.registration_mode === 'waitlist' ? 'waitlist' : 'open');
       });
   }, []);
 
@@ -143,6 +145,36 @@ export default function KeeperSettings() {
             {(saved === 'daily_limit_enabled' || saved === 'daily_user_cost_limit_usd') && (
               <span className="text-xs text-emerald-500 self-center">Saved</span>
             )}
+          </div>
+        </div>
+
+        {/* Registration mode (ANT-190) */}
+        <div className="border-t border-stone-800 pt-5">
+          <p className="text-xs text-stone-500 uppercase tracking-wide mb-1">Registration</p>
+          <p className="text-xs text-stone-600 mb-3">
+            Open = self-serve signup with email verification (launch mode).
+            Waitlist = invite-only intake (ANT-180 flow). Daily cost cap applies either way.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              { value: 'open',     label: 'Open',     note: 'Self-serve signup · instant access' },
+              { value: 'waitlist', label: 'Waitlist', note: 'Invite-only · admin opens access' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => { setRegistrationMode(opt.value); save('registration_mode', opt.value); }}
+                disabled={saving === 'registration_mode'}
+                className={`flex flex-col items-start px-3.5 py-2.5 border transition-colors text-sm ${
+                  registrationMode === opt.value
+                    ? 'bg-amber-800/60 border-amber-700 text-amber-200'
+                    : 'bg-stone-800 border-stone-700 text-stone-400 hover:border-stone-600 hover:text-stone-300'
+                }`}
+              >
+                <span className="font-medium">{opt.label}</span>
+                <span className="text-[11px] text-stone-500 mt-0.5">{opt.note}</span>
+              </button>
+            ))}
+            {saved === 'registration_mode' && <span className="text-xs text-emerald-500 self-center">Saved</span>}
           </div>
         </div>
 
