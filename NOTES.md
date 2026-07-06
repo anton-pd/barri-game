@@ -3790,3 +3790,20 @@ Anton requested 5 new scenarios for the Ukrainian market (3 one-shots + 2 campai
 - Full vitest suite 116/116 after adding repo copies.
 - Staging /api/scenarios lists all 9 scenarios incl. the 5 new (2 flagged isCampaign).
 - Static images (24) and ambient loops (15, one per location group) generated via staging API into the shared public volume; ambientFile paths written back into the live JSONs; container restarted (public/ cache convention) and covers verified resolving for all 5.
+
+---
+
+## Release strategy: 0 → 100 recurring users — 2026-07-03
+
+### Context
+Anton asked for a detailed release strategy and a plan to reach the first 100 recurring users. Written as RELEASE_STRATEGY.md (repo root), grounded in prod data: 3 users, 1 active session/30d, 1 waitlist entry, ~$0.07 per played session — a 0→1 audience-building problem, not a floodgate release.
+
+### Key strategy decisions (see RELEASE_STRATEGY.md)
+- Recurring := ≥3 played sessions across ≥2 weeks in trailing 30d. Funnel math: 100 recurring ← ~330 activated ← ~660 signups ← ~10k targeted visitors over 6-8 weeks.
+- Wedge: GM-less players (solo + groups), slow-burn investigative horror, Ukrainian-first identity. UA launch first (DOU story, TG/Discord communities, UA actual-play creators), then global EN (PH + Show HN + r/solo_roleplaying + itch).
+- 🚨 Launch blocker flagged: "Call of Cthulhu" is a Chaosium trademark — scrub from user-visible copy before PH (ANT-189).
+- Retention engine: campaigns as the retention product, weekly Friday scenario drops, recap share cards, party invites as referral loop, reminder emails.
+- No paid ads in this phase; free tier stays generous (100 recurring ≈ $60/mo API).
+
+### Linear
+Engineering enablers filed in AI Improvements: ANT-189 (trademark scrub, blocker), ANT-190 (self-serve signup), ANT-191 (funnel analytics), ANT-192 (EN scenario translations), ANT-193 (campaign reminder email), ANT-194 (recap share card), ANT-195 (next-case hook). Marketing/community actions stay with Anton.
