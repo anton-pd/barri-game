@@ -218,7 +218,7 @@ async function handlePollinations(prompt: string, cacheKey?: string): Promise<Re
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
-    const res = await fetch(url, { headers: { 'User-Agent': 'cthulhu-game/1.0' } });
+    const res = await fetch(url, { headers: { 'User-Agent': 'barri-game/1.0' } });
     const buf = Buffer.from(await res.arrayBuffer());
     const isJpeg = buf[0] === JPEG_MAGIC[0] && buf[1] === JPEG_MAGIC[1] && buf[2] === JPEG_MAGIC[2];
     if (isJpeg) {

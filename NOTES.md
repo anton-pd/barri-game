@@ -3807,3 +3807,25 @@ Anton asked for a detailed release strategy and a plan to reach the first 100 re
 
 ### Linear
 Engineering enablers filed in AI Improvements: ANT-189 (trademark scrub, blocker), ANT-190 (self-serve signup), ANT-191 (funnel analytics), ANT-192 (EN scenario translations), ANT-193 (campaign reminder email), ANT-194 (recap share card), ANT-195 (next-case hook). Marketing/community actions stay with Anton.
+
+---
+
+## ANT-189: trademark scrub — «Call of Cthulhu» out of user-visible copy — 2026-07-03
+
+### Problem
+"Call of Cthulhu" is a Chaosium trademark; with global PH visibility (and future paid tiers) the brand references were a C&D risk (RELEASE_STRATEGY.md §4).
+
+### Changes
+- rulesets.ts: display name → "Classic 1920s Investigative Horror (d100)"; both dice-rules prompt headers → "classic d100 roll-under" (uk/en) — prevents the model echoing the brand to players.
+- demoScenario.ts + scenarioGenerator.ts prompts: "Call of Cthulhu" → genre phrasing.
+- content.ts disclaimers (en/uk/es) + legal-notice + terms: "independent fan-built tool… Chaosium or Call of Cthulhu" → "independent, original work… not affiliated with any tabletop RPG publisher" (no longer names the mark at all).
+- Barcelona scenario: player-visible skill "Cthulhu Mythos" → "Forbidden Lore" (edited in shared_data via container — file is root-owned). skillAliases group extended: ['Forbidden Lore','Заборонені знання','Cthulhu Mythos','Міфи Ктулху'] so old sheets/tags still resolve.
+- User-Agent 'cthulhu-game/1.0' → 'barri-game/1.0' (2 files).
+
+### Deliberately kept
+- email.ts footer "Ph'nglui mglw'nafh…" — Lovecraft's 1928 fiction text, public domain, not a Chaosium mark.
+- Internal identifiers (rulesetId coc_7e) and internal docs (PROJECT_CONTEXT/CLAUDE.md) — not user-visible.
+
+### Verification
+- grep sweep over src/, live shared_data scenarios, LAUNCH_METADATA.md, launch-assets: no user-visible "Cthulhu/Chaosium/7th Edition" remain (email quote excepted).
+- vitest 116/116, tsc clean, eslint clean.

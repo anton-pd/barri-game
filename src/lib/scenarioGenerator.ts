@@ -39,7 +39,7 @@ const DEEPSEEK_MAX_TOKENS = 8192;
 // Active default until the Gemini-vs-DeepSeek quality eval (ANT-167) is settled.
 const DEFAULT_PROVIDER: ScenarioProvider = 'gemini';
 
-const SYSTEM_PROMPT = `You are an expert Call of Cthulhu scenario designer. You produce complete, valid scenario JSON files for the barrigame.es system.
+const SYSTEM_PROMPT = `You are an expert designer of classic 1920s investigative cosmic-horror scenarios (d100 roll-under system). You produce complete, valid scenario JSON files for the barrigame.es system.
 
 CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explanation. The entire response must be parseable by JSON.parse().
 
@@ -208,7 +208,7 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 `;
 
 function buildUserPrompt(input: GenerateScenarioInput): string {
-  return `Generate a complete Call of Cthulhu scenario with these parameters:
+  return `Generate a complete d100 investigative-horror scenario with these parameters:
 
 Title: ${input.title}
 Ukrainian title: ${input.titleUk}

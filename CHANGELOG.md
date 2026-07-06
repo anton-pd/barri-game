@@ -18,6 +18,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **Admin scenario library and delete controls (ANT-177).** Admins can now view live scenario files, inspect full scenario JSON, and delete scenarios from the shared runtime directory. Deletes also clear cached scenario assets when present.
 - **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
 
+### Changed
+- **Trademark scrub before global launch (ANT-189).** All user-visible references to "Call of Cthulhu"/Chaosium replaced with original genre phrasing ("classic 1920s investigative horror, d100 roll-under") across the landing, legal pages, ruleset texts and scenario content; the "Cthulhu Mythos" skill is now "Forbidden Lore" (old names still resolve via aliases).
+
 ### Fixed
 - **Dice-roll validation now bridges Ukrainian and English skill names (ANT-183).** The Case Curator's roll requests are validated against the character sheet through a skill alias map (uk ↔ en, qualifier-aware), so a tag naming "Spot Hidden" resolves against «Помітити приховане» and vice versa; Luck and SAN rolls are now value-checked against the actual stats too. The roll prompt tells the Curator to copy skill names exactly from the player's sheet, and the "awaiting roll" hint refers to the player by name instead of a numeric index.
 
