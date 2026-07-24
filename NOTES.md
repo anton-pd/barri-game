@@ -4424,3 +4424,29 @@ showed conflicting two-, five-, and fifteen-minute duration promises.
 - Production-server smoke without PostgreSQL: `/` and `/demo` both returned
   `200`; the server logged the lookup failure and rendered the fail-closed
   waitlist path instead of failing the page.
+
+---
+
+## Urgent production interface language selector — 2026-06-24
+
+### Context
+Anton asked for an urgent direct-to-production fix: logged-in users need a way to change the app interface language, separate from the existing per-session game/Keeper language.
+
+### Changes
+- Added account-level `users.interface_language` (`uk` default, `en` and `es` supported) through the schema initializer.
+- Added shared interface-language normalization helpers and a reusable selector component.
+- Added `PATCH /api/account` to persist the authenticated user's interface language.
+- Extended `/api/auth/me` to return `interface_language` after running schema initialization.
+- Added language selectors to:
+  - `/sessions` desktop topbar
+  - `/sessions` mobile account menu
+  - `/account` privacy/settings page
+- Localized the authenticated sessions hub and account page chrome for Ukrainian, English, and Spanish.
+- New session game language now defaults from interface language (`uk -> uk`, `en/es -> en`) while keeping the existing game-language toggle limited to supported `uk/en`.
+
+### Verification
+- Added regression tests for language normalization and preference persistence query behavior.
+
+### Follow-up
+- Removed the per-session game language selector from the new-case modal.
+- Session creation now always derives `game_sessions.language` from the global account interface language via `gameLanguageForInterface()`.

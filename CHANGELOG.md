@@ -1073,3 +1073,15 @@ Per-change detail is in the `0.4.x` entries below.
 - **Ambient audio paused for beta**: location soundscapes are now disabled by default behind the server-side `AMBIENT_ENABLED` flag. The game no longer generates, loads, or plays ambient audio, and its controls are hidden while the flag is off.
 - **Scenario materialization**: admin saves skip ambient generation while the beta flag is off; existing audio files are preserved for a later rework.
 - **Landing copy**: EN/UK/ES acquisition copy no longer advertises ambient soundscapes while the feature is unavailable.
+
+---
+
+## [0.3.24] — 2026-07-24
+
+### Added
+- **App interface language**: logged-in users can now switch the authenticated app UI between Ukrainian, English, and Spanish from the sessions topbar/mobile menu and account page.
+- **Saved language preference**: the selected interface language is stored on the user account and reused after login.
+
+### Changed
+- New sessions default the game/Keeper language from the interface preference where supported: Ukrainian stays Ukrainian; English and Spanish interfaces default game language to English.
+- Removed the game-language selector from case creation; new cases now depend on the saved global language preference.

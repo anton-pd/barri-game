@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifyJwt } from '@/lib/auth';
-import { getUserById } from '@/lib/queries';
+import { ensureSchema, getUserById, getUserInterfaceLanguage } from '@/lib/queries';
 
 export async function GET() {
   try {
+    await ensureSchema();
+
     const cookieStore = await cookies();
     const token = cookieStore.get('auth_token')?.value;
     if (!token) {
@@ -26,6 +28,7 @@ export async function GET() {
       email: user.email,
       role: user.role,
       access_status: user.access_status,
+      interface_language: await getUserInterfaceLanguage(user.id),
     });
   } catch (error) {
     console.error('Me error:', error);

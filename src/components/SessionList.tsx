@@ -7,6 +7,13 @@ import type { GameSession, Player, WorldState } from '@/types';
 import type { ScenarioCatalogEntry } from '@/lib/scenarioCatalog';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import { track } from '@/lib/analytics';
+import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
+import { SESSIONS_COPY } from '@/lib/appCopy';
+import {
+  gameLanguageForInterface,
+  normalizeInterfaceLanguage,
+  type InterfaceLanguage,
+} from '@/lib/interfaceLanguage';
 import { version as appVersion } from '../../package.json';
 import { clearAllSessionCaches, loadUserSessionCache, writeUserSessionCache } from '@/lib/sessionCache';
 import { classifySessionLoad, sessionCreateErrorCopy } from '@/lib/sessionRecovery';
@@ -39,6 +46,7 @@ interface UserInfo {
   email: string;
   role: 'user' | 'admin';
   access_status?: 'pending' | 'approved' | 'blocked';
+  interface_language?: InterfaceLanguage;
 }
 
 // ── Utilities ──────────────────────────────────────────────────────────────────
@@ -101,27 +109,30 @@ function getSessionThumbnail(worldState: WorldState | undefined): string | null 
 }
 
 /** Get stamp label + CSS modifier for session status. */
-function statusStamp(s: SessionListEntry, playedEvening = false) {
+function statusStamp(
+  s: SessionListEntry,
+  copy: typeof SESSIONS_COPY[InterfaceLanguage]['card'],
+  playedEvening = false
+) {
   // A finished evening of an still-active campaign is not a closed case —
   // it's a played evening belonging to the ongoing campaign.
-  if (playedEvening)            return { label: 'Вечір зіграно', mod: 'active'    };
-  if (s.status === 'completed') return { label: 'Закрито',    mod: 'completed' };
-  if (s.status === 'paused')    return { label: 'На паузі',   mod: 'paused'    };
+  if (playedEvening)            return { label: copy.played, mod: 'active'    };
+  if (s.status === 'completed') return { label: copy.closed, mod: 'completed' };
+  if (s.status === 'paused')    return { label: copy.paused, mod: 'paused'    };
   return s.campaign_id
-    ? { label: 'Кампанія', mod: 'active' }
-    : { label: 'Активна',  mod: 'active' };
+    ? { label: copy.campaign, mod: 'active' }
+    : { label: copy.active,  mod: 'active' };
 }
 
-const sessionLabelsUk = ["перша","друга","третя","четверта","п'ята","шоста","сьома","восьма","дев'ята","десята"];
-
-function difficultyMeta(d: string) {
-  if (d === 'beginner')     return { label: 'Початківець', mod: 'beginner'     };
-  if (d === 'intermediate') return { label: 'Середній',    mod: 'intermediate' };
-  return                           { label: 'Складний',    mod: 'advanced'     };
+function difficultyMeta(d: string, copy: typeof SESSIONS_COPY[InterfaceLanguage]['difficulty']) {
+  if (d === 'beginner')     return { label: copy.beginner, mod: 'beginner'     };
+  if (d === 'intermediate') return { label: copy.intermediate, mod: 'intermediate' };
+  return                           { label: copy.advanced, mod: 'advanced'     };
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short', year: 'numeric' });
+function formatDate(iso: string, lang: InterfaceLanguage) {
+  const locale = lang === 'uk' ? 'uk-UA' : lang === 'es' ? 'es-ES' : 'en-US';
+  return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 // ── SessionCard sub-component ─────────────────────────────────────────────────
@@ -132,23 +143,29 @@ function SessionCard({
   playedEvening = false,
   coverFallback,
   scenario,
+  interfaceLanguage,
+  copy,
 }: {
   s: SessionListEntry;
   onDelete: (id: string, e: React.MouseEvent) => void;
   playedEvening?: boolean;
   coverFallback?: string;
   scenario?: ScenarioCatalogEntry;
+  interfaceLanguage: InterfaceLanguage;
+  copy: typeof SESSIONS_COPY[InterfaceLanguage];
 }) {
   const [confirming, setConfirming] = useState(false);
 
-  const stamp           = statusStamp(s, playedEvening);
+  const stamp           = statusStamp(s, copy.card, playedEvening);
   // Prefer a session-generated scene; fall back to the scenario cover so
   // freshly-created sessions never show the ∞ placeholder (ANT-99).
   const thumbnail       = getSessionThumbnail(s.world_state) || coverFallback || null;
   const isClosed        = s.status === 'completed' && !playedEvening;
   const players         = s.players as Player[];
   // ANT-131: resolve display names; raw ids only as a last-resort fallback.
-  const scenarioTitle   = scenario?.titleUk || scenario?.title || s.scenario_id;
+  const scenarioTitle   = interfaceLanguage === 'uk'
+    ? (scenario?.titleUk || scenario?.title || s.scenario_id)
+    : (scenario?.title || scenario?.titleUk || s.scenario_id);
   const locationId      = s.world_state?.currentLocation;
   const location        = locationId
     ? (scenario?.locations?.find((l) => l.id === locationId)?.name
@@ -157,7 +174,7 @@ function SessionCard({
     : undefined;
   const snippet         = s.latest_summary || s.last_message || null;
   const campaignSession = s.campaign_id
-    ? (sessionLabelsUk[(s.session_number || 1) - 1] ?? `${s.session_number}-та сесія`)
+    ? (copy.card.sessionLabels[(s.session_number || 1) - 1] ?? copy.card.sessionFallback(s.session_number || 1))
     : null;
 
   function handleDeleteClick(e: React.MouseEvent) {
@@ -201,7 +218,7 @@ function SessionCard({
         <div className="session-card-meta">
           <span>{scenarioTitle}</span>
           <span className="session-card-meta-dot">·</span>
-          <span>{formatDate(s.updated_at)}</span>
+          <span>{formatDate(s.updated_at, interfaceLanguage)}</span>
           {campaignSession && (
             <>
               <span className="session-card-meta-dot">·</span>
@@ -228,13 +245,13 @@ function SessionCard({
         <div className="session-card-footer">
           {confirming ? (
             <div className="session-delete-confirm">
-              <span className="session-delete-confirm-label">Видалити справу?</span>
+              <span className="session-delete-confirm-label">{copy.card.confirmDelete}</span>
               <div className="session-delete-confirm-actions">
                 <button className="session-delete-confirm-yes" onClick={handleConfirm}>
-                  Так
+                  {copy.card.yes}
                 </button>
                 <button className="session-delete-confirm-no" onClick={handleCancel}>
-                  Скасувати
+                  {copy.card.cancel}
                 </button>
               </div>
             </div>
@@ -244,10 +261,10 @@ function SessionCard({
                 className="session-delete-btn"
                 onClick={handleDeleteClick}
               >
-                Видалити
+                {copy.card.delete}
               </button>
               <span className="session-enter-btn">
-                {s.status === 'completed' ? 'Переглянути' : 'Продовжити'} <span aria-hidden="true">→</span>
+                {s.status === 'completed' ? copy.card.review : copy.card.continue} <span aria-hidden="true">→</span>
               </span>
             </>
           )}
@@ -265,16 +282,17 @@ export default function SessionList() {
   const [sessions,  setSessions]  = useState<SessionListEntry[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioCatalogEntry[]>([]);
   const [user,      setUser]      = useState<UserInfo | null>(null);
+  const [interfaceLanguage, setInterfaceLanguage] = useState<InterfaceLanguage>('uk');
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const copy = SESSIONS_COPY[interfaceLanguage];
 
   // New-session modal
   const [selectedScenario,  setSelectedScenario]  = useState<ScenarioCatalogEntry | null>(null);
   const [sessionName,       setSessionName]        = useState('');
   const [drafts,            setDrafts]             = useState<DraftPlayer[]>([emptyDraft()]);
   const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
-  const [language,          setLanguage]            = useState<'uk' | 'en'>('uk');
   const [isCreating,        setIsCreating]          = useState(false);
   const [createError,       setCreateError]         = useState<string | null>(null);
   // ANT-137: dialog semantics — focus moves into the sheet on open, Tab cycles
@@ -320,6 +338,7 @@ export default function SessionList() {
       setSessions(mergeSessions(parsed, cached));
       setScenarios(rawScenarios);
       setUser(meData);
+      setInterfaceLanguage(normalizeInterfaceLanguage(meData.interface_language));
     } catch (err) {
       console.error('Network error loading data', err);
       setLoadError('Не вдалося завантажити справи та каталог. Перевірте з’єднання й спробуйте ще раз.');
@@ -341,6 +360,25 @@ export default function SessionList() {
     router.refresh();
   }
 
+  async function handleInterfaceLanguageChange(nextLanguage: InterfaceLanguage) {
+    setInterfaceLanguage(nextLanguage);
+    setUser((prev) => prev ? { ...prev, interface_language: nextLanguage } : prev);
+    try {
+      const res = await fetch('/api/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interface_language: nextLanguage }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json().catch(() => ({}));
+      const savedLanguage = normalizeInterfaceLanguage(data.interface_language);
+      setInterfaceLanguage(savedLanguage);
+      setUser((prev) => prev ? { ...prev, interface_language: savedLanguage } : prev);
+    } catch {
+      // Keep the optimistic language switch; users can retry from Account.
+    }
+  }
+
   // ── New-session helpers ──────────────────────────────────────────────────────
 
   const openModal = useCallback((sc: ScenarioCatalogEntry) => {
@@ -348,7 +386,6 @@ export default function SessionList() {
     setSessionName('');
     setDrafts([emptyDraft()]);
     setPickingRoleFor(null);
-    setLanguage('uk');
     setCreateError(null);
   }, []);
 
@@ -421,6 +458,7 @@ export default function SessionList() {
     setIsCreating(true);
     setCreateError(null);
     const players: Player[] = drafts.map((d) => makePlayer(d.name.trim(), d.preset!));
+    const language = gameLanguageForInterface(interfaceLanguage);
     try {
       const res = await fetch('/api/sessions', {
         method: 'POST',
@@ -513,18 +551,24 @@ export default function SessionList() {
           <div className="topbar-right">
             <div className="sessions-authbar sessions-authbar--inline">
               <span className="sessions-authbar-email">{user.email}</span>
-              <button className="sessions-authbar-logout" onClick={handleLogout}>Вийти</button>
+              <InterfaceLanguageSelector
+                value={interfaceLanguage}
+                onChange={handleInterfaceLanguageChange}
+                className="sessions-lang-switcher"
+                ariaLabel={copy.auth.language}
+              />
+              <button className="sessions-authbar-logout" onClick={handleLogout}>{copy.auth.signOut}</button>
             </div>
           </div>
         </header>
 
         <div className="sessions-empty" style={{ maxWidth: 560, margin: '0 auto', paddingTop: 64 }}>
           <span className="sessions-empty-glyph">{blocked ? '✕' : '⧖'}</span>
-          <h3>{blocked ? 'Доступ призупинено' : 'Ви у списку очікування'}</h3>
+          <h3>{blocked ? copy.gate.blockedTitle : copy.gate.waitingTitle}</h3>
           <p>
             {blocked
-              ? 'Доступ до Бюро для цього акаунта наразі закрито. Якщо вважаєте це помилкою — напишіть нам.'
-              : 'Дякуємо за реєстрацію! Ми відкриваємо доступ поступово, невеликими групами. Щойно настане ваша черга — ви зможете розпочати розслідування з цього екрана.'}
+              ? copy.gate.blockedBody
+              : copy.gate.waitingBody}
           </p>
         </div>
       </div>
@@ -549,11 +593,17 @@ export default function SessionList() {
               {/* Inline auth — hidden on mobile via CSS */}
               <div className="sessions-authbar sessions-authbar--inline">
                 {user.role === 'admin' && (
-                  <Link href="/admin" className="sessions-authbar-admin">Admin</Link>
+                  <Link href="/admin" className="sessions-authbar-admin">{copy.auth.admin}</Link>
                 )}
+                <InterfaceLanguageSelector
+                  value={interfaceLanguage}
+                  onChange={handleInterfaceLanguageChange}
+                  className="sessions-lang-switcher"
+                  ariaLabel={copy.auth.language}
+                />
                 <Link href="/account" className="sessions-authbar-email" style={{ textDecoration: 'none' }}>{user.email}</Link>
                 <button className="sessions-authbar-logout" onClick={handleLogout}>
-                  Вийти
+                  {copy.auth.signOut}
                 </button>
               </div>
 
@@ -564,7 +614,7 @@ export default function SessionList() {
                   className="sessions-authmenu-trigger"
                   aria-haspopup="true"
                   aria-expanded={authMenuOpen}
-                  aria-label="Меню"
+                  aria-label={copy.auth.menu}
                   onClick={() => setAuthMenuOpen((v) => !v)}
                 >
                   <span className="sessions-authmenu-initial">{(user.email[0] || '?').toUpperCase()}</span>
@@ -578,26 +628,32 @@ export default function SessionList() {
                     />
                     <div className="sessions-authmenu-panel" role="menu">
                       <p className="sessions-authmenu-email">{user.email}</p>
+                      <InterfaceLanguageSelector
+                        value={interfaceLanguage}
+                        onChange={handleInterfaceLanguageChange}
+                        className="sessions-authmenu-langs"
+                        ariaLabel={copy.auth.language}
+                      />
                       {user.role === 'admin' && (
                         <Link
                           href="/admin"
                           className="sessions-authmenu-item"
                           onClick={() => setAuthMenuOpen(false)}
                           role="menuitem"
-                        >Admin</Link>
+                        >{copy.auth.admin}</Link>
                       )}
                       <Link
                         href="/account"
                         className="sessions-authmenu-item"
                         onClick={() => setAuthMenuOpen(false)}
                         role="menuitem"
-                      >Акаунт</Link>
+                      >{copy.auth.account}</Link>
                       <button
                         type="button"
                         className="sessions-authmenu-item sessions-authmenu-item--danger"
                         onClick={() => { setAuthMenuOpen(false); handleLogout(); }}
                         role="menuitem"
-                      >Вийти</button>
+                      >{copy.auth.signOut}</button>
                     </div>
                   </>
                 )}
@@ -621,21 +677,21 @@ export default function SessionList() {
         <div className="bureau-stats">
           <div className="bureau-stat">
             <span className="bureau-stat-value">{activeSessions.length}</span>
-            <span className="bureau-stat-label">Активних</span>
+            <span className="bureau-stat-label">{copy.stats.active}</span>
           </div>
           {pausedSessions.length > 0 && (
             <div className="bureau-stat">
               <span className="bureau-stat-value">{pausedSessions.length}</span>
-              <span className="bureau-stat-label">На паузі</span>
+              <span className="bureau-stat-label">{copy.stats.paused}</span>
             </div>
           )}
           <div className="bureau-stat">
             <span className="bureau-stat-value">{completedSessions.length}</span>
-            <span className="bureau-stat-label">Завершено</span>
+            <span className="bureau-stat-label">{copy.stats.completed}</span>
           </div>
           <div className="bureau-stat">
             <span className="bureau-stat-value">{totalMessages}</span>
-            <span className="bureau-stat-label">Повідомлень</span>
+            <span className="bureau-stat-label">{copy.stats.messages}</span>
           </div>
         </div>
       )}
@@ -643,7 +699,7 @@ export default function SessionList() {
       {/* ── Open Investigations ── */}
       {!loadError && <div className="sessions-section">
         <div className="section-divider">
-          <span className="section-divider-title">Відкриті справи</span>
+          <span className="section-divider-title">{copy.sections.open}</span>
         </div>
 
         {loading ? (
@@ -655,12 +711,12 @@ export default function SessionList() {
         ) : openSessions.length === 0 ? (
           <div className="sessions-empty">
             <span className="sessions-empty-glyph">ꝏ</span>
-            <h3>Жодних відкритих справ</h3>
-            <p>Архів порожній. Оберіть справу нижче, щоб розпочати розслідування.</p>
+            <h3>{copy.empty.title}</h3>
+            <p>{copy.empty.body}</p>
           </div>
         ) : (
           <div className="session-cards-grid">
-            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} />)}
+            {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} interfaceLanguage={interfaceLanguage} copy={copy} />)}
           </div>
         )}
       </div>}
@@ -669,10 +725,10 @@ export default function SessionList() {
       {!loadError && !loading && completedSessions.length > 0 && (
         <div className="sessions-section">
           <div className="section-divider">
-            <span className="section-divider-title">Закриті справи</span>
+            <span className="section-divider-title">{copy.sections.closed}</span>
           </div>
           <div className="session-cards-grid">
-            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} />)}
+            {completedSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} interfaceLanguage={interfaceLanguage} copy={copy} />)}
           </div>
         </div>
       )}
@@ -680,13 +736,14 @@ export default function SessionList() {
       {/* ── Available Case Files (always visible, Tier 1) ── */}
       {!loadError && <div className="sessions-section">
         <div className="section-divider">
-          <span className="section-divider-title">Доступні справи</span>
+          <span className="section-divider-title">{copy.sections.available}</span>
         </div>
 
         <div className="case-files-grid">
           {scenarios.map((sc) => {
-            const diff = difficultyMeta(sc.difficulty);
+            const diff = difficultyMeta(sc.difficulty, copy.difficulty);
             const isCampaign = sc.sessionConfig?.isCampaign;
+            const scenarioTitle = interfaceLanguage === 'uk' ? (sc.titleUk || sc.title) : (sc.title || sc.titleUk);
             return (
               <div key={sc.id} className="case-file-card">
                 <div className="case-file-thumb">
@@ -697,24 +754,24 @@ export default function SessionList() {
                       <span className="case-file-thumb-seal">B</span>
                     </div>
                   )}
-                  <span className="case-file-classified">Справа</span>
+                  <span className="case-file-classified">{copy.card.caseFile}</span>
                 </div>
                 <div>
                   <span className={`case-file-difficulty case-file-difficulty--${diff.mod}`}>
                     {diff.label}
                   </span>
                   <span className="case-file-badge">
-                    {isCampaign ? '· кампанія' : '· one-shot'}
+                    {isCampaign ? `· ${copy.card.campaignBadge}` : `· ${copy.card.oneShot}`}
                   </span>
                 </div>
-                <div className="case-file-title">{sc.titleUk}</div>
+                <div className="case-file-title">{scenarioTitle}</div>
                 <div className="case-file-era">{sc.era}</div>
                 <div className="case-file-desc">{sc.description}</div>
                 <button
                   className="case-file-open-btn"
                   onClick={() => openModal(sc)}
                 >
-                  <span>Розпочати розслідування</span>
+                  <span>{copy.card.start}</span>
                   <span aria-hidden="true">→</span>
                 </button>
               </div>
@@ -743,10 +800,14 @@ export default function SessionList() {
               {/* Header */}
               <div className="nsm-header">
                 <div>
-                  <div className="nsm-scenario-label">Справа</div>
-                  <div className="nsm-scenario-title" id="nsm-title">{selectedScenario.titleUk}</div>
+                  <div className="nsm-scenario-label">{copy.modal.caseLabel}</div>
+                  <div className="nsm-scenario-title" id="nsm-title">
+                    {interfaceLanguage === 'uk'
+                      ? (selectedScenario.titleUk || selectedScenario.title)
+                      : (selectedScenario.title || selectedScenario.titleUk)}
+                  </div>
                 </div>
-                <button className="nsm-close" onClick={closeModal} aria-label="Закрити">✕</button>
+                <button className="nsm-close" onClick={closeModal} aria-label={copy.modal.close}>✕</button>
               </div>
 
               {/* Role picker overlay */}
@@ -757,10 +818,10 @@ export default function SessionList() {
                       className="nsm-role-picker-back-btn"
                       onClick={() => setPickingRoleFor(null)}
                     >
-                      ← Назад
+                      ← {copy.modal.back}
                     </button>
                     <span className="nsm-role-picker-for">
-                      Клас для {drafts[pickingRoleFor].name || `Гравця ${pickingRoleFor + 1}`}
+                      {copy.modal.classFor} {drafts[pickingRoleFor].name || `${copy.modal.player} ${pickingRoleFor + 1}`}
                     </span>
                   </div>
                   <div className="nsm-role-list">
@@ -798,37 +859,20 @@ export default function SessionList() {
                 <div className="nsm-form">
                   {/* Session name */}
                   <div className="nsm-field">
-                    <label htmlFor="nsm-name">Назва справи</label>
+                    <label htmlFor="nsm-name">{copy.modal.caseName}</label>
                     <input
                       id="nsm-name"
                       type="text"
                       value={sessionName}
                       onChange={(e) => setSessionName(e.target.value)}
-                      placeholder="Напр: Ніч у Бостоні"
+                      placeholder={copy.modal.casePlaceholder}
                       autoComplete="off"
                     />
                   </div>
 
-                  {/* Language */}
-                  <div className="nsm-field">
-                    <label>Мова гри</label>
-                    <div className="nsm-lang-toggle">
-                      {(['uk', 'en'] as const).map((lang) => (
-                        <button
-                          key={lang}
-                          className={`nsm-lang-btn${language === lang ? ' nsm-lang-btn--active' : ''}`}
-                          onClick={() => setLanguage(lang)}
-                          type="button"
-                        >
-                          {lang === 'uk' ? '🇺🇦 Українська' : '🇬🇧 English'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Players */}
                   <div className="nsm-field">
-                    <label>Гравці (1–4)</label>
+                    <label>{copy.modal.players}</label>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                       {drafts.map((d, i) => (
                         <div key={i} className="nsm-player-card">
@@ -837,7 +881,7 @@ export default function SessionList() {
                               type="text"
                               value={d.name}
                               onChange={(e) => setDraftName(i, e.target.value)}
-                              placeholder={`Ім'я гравця ${i + 1}`}
+                              placeholder={copy.modal.playerName(i + 1)}
                               autoComplete="off"
                             />
                             {drafts.length > 1 && (
@@ -845,7 +889,7 @@ export default function SessionList() {
                                 className="nsm-remove-btn"
                                 onClick={() => removeDraft(i)}
                                 type="button"
-                                aria-label="Видалити гравця"
+                                aria-label={copy.modal.removePlayer}
                               >
                                 ✕
                               </button>
@@ -868,7 +912,7 @@ export default function SessionList() {
                                     <span className="nsm-stat-san">SAN {d.preset.sanity}</span>
                                   )}
                                 </div>
-                                <span className="nsm-role-change">змінити →</span>
+                                <span className="nsm-role-change">{copy.modal.change} →</span>
                               </div>
                             </button>
                           ) : (
@@ -877,7 +921,7 @@ export default function SessionList() {
                               onClick={() => setPickingRoleFor(i)}
                               type="button"
                             >
-                              + Обрати клас
+                              + {copy.modal.chooseClass}
                             </button>
                           )}
                         </div>
@@ -891,7 +935,7 @@ export default function SessionList() {
                         type="button"
                         style={{ marginTop: '10px' }}
                       >
-                        + Додати гравця
+                        + {copy.modal.addPlayer}
                       </button>
                     )}
                   </div>
@@ -903,17 +947,17 @@ export default function SessionList() {
                     disabled={!canCreate}
                     type="button"
                   >
-                    <span>{isCreating ? 'Відкриваємо справу...' : 'Відкрити справу'}</span>
+                    <span>{isCreating ? copy.modal.opening : copy.modal.open}</span>
                     {!isCreating && <span aria-hidden="true">→</span>}
                   </button>
                   {/* ANT-137: a disabled button must say why */}
                   {!canCreate && !isCreating && (
                     <p className="nsm-submit-hint">
-                      Щоб відкрити справу, заповніть:{' '}
+                      {copy.modal.submitHint}{' '}
                       {[
-                        !sessionName.trim() && 'назву справи',
-                        drafts.some((d) => !d.name.trim()) && "ім'я гравця",
-                        drafts.some((d) => !d.preset) && 'клас гравця',
+                        !sessionName.trim() && copy.modal.missingName,
+                        drafts.some((d) => !d.name.trim()) && copy.modal.missingPlayer,
+                        drafts.some((d) => !d.preset) && copy.modal.missingClass,
                       ].filter(Boolean).join(', ')}
                     </p>
                   )}

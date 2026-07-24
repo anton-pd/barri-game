@@ -20,8 +20,35 @@
   border: 1px solid #292524; border-radius: 10px;
   padding: 22px 24px; margin-bottom: 20px; background: #16130f;
 }
+.account-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 16px;
+}
 .account-card h2 { font-size: 17px; color: #e7e5e4; margin: 0 0 8px; }
 .account-card p { font-size: 14px; color: #a8a29e; margin: 0 0 16px; line-height: 1.55; }
+.account-card-header p { margin-bottom: 0; }
+.account-save-state {
+  min-width: 96px; text-align: right; color: #78716c;
+  font-size: 12px; padding-top: 2px;
+}
+.account-save-state--saved { color: #86efac; }
+.account-save-state--failed { color: #fca5a5; }
+
+.account-lang-switcher {
+  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid #44403c; padding: 4px; border-radius: 7px;
+  background: #0c0a09;
+}
+.account-lang-switcher button {
+  min-width: 44px; min-height: 34px; padding: 7px 10px;
+  font-family: inherit; font-size: 12px; color: #a8a29e;
+  background: transparent; border: 1px solid transparent; border-radius: 5px;
+  cursor: pointer; transition: color .15s, border-color .15s, background .15s;
+}
+.account-lang-switcher button:hover { color: #e7e5e4; border-color: #57534e; }
+.account-lang-switcher button.active {
+  color: #f5f5f4; border-color: #a16207; background: rgba(161, 98, 7, 0.18);
+}
 
 .account-btn {
   display: inline-flex; align-items: center; gap: 8px;
@@ -58,3 +85,10 @@
 .account-modal-error { color: #fca5a5; font-size: 13px; margin: -6px 0 14px; }
 .account-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .account-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 560px) {
+  .account-card-header { flex-direction: column; }
+  .account-save-state { min-width: 0; text-align: left; }
+  .account-lang-switcher { width: 100%; justify-content: space-between; }
+  .account-lang-switcher button { flex: 1; }
+}

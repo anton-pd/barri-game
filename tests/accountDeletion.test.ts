@@ -39,7 +39,7 @@ vi.mock('@/lib/db', () => ({
   }),
 }));
 
-import { deleteUserAccount, getUserAccountExport } from '@/lib/queries';
+import { deleteUserAccount, getUserAccountExport, updateUserInterfaceLanguage } from '@/lib/queries';
 
 beforeEach(() => {
   calls.length = 0;
@@ -90,5 +90,16 @@ describe('getUserAccountExport (ANT-159, GDPR Art. 20)', () => {
     const s1 = result?.sessions.find((s) => s.id === 's1');
     expect(s1?.messages).toHaveLength(1);
     expect(s1?.messages[0].content).toBe('hi');
+  });
+});
+
+describe('updateUserInterfaceLanguage', () => {
+  it('persists the selected account interface language', async () => {
+    await updateUserInterfaceLanguage('u1', 'es');
+
+    const updateCall = calls.find((c) => c.sql.includes('UPDATE users') && c.sql.includes('interface_language'));
+    expect(updateCall).toBeTruthy();
+    expect(updateCall?.values).toContain('es');
+    expect(updateCall?.values).toContain('u1');
   });
 });
