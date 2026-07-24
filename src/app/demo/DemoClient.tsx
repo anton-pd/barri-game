@@ -239,7 +239,7 @@ export default function DemoClient({ registrationMode }: { registrationMode: Reg
     setUserMessages(nextCount);
     setHasStarted(true);
     setInput('');
-    addMessage({ role: 'player', meta: 'You', text: trimmed });
+    addMessage({ role: 'player', meta: copy.player, text: trimmed });
     setThinking(true);
     if (!anonymousSessionRef.current) {
       anonymousSessionRef.current = createAnonymousSessionId();
@@ -265,7 +265,9 @@ export default function DemoClient({ registrationMode }: { registrationMode: Reg
 
       setWorldState(reply.worldState);
       setPlayers(reply.players);
-      addMessage({ role: 'keeper', meta: reply.meta ?? 'Keeper', text: reply.text });
+      // Provider metadata is protocol-level and currently English-only. Keep
+      // the visible transcript label aligned with the selected demo locale.
+      addMessage({ role: 'keeper', meta: copy.keeper, text: reply.text });
 
       if (reply.completed) {
         setChatClosedReason('completed');
@@ -705,6 +707,7 @@ function DemoDiceRoller({
 export const DEMO_COPY = {
   en: {
     keeper: 'Case Curator',
+    player: 'You',
     objective: 'Find a way into the secret archive',
     objectiveLabel: 'Objective',
     stateSummary:
@@ -855,6 +858,7 @@ export const DEMO_COPY = {
   },
   uk: {
     keeper: 'Куратор справи',
+    player: 'Ви',
     objective: 'Знайти шлях у секретний архів',
     objectiveLabel: 'Мета',
     stateSummary:
@@ -1005,6 +1009,7 @@ export const DEMO_COPY = {
   },
   es: {
     keeper: 'Curador del caso',
+    player: 'Tú',
     objective: 'Encontrar la entrada al archivo secreto',
     objectiveLabel: 'Objetivo',
     stateSummary:

@@ -40,4 +40,15 @@ describe('public beta acquisition copy', () => {
     expect(register).toContain('locale: intakeLocale');
     expect(register).toContain('La demo sigue disponible en español.');
   });
+
+  it('localizes visible transcript speaker labels instead of trusting provider metadata', () => {
+    expect(DEMO_COPY.en.player).toBe('You');
+    expect(DEMO_COPY.uk.player).toBe('Ви');
+    expect(DEMO_COPY.es.player).toBe('Tú');
+
+    const demo = readFileSync(new URL('../src/app/demo/DemoClient.tsx', import.meta.url), 'utf8');
+    expect(demo).toContain('meta: copy.player');
+    expect(demo).toContain('meta: copy.keeper');
+    expect(demo).not.toContain("meta: reply.meta ?? 'Keeper'");
+  });
 });

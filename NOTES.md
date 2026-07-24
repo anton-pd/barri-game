@@ -4,9 +4,12 @@
 
 ### Verification
 - Integrated the launch-blocker branches with the two production interface-language hotfixes while preserving session-cache isolation, error recovery, privacy copy, and registration-mode routing.
+- Browser E2E found and fixed one post-response localization defect: the demo
+  used provider-level English speaker labels after the first Ukrainian/Spanish
+  turn. Visible transcript labels now always use the selected locale.
 - Clean `npm ci` installed Next.js 16.2.11 and the patched runtime dependency set.
 - `npm audit --omit=dev`: 0 known production vulnerabilities.
-- `npm test`: 37 files / 208 tests passed.
+- `npm test`: 37 files / 209 tests passed.
 - `npx tsc --noEmit`: passed.
 - `npm run lint`: passed with 0 errors and the six existing intentional `<img>` warnings.
 - `npm run build`: passed without compiler warnings; landing and demo remain request-time routes.
