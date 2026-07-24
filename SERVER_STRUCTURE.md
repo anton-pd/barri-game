@@ -86,6 +86,45 @@ Required GitHub repository secrets:
 - `VPS_DEPLOY_SSH_KEY`
 - `VPS_SSH_KNOWN_HOSTS`
 
+## Data backup and restore check
+
+`scripts/backup-barri-data.sh` creates private custom-format dumps of
+`barri_prod` and `barri_dev`, archives the shared scenario source, validates
+every archive, and restores the production dump into a temporary database. The
+job compares critical table counts before deleting the temporary database, so a
+successful dump alone is not mistaken for a usable backup.
+
+The VPS runs `/opt/apps/backup-barri-data.sh` from Anton's crontab every day at
+02:15 server time:
+
+```cron
+15 2 * * * /opt/apps/backup-barri-data.sh >> /opt/apps/backups/barri/backup.log 2>&1
+```
+
+Backups live under `/opt/apps/backups/barri` with mode `0600`; the directory and
+lock use owner-only access. The default retention is 14 days. Inspect the last
+run with:
+
+```bash
+crontab -l
+tail -n 100 /opt/apps/backups/barri/backup.log
+find /opt/apps/backups/barri -maxdepth 1 -type f -printf '%f %m %s bytes\n' | sort
+```
+
+To verify or replace the installed script and schedule:
+
+```bash
+install -m 700 scripts/backup-barri-data.sh /opt/apps/backup-barri-data.sh
+(crontab -l 2>/dev/null || true; \
+  echo '15 2 * * * /opt/apps/backup-barri-data.sh >> /opt/apps/backups/barri/backup.log 2>&1') \
+  | awk '!seen[$0]++' | crontab -
+/opt/apps/backup-barri-data.sh
+```
+
+These backups are on the same VPS and protect against application mistakes and
+database corruption, not total host loss. Add encrypted off-host replication
+before the beta becomes business-critical.
+
 ## Manual Deploy Fallback
 
 Staging:

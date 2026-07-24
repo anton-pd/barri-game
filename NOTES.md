@@ -4113,3 +4113,36 @@ unlock state existed.
 - `npm run lint`: passed with the 6 existing `<img>` warnings only.
 - `npx next build --webpack`: passed; retained the existing `SessionList.tsx`
   package-version import warning.
+
+---
+
+## ANT-206: verified data backup and restore drill — 2026-07-24
+
+### Problem
+The Barri VPS had no PostgreSQL backup job, no recent Barri dump, and no tested
+restore path. A deploy or operator mistake could therefore make all beta
+sessions unrecoverable. Live scenario JSON also exists only in shared runtime
+storage and needed the same protection.
+
+### Changes
+- Added `scripts/backup-barri-data.sh` with a non-overlapping `flock`, owner-only
+  files, custom-format dumps for `barri_prod` and `barri_dev`, SHA-256 manifests,
+  and a validated archive of `/opt/apps/shared_data/scenarios`.
+- The job restores each new production dump into an isolated temporary
+  database with `--exit-on-error --single-transaction`, compares user/session/
+  message counts with production, then removes the temporary database.
+- Installed a daily owner-level cron schedule and a 14-day bounded retention
+  policy without requiring elevated system permissions.
+- Documented installation, status inspection, recovery scope, and the residual
+  same-host-loss risk in `SERVER_STRUCTURE.md`.
+
+### Verification
+- Pre-change VPS audit found no Barri dumps, cron job, or backup timer.
+- Shell syntax and source safety checks pass locally.
+- Installed `/opt/apps/backup-barri-data.sh` and the daily 02:15 cron entry on
+  the VPS.
+- The first live run produced valid production/dev dumps plus a scenario
+  archive, all mode `0600`; every SHA-256 manifest passed.
+- The production restore drill completed successfully and matched critical
+  table counts (`users:sessions:messages = 3:7:507`); the temporary restore
+  database was removed.

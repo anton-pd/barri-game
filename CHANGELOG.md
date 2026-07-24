@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ## Unreleased
 
 ### Added
+- **Verified daily data backups (ANT-206).** Production and staging PostgreSQL databases plus the shared scenario source now have a private 14-day backup job. Every production dump is restored into a temporary database and compared against critical table counts before the run is accepted.
 - **Five new Ukrainian-market scenarios (ANT-188).** Three one-shots — «Шепіт у колодязі» (Carpathians 1912, beginner), «Останній сеанс» (Kyiv 1918, intermediate), «Катакомби пам'яті» (Odesa 1926, advanced) — and two three-evening campaigns: «Тіні над Дніпром» (Kyiv 1921) and «Кургани не сплять» (Poltava steppe 1928). Each ships with scenario-specific roles and perks, full clue trails, location ambients, static images and pulp-poster covers.
 - **Ukrainian localization for the waitlist intake form (ANT-182).** `/auth/register` (intake form, invite flow, and waiting-list success state) now reads `?lang=uk` and renders fully in Ukrainian instead of English-only; the real selected locale is now sent to `/api/waitlist` instead of a hardcoded `'en'`. The landing page's "Join Waitlist" links now carry the active language into the register page. (Demo Case Curator and landing-page copy were already localized to Ukrainian/Spanish in prior work — audited and confirmed still correct.)
 - **Impeccable design tooling.** Added project-local Impeccable skills/hooks for AI design review and detector-based landing-page QA.
