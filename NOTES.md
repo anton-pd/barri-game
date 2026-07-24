@@ -4156,6 +4156,8 @@ storage and needed the same protection.
   eviction, `429` JSON and `Retry-After`.
 - Proxy IP headers are trusted only with `TRUST_PROXY_HEADERS=true`; otherwise
   a fail-closed shared identity prevents spoofed forwarding headers.
+- Kept IP and email/token/session budgets as separate limiter dimensions, so a
+  distributed caller cannot reset an identity budget by changing IP address.
 - Demo has a server-authoritative 10-call/day session quota plus 30-call/day IP
   budget, so clearing client history cannot reset its AI budget.
 - Added IP and normalized identity/token throttles plus bounded JSON bodies to
@@ -4167,6 +4169,13 @@ storage and needed the same protection.
 - `npx tsc --noEmit`: passed.
 - `npm run lint`: passed with 6 existing `<img>` warnings.
 - `npx next build --webpack`: passed with the existing package-version warning.
+- Follow-up regression proves the identity budget survives an IP change
+  (`publicRateLimit`: 4/4), with TypeScript and focused ESLint passing.
+- VPS inspection confirmed that neither Barri container publishes a host port
+  and Caddy is the only ingress. Both Compose services now explicitly set
+  `TRUST_PROXY_HEADERS=true` and `AMBIENT_ENABLED=false`; `docker compose
+  config --quiet` validates the edited file, with the prior Compose file kept
+  as `/opt/apps/docker-compose.yml.bak-ANT-201-20260724`.
 
 ---
 

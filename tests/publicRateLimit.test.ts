@@ -32,4 +32,21 @@ describe('public abuse limiter', () => {
     expect(response?.status).toBe(429);
     expect(response?.headers.get('Retry-After')).toBe('60');
   });
+
+  it('keeps an identity budget global when the caller changes IP address', () => {
+    process.env.TRUST_PROXY_HEADERS = 'true';
+    const firstIp = new Request('https://example.test', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    });
+    const secondIp = new Request('https://example.test', {
+      headers: { 'x-forwarded-for': '203.0.113.11' },
+    });
+
+    expect(
+      enforceRateLimit(firstIp, 'login-identity', { limit: 1, windowMs: 60_000 }, 'person@example.test'),
+    ).toBeNull();
+    expect(
+      enforceRateLimit(secondIp, 'login-identity', { limit: 1, windowMs: 60_000 }, 'person@example.test')?.status,
+    ).toBe(429);
+  });
 });

@@ -20,6 +20,12 @@ Barri runtime source of truth:
 - `/opt/apps/shared_data/scenarios` is mounted to `/app/scenarios` in both `barri-dev` and `barri`
 - `/opt/apps/shared_data/public/scenarios` is mounted to `/app/public/scenarios` for generated/cached assets
 
+Both Barri services are reachable only through Caddy (no host port bindings).
+Their Compose environment therefore sets `TRUST_PROXY_HEADERS=true`, allowing
+public abuse limits to use Caddy's sanitized first `X-Forwarded-For` address.
+It also sets `AMBIENT_ENABLED=false` explicitly for the beta launch, in
+addition to the application's fail-safe default.
+
 Do not rely on repo checkout `scenarios/` inside `/opt/apps/barri*` as live data. The repo folder is only a local fallback/template set; live reads and admin saves go through `SCENARIOS_DIR`.
 
 ## Shared scenario mutation maintenance

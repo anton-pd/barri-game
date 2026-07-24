@@ -55,8 +55,13 @@ export function enforceRateLimit(
   rule: RateLimitRule,
   identity?: string,
 ): Response | null {
-  const ip = getClientIp(request);
-  const result = consumeRateLimit(scope, `${ip}:${identity ?? ''}`, rule);
+  // IP and account/token limits are deliberately separate dimensions. Callers
+  // apply an IP rule first, then an identity rule where appropriate; including
+  // the IP in the latter would let a distributed attacker reset an email/token
+  // budget simply by changing addresses.
+  const limiterIdentity =
+    identity === undefined ? `ip:${getClientIp(request)}` : `identity:${identity}`;
+  const result = consumeRateLimit(scope, limiterIdentity, rule);
   if (result.allowed) return null;
   return Response.json(
     { error: 'rate_limited', message: 'Too many requests. Please try again later.' },
