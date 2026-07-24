@@ -1,5 +1,17 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-07-24 · Codex] — beta release-candidate integration gate
+
+### Verification
+- Integrated the launch-blocker branches with the two production interface-language hotfixes while preserving session-cache isolation, error recovery, privacy copy, and registration-mode routing.
+- Clean `npm ci` installed Next.js 16.2.11 and the patched runtime dependency set.
+- `npm audit --omit=dev`: 0 known production vulnerabilities.
+- `npm test`: 37 files / 208 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with 0 errors and the six existing intentional `<img>` warnings.
+- `npm run build`: passed without compiler warnings; landing and demo remain request-time routes.
+- Staging deployment, browser E2E, and production promotion remain the next release steps.
+
 ## [2026-07-24 · Codex] — ANT-208: beta dependency security baseline
 
 ### Solution

@@ -14,7 +14,7 @@ import {
   normalizeInterfaceLanguage,
   type InterfaceLanguage,
 } from '@/lib/interfaceLanguage';
-import { version as appVersion } from '../../package.json';
+import packageJson from '../../package.json';
 import { clearAllSessionCaches, loadUserSessionCache, writeUserSessionCache } from '@/lib/sessionCache';
 import { classifySessionLoad, sessionCreateErrorCopy } from '@/lib/sessionRecovery';
 
@@ -24,6 +24,8 @@ interface DraftPlayer {
   name: string;
   preset: RolePreset | null;
 }
+
+const appVersion = packageJson.version;
 
 const emptyDraft = (): DraftPlayer => ({ name: '', preset: null });
 
