@@ -7,6 +7,7 @@ import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBrie
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags, stripStreamingArtifacts } from '@/lib/segments';
 import { track } from '@/lib/analytics';
+import { canViewStaticScenarioGallery } from '@/lib/scenarioCatalog';
 import DiceRoller from './DiceRoller';
 import StatsBar from './StatsBar';
 import Icon from './Icon';
@@ -288,6 +289,7 @@ function CaseFilesPanel({
   currentLocationName,
   casePlan,
   counts,
+  showStaticGallery = false,
 }: {
   scenarioId: string;
   rulesetId: string;
@@ -310,6 +312,7 @@ function CaseFilesPanel({
   currentLocationName?: string | null;
   casePlan?: CasePlan;
   counts: { evidence: number; npcs: number; locations: number; plan: number };
+  showStaticGallery?: boolean;
 }) {
   const [images, setImages]     = useState<{ id: string; url: string; label: string }[]>([]);
   const [imagesScenarioId, setImagesScenarioId] = useState<string | null>(null);
@@ -320,12 +323,12 @@ function CaseFilesPanel({
 
   // Lazily fetch static scenario images the first time the Матеріали section opens.
   useEffect(() => {
-    if (!imagesRequested || imagesScenarioId === scenarioId) return;
+    if (!showStaticGallery || !imagesRequested || imagesScenarioId === scenarioId) return;
     fetch(`/api/scenarios/${scenarioId}/images`)
       .then((r) => r.json())
       .then((d) => { setImages(d.images ?? []); setImagesScenarioId(scenarioId); })
       .catch(() => { setImages([]); setImagesScenarioId(scenarioId); });
-  }, [imagesRequested, imagesScenarioId, scenarioId]);
+  }, [showStaticGallery, imagesRequested, imagesScenarioId, scenarioId]);
 
   const metNpcs = npcs.filter((n) => n.id in npcRelations);
   const allNpcs: { id: string; name: string; description?: string; isDynamic?: boolean }[] = [
@@ -483,7 +486,9 @@ function CaseFilesPanel({
           </details>
 
           {/* ── Матеріали (evidence cards) ── */}
-          <details className="chat-dossier__sec" onToggle={(e) => { if ((e.target as HTMLDetailsElement).open) setImagesRequested(true); }}>
+          <details className="chat-dossier__sec" onToggle={(e) => {
+            if (showStaticGallery && (e.target as HTMLDetailsElement).open) setImagesRequested(true);
+          }}>
             <summary>Матеріали ({counts.evidence})</summary>
             <div className="chat-dossier__sec-body space-y-3">
               {Object.keys(dynamicImages).length > 0 && (
@@ -2186,6 +2191,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
             locations: (session.world_state?.visitedLocations ?? []).length,
             plan: (session.world_state?.casePlan?.items ?? []).filter((item) => item.status !== 'hidden').length,
           }}
+          showStaticGallery={canViewStaticScenarioGallery(isAdmin ? 'admin' : 'user')}
         />
       </aside>
     </div>

@@ -195,7 +195,9 @@ export const ROLE_PRESETS: RolePreset[] = [
 ];
 
 // CHANGED: Load roles from scenario if present, otherwise fallback to global presets
-export function getRolesForScenario(scenario: Scenario): RolePreset[] {
+export function getRolesForScenario(
+  scenario: Pick<Scenario, 'rolePresets' | 'supportedRoles'>,
+): RolePreset[] {
   if (scenario.rolePresets && scenario.rolePresets.length > 0) {
     const supported = scenario.supportedRoles ?? [];
     return scenario.rolePresets.filter((r) =>

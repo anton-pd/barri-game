@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import type { GameSession, Scenario, Player, WorldState } from '@/types';
+import type { GameSession, Player, WorldState } from '@/types';
+import type { ScenarioCatalogEntry } from '@/lib/scenarioCatalog';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import { track } from '@/lib/analytics';
 import { version as appVersion } from '../../package.json';
@@ -147,7 +148,7 @@ function SessionCard({
   onDelete: (id: string, e: React.MouseEvent) => void;
   playedEvening?: boolean;
   coverFallback?: string;
-  scenario?: Scenario;
+  scenario?: ScenarioCatalogEntry;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -273,13 +274,13 @@ export default function SessionList() {
   const router = useRouter();
 
   const [sessions,  setSessions]  = useState<SessionListEntry[]>([]);
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarios, setScenarios] = useState<ScenarioCatalogEntry[]>([]);
   const [user,      setUser]      = useState<UserInfo | null>(null);
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [loading,   setLoading]   = useState(true);
 
   // New-session modal
-  const [selectedScenario,  setSelectedScenario]  = useState<Scenario | null>(null);
+  const [selectedScenario,  setSelectedScenario]  = useState<ScenarioCatalogEntry | null>(null);
   const [sessionName,       setSessionName]        = useState('');
   const [drafts,            setDrafts]             = useState<DraftPlayer[]>([emptyDraft()]);
   const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
@@ -333,7 +334,7 @@ export default function SessionList() {
 
   // ── New-session helpers ──────────────────────────────────────────────────────
 
-  const openModal = useCallback((sc: Scenario) => {
+  const openModal = useCallback((sc: ScenarioCatalogEntry) => {
     setSelectedScenario(sc);
     setSessionName('');
     setDrafts([emptyDraft()]);
@@ -464,7 +465,7 @@ export default function SessionList() {
   );
   // ANT-131: session cards print human-readable scenario titles and location
   // names instead of raw ids (THE-HAUNTING / ELM_STREET_EXTERIOR).
-  const scenarioById: Record<string, Scenario> = Object.fromEntries(
+  const scenarioById: Record<string, ScenarioCatalogEntry> = Object.fromEntries(
     scenarios.map((sc) => [sc.id, sc])
   );
   const activeSessions    = sessions.filter((s) => s.status === 'active');

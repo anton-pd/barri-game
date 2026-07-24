@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { CONTENT, type Lang } from "./content";
-import type { Scenario } from "@/types";
+import type { ScenarioCatalogEntry } from "@/lib/scenarioCatalog";
 
 const LANGS: { code: Lang; label: string }[] = [
   { code: "en", label: "EN" },
@@ -14,7 +14,7 @@ const LANGS: { code: Lang; label: string }[] = [
 
 export default function LandingClient() {
   const [lang, setLang] = useState<Lang>("en");
-  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [scenarios, setScenarios] = useState<ScenarioCatalogEntry[]>([]);
   const [scenariosLoading, setScenariosLoading] = useState(true);
   const c = CONTENT[lang];
   const demoHref = `/demo?lang=${lang}`;
@@ -27,7 +27,7 @@ export default function LandingClient() {
       try {
         const res = await fetch("/api/scenarios");
         if (!res.ok) throw new Error("Could not load scenarios");
-        const data = await res.json() as Scenario[];
+        const data = await res.json() as ScenarioCatalogEntry[];
         if (active) setScenarios(data);
       } catch {
         if (active) setScenarios([]);
@@ -525,12 +525,12 @@ const CASE_COPY = {
   },
 } as const;
 
-function getScenarioTitle(scenario: Scenario, lang: Lang) {
+function getScenarioTitle(scenario: ScenarioCatalogEntry, lang: Lang) {
   if (lang === "uk") return scenario.titleUk || scenario.title;
   return scenario.title;
 }
 
-function formatScenarioId(index: number, scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+function formatScenarioId(index: number, scenario: ScenarioCatalogEntry, copy: typeof CASE_COPY[Lang]) {
   const number = String(index + 1).padStart(2, "0");
   const suffix = scenario.rulesetId === "coc_7e"
     ? copy.locked.rulesetLabel
@@ -538,12 +538,12 @@ function formatScenarioId(index: number, scenario: Scenario, copy: typeof CASE_C
   return `${copy.locked.idPrefix} № ${number} · ${suffix}`;
 }
 
-function formatSessions(scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+function formatSessions(scenario: ScenarioCatalogEntry, copy: typeof CASE_COPY[Lang]) {
   if (scenario.sessionConfig?.isCampaign) return copy.locked.campaign;
   return String(scenario.sessionConfig?.estimatedSessions ?? copy.locked.oneShot);
 }
 
-function formatPlayers(scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
+function formatPlayers(scenario: ScenarioCatalogEntry, copy: typeof CASE_COPY[Lang]) {
   const min = scenario.sessionConfig?.minPlayers;
   const max = scenario.sessionConfig?.maxPlayers;
   if (!min || !max) return copy.locked.unknown;
@@ -551,7 +551,7 @@ function formatPlayers(scenario: Scenario, copy: typeof CASE_COPY[Lang]) {
 }
 
 function formatDifficulty(
-  difficulty: Scenario["difficulty"],
+  difficulty: ScenarioCatalogEntry["difficulty"],
   copy: typeof CASE_COPY[Lang]
 ) {
   return copy.locked.difficulty[difficulty];

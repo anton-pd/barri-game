@@ -54,11 +54,14 @@ export default function ScenarioStats({ refreshToken = 0 }: ScenarioStatsProps) 
       try {
         const [statsRes, scenariosRes] = await Promise.all([
           fetch('/api/admin/costs?breakdown=scenarios'),
-          fetch('/api/scenarios'),
+          fetch('/api/admin/scenarios'),
         ]);
 
         const stats = (statsRes.ok ? await statsRes.json() : []) as ScenarioRow[];
-        const scenarios = (scenariosRes.ok ? await scenariosRes.json() : []) as Scenario[];
+        const scenarioPayload = scenariosRes.ok
+          ? await scenariosRes.json() as { scenarios?: Scenario[] }
+          : {};
+        const scenarios = scenarioPayload.scenarios ?? [];
 
         const byId = new Map<string, ScenarioRow>();
         for (const scenario of scenarios) {

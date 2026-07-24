@@ -27,9 +27,12 @@ export async function POST(
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await requireCurrentDbAdmin(request);
+  if (!access.ok) return access.response;
+
   const { id } = await params;
 
   let scenario: Scenario;

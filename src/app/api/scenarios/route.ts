@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import type { Scenario } from '@/types';
 import { getScenariosDir, listScenarioFiles } from '@/lib/scenarioFiles';
+import { toScenarioCatalogEntry, type ScenarioCatalogEntry } from '@/lib/scenarioCatalog';
 
 export async function GET() {
   try {
@@ -11,25 +12,17 @@ export async function GET() {
 
     const publicScenariosDir = path.join(process.cwd(), 'public', 'scenarios');
 
-    const scenarios: Scenario[] = files.map((file) => {
+    const scenarios: ScenarioCatalogEntry[] = files.map((file) => {
       const content = fs.readFileSync(path.join(scenariosDir, file), 'utf-8');
       const scenario = JSON.parse(content) as Scenario;
 
-      // Cover priority (ANT-99, cached assets only — never generates here):
-      //   1. dedicated painterly pulp-poster cover.jpg (scripts/generate-covers.mjs)
-      //   2. first staticImage whose file exists on disk
+      // Dedicated non-evidence cover only. Never use a static clue/material as
+      // catalog art: doing so can reveal it before the session unlocks it.
       let cover: string | undefined;
       if (fs.existsSync(path.join(publicScenariosDir, scenario.id, 'cover.jpg'))) {
         cover = `/scenarios/${scenario.id}/cover.jpg`;
-      } else {
-        for (const img of scenario.staticImages ?? []) {
-          if (fs.existsSync(path.join(publicScenariosDir, scenario.id, `${img.id}.jpg`))) {
-            cover = `/scenarios/${scenario.id}/${img.id}.jpg`;
-            break;
-          }
-        }
       }
-      return { ...scenario, cover };
+      return toScenarioCatalogEntry(scenario, cover);
     });
 
     return NextResponse.json(scenarios);

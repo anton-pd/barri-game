@@ -4074,3 +4074,42 @@ Staging and production mount the same source-of-truth scenario JSON directory. A
 - Targeted guard tests pass (2 files / 9 tests).
 - Full test/type/lint/build verification pending before commit.
 - Final verification: `vitest run` passed (19 files / 121 tests); `tsc --noEmit` passed; `eslint .` passed with the existing six `@next/next/no-img-element` warnings only; `npm run build` passed.
+
+---
+
+## ANT-200: spoiler-safe scenario catalog and evidence — 2026-07-24
+
+### Problem
+Public `GET /api/scenarios` returned complete scenario JSON, including Keeper
+prompts, NPC secrets, clues, must-happen events, variants/finale hints, event
+hints, static evidence prompts, and other unrevealed content. The game dossier
+also fetched every pre-generated static scenario image before any evidence
+unlock state existed.
+
+### Changes
+- Added `ScenarioCatalogEntry` and `toScenarioCatalogEntry()` as an explicit
+  allowlist. Catalog responses contain only card/session-create fields:
+  public metadata, dedicated cover, ruleset/player limits, explicitly mapped
+  role presets/inventory, and location `{id,name}` identity needed by existing
+  session cards.
+- Removed the static-evidence fallback from catalog covers. Only a dedicated
+  `cover.jpg` may be exposed as cover art.
+- Adapted Landing, SessionList, role selection, and admin scenario stats to the
+  new DTO/admin endpoint without changing cards, role picker, or session-create
+  request shape.
+- Adopted fail-closed beta evidence behavior: normal players never request the
+  static gallery, and `GET /api/scenarios/[id]/images` independently re-reads
+  the user from PostgreSQL and permits only current DB admins.
+- Dynamic evidence remains unchanged: images actually emitted in assistant
+  messages and persisted in `world_state.sessionImages` still render in chat
+  and the dossier.
+
+### Verification
+- `npm test -- scenarioCatalog`: 1 file, 6 tests passed. Tests reject forbidden
+  keys and representative secret values from serialized catalog DTOs and guard
+  player/static-gallery visibility.
+- `npm test`: 19 files, 122 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the 6 existing `<img>` warnings only.
+- `npx next build --webpack`: passed; retained the existing `SessionList.tsx`
+  package-version import warning.
