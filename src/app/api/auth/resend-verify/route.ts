@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getUserByEmail, regenerateVerifyToken } from '@/lib/queries';
 import { sendVerificationEmail } from '@/lib/email';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
+import { readJsonWithLimit } from '@/lib/requestLimits';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const ipLimit = enforceRateLimit(request, 'auth-resend-ip', { limit: 10, windowMs: 60 * 60_000 });
+    if (ipLimit) return ipLimit;
+    const body = await readJsonWithLimit(request, 8 * 1024) as Record<string, unknown>;
     const { email } = body as { email?: string };
 
     if (!email) {
@@ -12,6 +16,8 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const identityLimit = enforceRateLimit(request, 'auth-resend-id', { limit: 3, windowMs: 60 * 60_000 }, normalizedEmail);
+    if (identityLimit) return identityLimit;
     const user = await getUserByEmail(normalizedEmail);
 
     // Return success even if email not found (prevent enumeration)

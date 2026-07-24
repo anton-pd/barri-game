@@ -10,6 +10,8 @@ import {
 } from '@/lib/queries';
 import { sendVerificationEmail } from '@/lib/email';
 import { signJwt, setAuthCookie } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
+import { readJsonWithLimit } from '@/lib/requestLimits';
 
 const PASSWORD_MIN = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -34,6 +36,8 @@ function invalidRegistration() {
 
 export async function GET(request: Request) {
   try {
+    const limit = enforceRateLimit(request, 'auth-register-check-ip', { limit: 60, windowMs: 60 * 60_000 });
+    if (limit) return limit;
     await ensureSchema();
     const url = new URL(request.url);
     const invite = url.searchParams.get('invite')?.trim();
@@ -63,8 +67,10 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = enforceRateLimit(request, 'auth-register-ip', { limit: 6, windowMs: 60 * 60_000 });
+    if (ipLimit) return ipLimit;
     await ensureSchema();
-    const body = await request.json().catch(() => ({}));
+    const body = await readJsonWithLimit(request, 24 * 1024).catch(() => ({})) as Record<string, unknown>;
     const inviteToken = typeof body.inviteToken === 'string' ? body.inviteToken.trim() : '';
     const password = typeof body.password === 'string' ? body.password : '';
 
@@ -73,6 +79,8 @@ export async function POST(request: Request) {
       if (!(await isOpenRegistration())) return invalidRegistration();
 
       const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+      const identityLimit = enforceRateLimit(request, 'auth-register-id', { limit: 3, windowMs: 24 * 60 * 60_000 }, email);
+      if (identityLimit) return identityLimit;
       if (!EMAIL_RE.test(email)) {
         return NextResponse.json(
           { error: 'invalid_email', message: 'A valid email address is required.' },

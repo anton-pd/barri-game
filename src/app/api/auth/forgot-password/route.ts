@@ -2,11 +2,15 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getUserByEmail, setPasswordResetToken, ensureSchema } from '@/lib/queries';
 import { sendPasswordResetEmail } from '@/lib/email';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
+import { readJsonWithLimit } from '@/lib/requestLimits';
 
 export async function POST(request: Request) {
   try {
     await ensureSchema();
-    const body = await request.json();
+    const ipLimit = enforceRateLimit(request, 'auth-forgot-ip', { limit: 10, windowMs: 60 * 60_000 });
+    if (ipLimit) return ipLimit;
+    const body = await readJsonWithLimit(request, 8 * 1024) as Record<string, unknown>;
     const { email } = body as { email?: string };
 
     if (!email) {
@@ -14,6 +18,8 @@ export async function POST(request: Request) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const identityLimit = enforceRateLimit(request, 'auth-forgot-id', { limit: 3, windowMs: 60 * 60_000 }, normalizedEmail);
+    if (identityLimit) return identityLimit;
     const user = await getUserByEmail(normalizedEmail);
 
     // Always return 200 — no email enumeration

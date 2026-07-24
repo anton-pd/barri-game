@@ -2,6 +2,7 @@ import { verifyUserEmail } from '@/lib/queries';
 import { signJwt } from '@/lib/auth';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
 
 function appUrl(path: string): string {
   const base = (process.env.APP_URL ?? 'https://barrigame.es').replace(/\/$/, '');
@@ -9,6 +10,8 @@ function appUrl(path: string): string {
 }
 
 export async function GET(request: NextRequest) {
+  const limit = enforceRateLimit(request, 'auth-verify-ip', { limit: 30, windowMs: 60 * 60_000 });
+  if (limit) return limit;
   const token = request.nextUrl.searchParams.get('token');
 
   if (!token) {

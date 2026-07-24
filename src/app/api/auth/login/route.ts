@@ -2,12 +2,18 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getUserByEmail, ensureSchema } from '@/lib/queries';
 import { signJwt, setAuthCookie } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
+import { readJsonWithLimit } from '@/lib/requestLimits';
 
 export async function POST(request: Request) {
   try {
     await ensureSchema();
-    const body = await request.json();
+    const ipLimit = enforceRateLimit(request, 'auth-login-ip', { limit: 20, windowMs: 15 * 60_000 });
+    if (ipLimit) return ipLimit;
+    const body = await readJsonWithLimit(request, 16 * 1024) as Record<string, unknown>;
     const { email, password } = body as { email?: string; password?: string };
+    const identityLimit = enforceRateLimit(request, 'auth-login-id', { limit: 8, windowMs: 15 * 60_000 }, email?.trim().toLowerCase());
+    if (identityLimit) return identityLimit;
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });

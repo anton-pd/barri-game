@@ -7,6 +7,8 @@ import { trackAPICall } from '@/lib/costTracker';
 import { ensureSchema } from '@/lib/queries';
 import { DEMO_PLAYERS, DEMO_SCENARIO, DEMO_SCENARIO_ID, initialDemoWorldState } from '@/lib/demoScenario';
 import type { Player, WorldState } from '@/types';
+import { enforceRateLimit } from '@/lib/publicRateLimit';
+import { readJsonWithLimit, PayloadTooLargeError } from '@/lib/requestLimits';
 
 export const runtime = 'nodejs';
 
@@ -242,9 +244,11 @@ async function callGeminiDemo(
 
 export async function POST(request: Request) {
   try {
+    const ipLimit = enforceRateLimit(request, 'demo-ip', { limit: 30, windowMs: 24 * 60 * 60 * 1000 });
+    if (ipLimit) return ipLimit;
     await ensureSchema();
 
-    const body = await request.json() as DemoKeeperRequest;
+    const body = await readJsonWithLimit(request, 64 * 1024) as DemoKeeperRequest;
     const message = body.message?.trim().slice(0, MAX_MESSAGE_CHARS) ?? '';
     if (!message) {
       return NextResponse.json({ error: 'message is required' }, { status: 400 });
@@ -254,6 +258,13 @@ export async function POST(request: Request) {
     let worldState = sanitizeWorldState(body.worldState);
     let players = sanitizePlayers(body.players);
     const anonymousSessionId = sanitizeAnonymousSessionId(body.anonymousSessionId);
+    const sessionLimit = enforceRateLimit(
+      request,
+      'demo-session',
+      { limit: 10, windowMs: 24 * 60 * 60 * 1000 },
+      anonymousSessionId ?? 'missing',
+    );
+    if (sessionLimit) return sessionLimit;
     if (worldState.discoveredClues.includes('silver_pin')) {
       players = ensureSilverPin(players);
     }
@@ -389,6 +400,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
     console.error('Demo Case Curator route failed:', error);
     return NextResponse.json({ error: 'Failed to get Case Curator response' }, { status: 500 });
   }

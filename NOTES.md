@@ -4146,3 +4146,24 @@ storage and needed the same protection.
 - The production restore drill completed successfully and matched critical
   table counts (`users:sessions:messages = 3:7:507`); the temporary restore
   database was removed.
+
+---
+
+## ANT-201: demo/auth abuse limits — 2026-07-24
+
+### Changes
+- Added a bounded 10,000-bucket in-process limiter with hashed keys, oldest
+  eviction, `429` JSON and `Retry-After`.
+- Proxy IP headers are trusted only with `TRUST_PROXY_HEADERS=true`; otherwise
+  a fail-closed shared identity prevents spoofed forwarding headers.
+- Demo has a server-authoritative 10-call/day session quota plus 30-call/day IP
+  budget, so clearing client history cannot reset its AI budget.
+- Added IP and normalized identity/token throttles plus bounded JSON bodies to
+  login, register/invite, password reset/recovery, resend/verify and waitlist.
+
+### Verification
+- `npm test -- publicRateLimit`: 3 tests passed.
+- `npm test`: 26 files, 162 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with 6 existing `<img>` warnings.
+- `npx next build --webpack`: passed with the existing package-version warning.
