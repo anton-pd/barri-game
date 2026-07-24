@@ -29,6 +29,13 @@ export function hasFallbackAnalyticsConsent(
   return getFallbackAnalyticsConsent(storage) === "granted";
 }
 
+export function canInitializeAnalytics(
+  apiKey: string | undefined,
+  statisticsConsent: boolean
+): apiKey is string {
+  return Boolean(apiKey) && statisticsConsent;
+}
+
 export function setFallbackAnalyticsConsent(
   consent: FallbackAnalyticsConsent,
   storage: StorageLike | undefined = browserStorage()

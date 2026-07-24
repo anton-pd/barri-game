@@ -3951,3 +3951,20 @@ corrupt cost accounting and daily-cap behavior.
 - `npx tsc --noEmit`: pass.
 - `npm run lint`: pass with the six pre-existing `<img>` warnings only.
 - `npm run build`: production build passes on Next.js 16.2.3.
+
+---
+
+## ANT-199: prevent Cookiebot from blocking Next hydration — 2026-07-24
+
+### Problem
+Cookiebot's `data-blockingmode="auto"` can intercept first-party Next.js scripts. On production this could prevent hydration from attaching event handlers, leaving the rendered UI non-interactive.
+
+### Changes
+- Removed Cookiebot auto-blocking from the direct production-only CMP script in `src/app/layout.tsx`; the CMP banner and lifecycle-based consent detection stay intact.
+- Kept PostHog initialization behind an explicit `canInitializeAnalytics(apiKey, statisticsConsent)` guard in `PostHogProvider`, so analytics cannot initialize without a configured key and granted statistics consent.
+- Added consent regressions covering both conditions and asserting that the rendered Cookiebot loader no longer enables auto-blocking.
+
+### Verification
+- `vitest run` — 18 files / 118 tests passed.
+- `tsc --noEmit` — passed.
+- `eslint .` — passed with the existing six `@next/next/no-img-element` warnings only.

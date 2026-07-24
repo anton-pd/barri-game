@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   FALLBACK_CONSENT_KEY,
+  canInitializeAnalytics,
   clearFallbackAnalyticsConsent,
   getFallbackAnalyticsConsent,
   hasFallbackAnalyticsConsent,
@@ -40,6 +42,14 @@ describe('fallback analytics consent', () => {
   });
 });
 
+describe('analytics initialization', () => {
+  it('requires both a configured key and explicit statistics consent', () => {
+    expect(canInitializeAnalytics(undefined, true)).toBe(false);
+    expect(canInitializeAnalytics('posthog-key', false)).toBe(false);
+    expect(canInitializeAnalytics('posthog-key', true)).toBe(true);
+  });
+});
+
 describe('Cookiebot statistics consent', () => {
   it('treats a missing or stubbed Cookiebot object as not ready', () => {
     expect(readCookiebotStatisticsConsent(undefined)).toBeNull();
@@ -50,5 +60,12 @@ describe('Cookiebot statistics consent', () => {
     expect(readCookiebotStatisticsConsent({ consent: { statistics: true } })).toBe(true);
     expect(readCookiebotStatisticsConsent({ consent: { statistics: false } })).toBe(false);
     expect(readCookiebotStatisticsConsent({ consent: {} })).toBe(false);
+  });
+
+  it('does not enable Cookiebot auto-blocking, which can intercept Next hydration', () => {
+    const layout = readFileSync(new URL('../src/app/layout.tsx', import.meta.url), 'utf8');
+
+    expect(layout).toContain('src="https://consent.cookiebot.com/uc.js"');
+    expect(layout).not.toContain('data-blockingmode="auto"');
   });
 });

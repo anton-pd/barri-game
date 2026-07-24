@@ -6,6 +6,7 @@ import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import {
+  canInitializeAnalytics,
   hasFallbackAnalyticsConsent,
   readCookiebotStatisticsConsent,
   type CookiebotApi,
@@ -107,7 +108,7 @@ export function PostHogProvider({
 
   useEffect(() => {
     if (!apiKey) return;
-    if (consented) {
+    if (canInitializeAnalytics(apiKey, consented)) {
       if (!posthog.__loaded) {
         posthog.init(apiKey, {
           // First-party reverse proxy so adblockers cannot block analytics

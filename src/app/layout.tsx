@@ -64,17 +64,16 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <head>
         {/* Cookiebot CMP — official snippet rendered as a plain, direct <script>
-            in <head> (ANT-171). next/script `beforeInteractive` emitted a
-            <link rel="preload"> + dynamic injection, which content blockers and
-            browser heuristics treated differently than the normal install and
-            blocked (ERR_BLOCKED_BY_CONTENT_BLOCKER). A direct tag matches how
-            every other Cookiebot site loads it. */}
+            in <head> (ANT-171), because next/script `beforeInteractive` caused
+            blockers to treat its preload + dynamic injection differently. It
+            must not use Cookiebot's auto-blocking mode: that can intercept Next
+            hydration scripts and leave the UI non-interactive. PostHog is gated
+            in PostHogProvider after Cookiebot reports statistics consent. */}
         {cookiebotId && (
           <script
             id="Cookiebot"
             src="https://consent.cookiebot.com/uc.js"
             data-cbid={cookiebotId}
-            data-blockingmode="auto"
             type="text/javascript"
             async
           />
