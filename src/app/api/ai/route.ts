@@ -42,9 +42,18 @@ import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStream
 import { resolveAiProvider, type AiProvider } from '@/lib/aiProvider';
 import { evaluateSessionAccess } from '@/lib/sessionAccess';
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
+import {
+  InvalidJsonError,
+  PayloadTooLargeError,
+  readJsonWithLimit,
+} from '@/lib/requestLimits';
 import type { Player, WorldState } from '@/types';
 
 const GEMINI_SUMMARY_TIMEOUT_MS = 30_000;
+const AI_TURN_BODY_MAX_BYTES = 64 * 1024;
+const AI_TURN_MESSAGE_MAX_CHARS = 20_000;
+const AI_TURN_ACTION_MAX_CHARS = 5_000;
+const AI_TURN_ACTIONS_MAX = 8;
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
 //   'deepseek-base' — direct api.deepseek.com. Free/trial tier: cheapest, but cold
@@ -391,7 +400,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: gate.code, message: gate.message }, { status: gate.status });
   }
 
-  const body = await request.json();
+  let body: unknown;
+  try {
+    body = await readJsonWithLimit(request, AI_TURN_BODY_MAX_BYTES);
+  } catch (error) {
+    if (error instanceof PayloadTooLargeError) {
+      return NextResponse.json({ error: 'Payload too large' }, { status: 413 });
+    }
+    if (error instanceof InvalidJsonError) {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+    throw error;
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
   const {
     sessionId,
     message,
@@ -413,6 +436,35 @@ export async function POST(request: Request) {
   // may still send `aiProvider`, but the request value is intentionally ignored.
   const aiProvider = resolveAiProvider(settings.ai_provider);
 
+  if (
+    typeof sessionId !== 'string' ||
+    sessionId.length === 0 ||
+    sessionId.length > 128 ||
+    typeof message !== 'string' ||
+    message.length === 0 ||
+    message.length > AI_TURN_MESSAGE_MAX_CHARS ||
+    !Number.isInteger(playerIdx) ||
+    playerIdx < 0 ||
+    playerIdx > 7 ||
+    (allActions !== undefined && (
+      !Array.isArray(allActions) ||
+      allActions.length > AI_TURN_ACTIONS_MAX ||
+      allActions.some((action) => (
+        !action ||
+        typeof action !== 'object' ||
+        !Number.isInteger(action.playerIdx) ||
+        action.playerIdx < 0 ||
+        action.playerIdx > 7 ||
+        typeof action.text !== 'string' ||
+        action.text.length === 0 ||
+        action.text.length > AI_TURN_ACTION_MAX_CHARS
+      ))
+    )) ||
+    (autoVoiceEnabled !== undefined && typeof autoVoiceEnabled !== 'boolean') ||
+    (keeperStyleFromBody !== undefined && !['passive', 'balanced', 'active'].includes(keeperStyleFromBody))
+  ) {
+    return NextResponse.json({ error: 'Invalid AI turn payload' }, { status: 400 });
+  }
   if (!sessionId || !message) {
     return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
   }
@@ -476,10 +528,25 @@ export async function POST(request: Request) {
   // Re-read only after winning the database claim. This makes the prompt and
   // state transition derive from the latest committed turn, never a stale
   // snapshot observed while another replica was still processing.
-  const claimedSession = await getSession(sessionId);
+  const [claimedSession, claimedUser] = await Promise.all([
+    getSession(sessionId),
+    getUserById(payload.sub),
+  ]);
   if (!claimedSession) {
     await releaseAiTurn(sessionId, requestId, leaseToken, 'session_missing');
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  }
+  const claimedAccess = evaluateSessionAccess({
+    authenticatedUserId: payload.sub,
+    currentUser: claimedUser,
+    session: claimedSession,
+  });
+  if (!claimedAccess.ok) {
+    await releaseAiTurn(sessionId, requestId, leaseToken, 'access_changed');
+    return NextResponse.json(
+      { error: claimedAccess.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' },
+      { status: claimedAccess.status },
+    );
   }
   if (claimedSession.status !== 'active') {
     await releaseAiTurn(sessionId, requestId, leaseToken, 'session_completed');

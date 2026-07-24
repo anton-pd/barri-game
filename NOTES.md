@@ -4316,6 +4316,10 @@ storage and needed the same protection.
 - Client aborts, provider failures, and prompt-preparation failures release only
   their owned lease. `ensureSchema()` now coalesces concurrent initialization
   and remains retryable after a transient migration failure.
+- The integrated release also caps the JSON body, message, and action batch,
+  and re-reads both the account and session after winning the lease before any
+  provider call. This closes the access-change race between the initial check
+  and paid work.
 
 ### Verification
 - Covered by the 28-file, 174-test full suite, including 9 focused

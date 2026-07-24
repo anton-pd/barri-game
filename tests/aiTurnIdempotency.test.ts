@@ -73,6 +73,19 @@ describe('AI route durable single-flight wiring', () => {
     expect(routeSource).not.toContain('await saveMessage(');
   });
 
+  it('bounds the turn body and revalidates access after winning the lease', () => {
+    const claim = routeSource.indexOf('const claim = await claimAiTurn');
+    const claimedAccess = routeSource.indexOf('const claimedAccess = evaluateSessionAccess');
+    const provider = routeSource.indexOf('const dsResult = await callDeepSeekChatStream');
+
+    expect(routeSource).toContain('readJsonWithLimit(request, AI_TURN_BODY_MAX_BYTES)');
+    expect(routeSource).toContain('message.length > AI_TURN_MESSAGE_MAX_CHARS');
+    expect(routeSource).toContain('allActions.length > AI_TURN_ACTIONS_MAX');
+    expect(routeSource).toContain("releaseAiTurn(sessionId, requestId, leaseToken, 'access_changed')");
+    expect(claimedAccess).toBeGreaterThan(claim);
+    expect(provider).toBeGreaterThan(claimedAccess);
+  });
+
   it('aborts upstream work before releasing ownership', () => {
     expect(routeSource).toContain("'client_aborted'");
     expect(routeSource).toContain("'provider_timeout'");
