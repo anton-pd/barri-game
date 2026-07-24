@@ -1,14 +1,29 @@
 import sql from './db';
 import type { GameSession, Message, WorldState, Player, User, Campaign, SessionSummary, SessionFeedback } from '@/types';
 import crypto from 'crypto';
+import {
+  AI_TURN_LEASE_SECONDS,
+  AI_TURN_RESULT_MAX_BYTES,
+  aiTurnResultByteLength,
+} from '@/lib/aiTurnIdempotency';
 
 let schemaInitialized = false;
+let schemaInitialization: Promise<void> | null = null;
 
 export async function ensureSchema() {
-  if (!schemaInitialized) {
-    await initializeSchema();
-    schemaInitialized = true;
+  if (schemaInitialized) return;
+  if (!schemaInitialization) {
+    schemaInitialization = initializeSchema()
+      .then(() => {
+        schemaInitialized = true;
+      })
+      .catch((error) => {
+        // A transient migration failure must be retryable by the next request.
+        schemaInitialization = null;
+        throw error;
+      });
   }
+  await schemaInitialization;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,6 +114,41 @@ export async function initializeSchema() {
 
   await sql`
     CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, created_at)
+  `;
+
+  // Durable, cross-replica single-flight coordination for paid AI turns
+  // (ANT-203). The partial unique index enforces one provider call per session;
+  // the composite primary key supplies idempotent replay for a logical request.
+  await sql`
+    CREATE TABLE IF NOT EXISTS ai_turn_requests (
+      session_id UUID NOT NULL REFERENCES game_sessions(id) ON DELETE CASCADE,
+      request_id VARCHAR(64) NOT NULL,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status VARCHAR(20) NOT NULL,
+      lease_token UUID,
+      lease_expires_at TIMESTAMPTZ,
+      response_json JSONB,
+      assistant_message_id UUID REFERENCES messages(id) ON DELETE SET NULL,
+      error_code VARCHAR(80),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (session_id, request_id),
+      CONSTRAINT ai_turn_request_id_format
+        CHECK (request_id ~ '^[A-Za-z0-9_-]{16,64}$'),
+      CONSTRAINT ai_turn_request_status
+        CHECK (status IN ('processing', 'completed', 'failed')),
+      CONSTRAINT ai_turn_response_size
+        CHECK (response_json IS NULL OR octet_length(response_json::text) <= 131072)
+    )
+  `;
+  await sql`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_turn_one_processing_per_session
+    ON ai_turn_requests(session_id)
+    WHERE status = 'processing'
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_ai_turn_updated_at
+    ON ai_turn_requests(updated_at)
   `;
 
   // Migrations for existing tables
@@ -897,6 +947,290 @@ export async function updateSession(
 
   const rows = await sql`SELECT * FROM game_sessions WHERE id = ${id}`;
   return rows[0] as unknown as GameSession;
+}
+
+export type AiTurnClaim =
+  | { kind: 'claimed'; leaseToken: string }
+  | { kind: 'completed'; result: Record<string, unknown> }
+  | { kind: 'in_flight'; retryAfterSeconds: number }
+  | { kind: 'session_busy'; retryAfterSeconds: number }
+  | { kind: 'conflict' }
+  | { kind: 'session_missing' };
+
+interface AiTurnRequestRow {
+  request_id: string;
+  user_id: string;
+  status: 'processing' | 'completed' | 'failed';
+  lease_expires_at: string | Date | null;
+  response_json: Record<string, unknown> | null;
+}
+
+/**
+ * Atomically claims the only paid AI turn allowed to run for a session.
+ * Locking the session row serializes contenders across processes/replicas, while
+ * the partial unique index remains a database-level invariant.
+ */
+export async function claimAiTurn(
+  sessionId: string,
+  requestId: string,
+  userId: string,
+): Promise<AiTurnClaim> {
+  const leaseToken = crypto.randomUUID();
+
+  return sql.begin(async (tx) => {
+    const sessions = await tx`
+      SELECT id
+      FROM game_sessions
+      WHERE id = ${sessionId}
+      FOR UPDATE
+    `;
+    if (!sessions[0]) return { kind: 'session_missing' } as const;
+
+    // Reclaim abandoned work only after its bounded lease expires. A late
+    // original worker cannot commit because finalization validates lease_token.
+    await tx`
+      UPDATE ai_turn_requests
+      SET status = 'failed',
+          lease_token = NULL,
+          lease_expires_at = NULL,
+          error_code = 'stale_lease',
+          updated_at = NOW()
+      WHERE session_id = ${sessionId}
+        AND status = 'processing'
+        AND lease_expires_at <= NOW()
+    `;
+
+    const exactRows = await tx`
+      SELECT request_id, user_id, status, lease_expires_at, response_json
+      FROM ai_turn_requests
+      WHERE session_id = ${sessionId}
+        AND request_id = ${requestId}
+      FOR UPDATE
+    `;
+    const exact = exactRows[0] as unknown as AiTurnRequestRow | undefined;
+
+    if (exact && exact.user_id !== userId) {
+      return { kind: 'conflict' } as const;
+    }
+    if (exact?.status === 'completed' && exact.response_json) {
+      return { kind: 'completed', result: exact.response_json } as const;
+    }
+    if (exact?.status === 'processing') {
+      return {
+        kind: 'in_flight',
+        retryAfterSeconds: secondsUntil(exact.lease_expires_at),
+      } as const;
+    }
+
+    const activeRows = await tx`
+      SELECT request_id, lease_expires_at
+      FROM ai_turn_requests
+      WHERE session_id = ${sessionId}
+        AND status = 'processing'
+      LIMIT 1
+    `;
+    const active = activeRows[0] as {
+      request_id: string;
+      lease_expires_at: string | Date | null;
+    } | undefined;
+    if (active) {
+      return {
+        kind: 'session_busy',
+        retryAfterSeconds: secondsUntil(active.lease_expires_at),
+      } as const;
+    }
+
+    if (exact) {
+      await tx`
+        UPDATE ai_turn_requests
+        SET status = 'processing',
+            lease_token = ${leaseToken},
+            lease_expires_at = NOW() + (${AI_TURN_LEASE_SECONDS} * INTERVAL '1 second'),
+            response_json = NULL,
+            assistant_message_id = NULL,
+            error_code = NULL,
+            updated_at = NOW()
+        WHERE session_id = ${sessionId}
+          AND request_id = ${requestId}
+      `;
+    } else {
+      await tx`
+        INSERT INTO ai_turn_requests (
+          session_id,
+          request_id,
+          user_id,
+          status,
+          lease_token,
+          lease_expires_at
+        ) VALUES (
+          ${sessionId},
+          ${requestId},
+          ${userId},
+          'processing',
+          ${leaseToken},
+          NOW() + (${AI_TURN_LEASE_SECONDS} * INTERVAL '1 second')
+        )
+      `;
+    }
+
+    return { kind: 'claimed', leaseToken } as const;
+  });
+}
+
+function secondsUntil(value: string | Date | null): number {
+  if (!value) return 1;
+  const milliseconds = new Date(value).getTime() - Date.now();
+  return Math.max(1, Math.ceil(milliseconds / 1000));
+}
+
+export async function releaseAiTurn(
+  sessionId: string,
+  requestId: string,
+  leaseToken: string,
+  errorCode: string,
+): Promise<void> {
+  await sql`
+    UPDATE ai_turn_requests
+    SET status = 'failed',
+        lease_token = NULL,
+        lease_expires_at = NULL,
+        error_code = ${errorCode.slice(0, 80)},
+        updated_at = NOW()
+    WHERE session_id = ${sessionId}
+      AND request_id = ${requestId}
+      AND status = 'processing'
+      AND lease_token = ${leaseToken}
+  `;
+}
+
+export interface FinalizeAiTurnInput {
+  sessionId: string;
+  requestId: string;
+  leaseToken: string;
+  userMessages: { content: string; playerIdx: number }[];
+  assistantContent: string;
+  baseSessionUpdatedAt: string | Date;
+  worldState: WorldState;
+  players?: Player[];
+  result: Record<string, unknown>;
+}
+
+export interface FinalizedAiTurn {
+  assistantMessage: Message;
+  session: GameSession;
+  result: Record<string, unknown>;
+}
+
+/**
+ * Commits the chat messages, authoritative session state and replay payload as
+ * one unit. If the lease was released/reclaimed, nothing is written.
+ */
+export async function finalizeAiTurn(
+  input: FinalizeAiTurnInput,
+): Promise<FinalizedAiTurn | null> {
+  return sql.begin(async (tx) => {
+    // Keep lock order identical to claimAiTurn to avoid claim/finalize deadlocks.
+    const sessionRows = await tx`
+      SELECT *
+      FROM game_sessions
+      WHERE id = ${input.sessionId}
+      FOR UPDATE
+    `;
+    const lockedSession = sessionRows[0] as unknown as GameSession | undefined;
+    if (
+      !lockedSession ||
+      lockedSession.status !== 'active' ||
+      new Date(lockedSession.updated_at).getTime() !==
+        new Date(input.baseSessionUpdatedAt).getTime()
+    ) {
+      // A completion or any concurrent session mutation makes the computed
+      // state stale. Fail safely instead of overwriting the newer row.
+      return null;
+    }
+
+    const turnRows = await tx`
+      SELECT user_id, status, lease_token
+      FROM ai_turn_requests
+      WHERE session_id = ${input.sessionId}
+        AND request_id = ${input.requestId}
+      FOR UPDATE
+    `;
+    const turn = turnRows[0] as {
+      status: string;
+      lease_token: string | null;
+    } | undefined;
+    if (
+      !turn ||
+      turn.status !== 'processing' ||
+      turn.lease_token !== input.leaseToken
+    ) {
+      return null;
+    }
+
+    for (const userMessage of input.userMessages) {
+      await tx`
+        INSERT INTO messages (session_id, role, content, player_idx)
+        VALUES (
+          ${input.sessionId},
+          'user',
+          ${userMessage.content},
+          ${userMessage.playerIdx}
+        )
+      `;
+    }
+
+    const assistantRows = await tx`
+      INSERT INTO messages (session_id, role, content, player_idx)
+      VALUES (${input.sessionId}, 'assistant', ${input.assistantContent}, NULL)
+      RETURNING *
+    `;
+    const assistantMessage = assistantRows[0] as unknown as Message;
+
+    const updatedSessionRows = input.players
+      ? await tx`
+          UPDATE game_sessions
+          SET world_state = ${tx.json(jsonOf(input.worldState))},
+              players = ${tx.json(jsonOf(input.players))},
+              updated_at = NOW()
+          WHERE id = ${input.sessionId}
+          RETURNING *
+        `
+      : await tx`
+          UPDATE game_sessions
+          SET world_state = ${tx.json(jsonOf(input.worldState))},
+              updated_at = NOW()
+          WHERE id = ${input.sessionId}
+          RETURNING *
+        `;
+    const session = updatedSessionRows[0] as unknown as GameSession;
+    const result = {
+      ...input.result,
+      messageId: assistantMessage.id,
+      world_state: session.world_state,
+      players: session.players,
+    };
+
+    if (aiTurnResultByteLength(result) > AI_TURN_RESULT_MAX_BYTES) {
+      throw new Error('AI turn replay payload exceeds the 128 KiB limit');
+    }
+
+    await tx`
+      UPDATE ai_turn_requests
+      SET status = 'completed',
+          lease_token = NULL,
+          lease_expires_at = NULL,
+          response_json = ${tx.json(jsonOf(result))},
+          assistant_message_id = ${assistantMessage.id},
+          error_code = NULL,
+          updated_at = NOW()
+      WHERE session_id = ${input.sessionId}
+        AND request_id = ${input.requestId}
+        AND status = 'processing'
+        AND lease_token = ${input.leaseToken}
+    `;
+
+    return { assistantMessage, session, result };
+  });
 }
 
 export async function deleteSession(id: string): Promise<void> {

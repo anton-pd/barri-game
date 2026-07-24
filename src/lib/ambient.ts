@@ -7,10 +7,12 @@ import {
   requireScenarioMutationPermit,
   type ScenarioMutationPermit,
 } from '@/lib/scenarioMutationGuard';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 
 const AMBIENT_MODEL = 'eleven_text_to_sound_v2';
 const AMBIENT_DURATION_SECONDS = 25;
 const AMBIENT_PROMPT_INFLUENCE = 0.55;
+const AMBIENT_TIMEOUT_MS = 45_000;
 
 interface AmbientTarget {
   kind: 'group' | 'location';
@@ -52,13 +54,16 @@ function buildAmbientPrompt(scenario: Scenario, target: AmbientTarget): string {
   ].join(' ');
 }
 
-async function generateAmbientAudio(prompt: string): Promise<{ buffer: Buffer; characters: number | undefined }> {
+async function generateAmbientAudio(
+  prompt: string,
+  signal?: AbortSignal,
+): Promise<{ buffer: Buffer; characters: number | undefined }> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY not configured');
   }
 
-  const res = await fetch('https://api.elevenlabs.io/v1/sound-generation', {
+  const res = await fetchWithTimeout('https://api.elevenlabs.io/v1/sound-generation', {
     method: 'POST',
     headers: {
       'xi-api-key': apiKey,
@@ -71,7 +76,8 @@ async function generateAmbientAudio(prompt: string): Promise<{ buffer: Buffer; c
       prompt_influence: AMBIENT_PROMPT_INFLUENCE,
       model_id: AMBIENT_MODEL,
     }),
-  });
+    signal,
+  }, AMBIENT_TIMEOUT_MS);
 
   if (!res.ok) {
     const errorText = await res.text();
@@ -146,8 +152,9 @@ export async function ensureScenarioAmbientGenerated(params: {
   userId?: string;
   persistScenario?: boolean;
   mutationPermit?: ScenarioMutationPermit;
+  signal?: AbortSignal;
 }): Promise<AmbientGenerationResult> {
-  const { scenarioId, scenario, userId, persistScenario = true, mutationPermit } = params;
+  const { scenarioId, scenario, userId, persistScenario = true, mutationPermit, signal } = params;
   const permit = persistScenario ? requireScenarioMutationPermit(mutationPermit) : undefined;
   const targets = collectAmbientTargets(scenario);
   const generated: { id: string; kind: 'group' | 'location'; url: string; locationIds: string[] }[] = [];
@@ -165,7 +172,7 @@ export async function ensureScenarioAmbientGenerated(params: {
 
     if (!fs.existsSync(filePath)) {
       const prompt = buildAmbientPrompt(scenario, target);
-      const { buffer, characters } = await generateAmbientAudio(prompt);
+      const { buffer, characters } = await generateAmbientAudio(prompt, signal);
       fs.writeFileSync(filePath, buffer);
 
       if (userId) {

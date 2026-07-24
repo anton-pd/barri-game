@@ -33,7 +33,7 @@ export async function GET(
 }
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (process.env.AMBIENT_ENABLED !== 'true') {
@@ -56,6 +56,7 @@ export async function POST(
       // Cache generation supports beta play, but public gameplay must never
       // persist a metadata mutation into the shared production scenario JSON.
       persistScenario: false,
+      signal: request.signal,
     });
 
     return NextResponse.json(result);

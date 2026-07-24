@@ -533,6 +533,26 @@ function CaseFilesPanel({
 
 // ── SSE helper ───────────────────────────────────────────────────────────────
 
+async function createAiTurnRequestId(
+  sessionId: string,
+  predecessorId: string,
+  actions: { playerIdx: number; text: string }[],
+): Promise<string> {
+  const logicalTurn = JSON.stringify({ sessionId, predecessorId, actions });
+  try {
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(logicalTurn),
+    );
+    const opaque = Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+    return `turn_${opaque.slice(0, 48)}`;
+  } catch {
+    return `turn_${crypto.randomUUID().replaceAll('-', '')}`;
+  }
+}
+
 async function readSseStream(
   res: Response,
   onChunk: (text: string) => void
@@ -734,6 +754,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const audioCacheRef     = useRef<Map<string, string>>(new Map());
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
   const currentAmbientUrlRef = useRef<string | null>(null);
+  const turnSendingRef    = useRef(false);
   const [ttsProvider]         = useState<'openai' | 'gemini'>(defaultTtsProvider);
   // CHANGED: KeeperStyle — controls Keeper activity level
   const [keeperStyle, setKeeperStyle] = useState<'passive' | 'balanced' | 'active'>(() => {
@@ -831,17 +852,19 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       created_at: new Date().toISOString(),
     }]);
 
-    fetch('/api/ai', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: session.id,
-        message: '__intro__',
-        playerIdx: 0,
-        autoVoiceEnabled,
-        keeperStyle,
-      }),
-    })
+    createAiTurnRequestId(session.id, 'intro', [{ playerIdx: 0, text: '__intro__' }])
+      .then((requestId) => fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: session.id,
+          message: '__intro__',
+          playerIdx: 0,
+          autoVoiceEnabled,
+          keeperStyle,
+          requestId,
+        }),
+      }))
       .then(async (res) => {
         if (!res.ok || !res.body) throw new Error('Intro failed');
         const data = await readSseStream(res, (chunk) => {
@@ -1201,7 +1224,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       ? [...pendingActions, { playerIdx: asPlayerIdx ?? activePlayer, text: immediate }]
       : [...pendingActions];
 
-    if (allActions.length === 0 || isLoading) return;
+    if (allActions.length === 0 || isLoading || turnSendingRef.current) return;
+    turnSendingRef.current = true;
+    const predecessorId = [...messages]
+      .reverse()
+      .find((item) => !item.id.startsWith('local-'))?.id ?? 'session-start';
+    const requestId = await createAiTurnRequestId(session.id, predecessorId, allActions);
 
     setInput('');
     setPendingActions([]);
@@ -1254,6 +1282,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           allActions: allActions.length > 1 ? allActions : undefined,
           autoVoiceEnabled,
           keeperStyle,
+          requestId,
         }),
       });
       // Access-gate responses (ANT-108) carry a user-facing message: waiting-list
@@ -1339,6 +1368,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       }
       setSendError(true);
     } finally {
+      turnSendingRef.current = false;
       setIsLoading(false);
       textareaRef.current?.focus();
     }

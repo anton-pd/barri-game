@@ -12,7 +12,8 @@ const GEMINI_TTS_TIMEOUT_MS = 30_000;
 export async function fetchGeminiPcm(
   text: string,
   voiceStyle: string,
-  segments?: Segment[]
+  segments?: Segment[],
+  signal?: AbortSignal,
 ): Promise<Buffer | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
@@ -69,7 +70,12 @@ export async function fetchGeminiPcm(
 
   const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    },
     GEMINI_TTS_TIMEOUT_MS,
   );
 

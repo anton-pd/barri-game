@@ -84,11 +84,17 @@ export async function GET(request: Request) {
   let response: Response;
   try {
     if (provider === 'gemini') {
-      response = await handleGemini(fullPrompt, cacheKey, sessionId, access.user.id);
+      response = await handleGemini(
+        fullPrompt,
+        cacheKey,
+        sessionId,
+        access.user.id,
+        request.signal,
+      );
     } else if (provider === 'openai') {
-      response = await handleOpenAI(fullPrompt, cacheKey, sessionId, access.user.id);
+      response = await handleOpenAI(fullPrompt, cacheKey, sessionId, access.user.id, request.signal);
     } else {
-      response = await handlePollinations(fullPrompt, cacheKey);
+      response = await handlePollinations(fullPrompt, cacheKey, request.signal);
     }
   } catch (error) {
     console.error('Image request failed:', error);
@@ -108,7 +114,8 @@ async function handleGemini(
   prompt: string,
   cacheKey?: string,
   sessionId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return new Response('Gemini API key not configured', { status: 503 });
@@ -119,11 +126,11 @@ async function handleGemini(
   });
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
+    if (attempt > 0) await waitForRetry(5000 * attempt, signal);
 
     const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal },
       IMAGE_API_TIMEOUT_MS,
     );
 
@@ -135,7 +142,7 @@ async function handleGemini(
     if (!res.ok) {
       console.error('Gemini image error:', res.status, await res.text());
       console.warn('Gemini failed, falling back to Pollinations');
-      return handlePollinations(prompt, cacheKey);
+      return handlePollinations(prompt, cacheKey, signal);
     }
 
     const data = await res.json() as {
@@ -147,7 +154,7 @@ async function handleGemini(
     if (!imagePart?.inlineData) {
       console.error('Gemini: no image in response', JSON.stringify(data).slice(0, 200));
       console.warn('Gemini returned no image, falling back to Pollinations');
-      return handlePollinations(prompt, cacheKey);
+      return handlePollinations(prompt, cacheKey, signal);
     }
 
     const { mimeType, data: b64 } = imagePart.inlineData;
@@ -176,7 +183,7 @@ async function handleGemini(
   }
 
   console.warn('Gemini: rate limit after 3 attempts, falling back to Pollinations');
-  return handlePollinations(prompt, cacheKey);
+  return handlePollinations(prompt, cacheKey, signal);
 }
 
 // ── OpenAI DALL-E ─────────────────────────────────────────────────────────────
@@ -185,7 +192,8 @@ async function handleOpenAI(
   prompt: string,
   cacheKey?: string,
   sessionId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
@@ -194,6 +202,7 @@ async function handleOpenAI(
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'dall-e-2', prompt, n: 1, size: '512x512', response_format: 'url' }),
+    signal,
   }, IMAGE_API_TIMEOUT_MS);
 
   if (!res.ok) {
@@ -202,7 +211,7 @@ async function handleOpenAI(
   }
 
   const data = await res.json() as { data: { url: string }[] };
-  const imgRes = await fetchWithTimeout(data.data[0].url, {}, IMAGE_DOWNLOAD_TIMEOUT_MS);
+  const imgRes = await fetchWithTimeout(data.data[0].url, { signal }, IMAGE_DOWNLOAD_TIMEOUT_MS);
   const imgBuf = Buffer.from(await imgRes.arrayBuffer());
   if (cacheKey) saveImageToCache(cacheKey, imgBuf);
 
@@ -225,17 +234,21 @@ async function handleOpenAI(
 
 // ── Pollinations (fallback, free) ─────────────────────────────────────────────
 
-async function handlePollinations(prompt: string, cacheKey?: string): Promise<Response> {
+async function handlePollinations(
+  prompt: string,
+  cacheKey?: string,
+  signal?: AbortSignal,
+): Promise<Response> {
   const encoded = encodeURIComponent(prompt);
   const seed    = Math.floor(Math.random() * 999999);
   const url     = `https://image.pollinations.ai/prompt/${encoded}?width=768&height=512&model=flux-realism&nologo=true&seed=${seed}`;
   const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
+    if (attempt > 0) await waitForRetry(8000 * attempt, signal);
     const res = await fetchWithTimeout(
       url,
-      { headers: { 'User-Agent': 'barri-game/1.0' } },
+      { headers: { 'User-Agent': 'barri-game/1.0' }, signal },
       IMAGE_API_TIMEOUT_MS,
     );
     const buf = Buffer.from(await res.arrayBuffer());
@@ -251,4 +264,22 @@ async function handlePollinations(prompt: string, cacheKey?: string): Promise<Re
 
   console.error('Pollinations failed after 3 attempts');
   return new Response('Image generation failed', { status: 502 });
+}
+
+function waitForRetry(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  if (!signal) {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
+  }
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort);
+      resolve();
+    }, milliseconds);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
 }

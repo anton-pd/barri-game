@@ -55,7 +55,8 @@ export async function closeSession(
   sessionNumber: number,
   players: Player[],
   messages: Array<{ role: string; content: string }>,
-  lang: 'uk' | 'en' = 'uk'
+  lang: 'uk' | 'en' = 'uk',
+  signal?: AbortSignal,
 ): Promise<{ summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> }> {
   const summarizePrompt = buildCloseSessionPrompt(messages, lang);
 
@@ -64,7 +65,7 @@ export async function closeSession(
   // evening still closes and the next one is created with a fallback summary.
   let summaryData: { summary: string; keyEvents: string[]; npcChanges: Record<string, unknown> };
   try {
-    const text = await callDeepSeekText(summarizePrompt, 500, { sessionId });
+    const text = await callDeepSeekText(summarizePrompt, 500, { sessionId }, signal);
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = match ? JSON.parse(match[0]) : null;
     // `summary` is NOT NULL in the DB — never trust the LLM to provide it.

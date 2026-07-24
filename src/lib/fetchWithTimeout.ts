@@ -3,8 +3,13 @@ export async function fetchWithTimeout(
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Response> {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal
+    ? AbortSignal.any([init.signal, timeoutSignal])
+    : timeoutSignal;
+
   return fetch(input, {
     ...init,
-    signal: AbortSignal.timeout(timeoutMs),
+    signal,
   });
 }

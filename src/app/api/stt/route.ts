@@ -60,6 +60,7 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}` },
       body: openaiForm,
+      signal: request.signal,
     }, OPENAI_STT_TIMEOUT_MS);
   } catch (error) {
     console.error('Whisper request failed:', error);

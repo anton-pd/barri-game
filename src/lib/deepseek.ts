@@ -1,16 +1,20 @@
 // Non-streaming DeepSeek text helper for auxiliary calls (campaign close etc.).
 // The game engine itself streams via /api/ai (see ENGINE_ARMS there, ANT-142).
 import { trackAPICall } from './costTracker';
+import { fetchWithTimeout } from './fetchWithTimeout';
+
+const DEEPSEEK_AUX_TIMEOUT_MS = 30_000;
 
 export async function callDeepSeekText(
   prompt: string,
   maxTokens: number,
-  track?: { sessionId?: string; userId?: string }
+  track?: { sessionId?: string; userId?: string },
+  signal?: AbortSignal,
 ): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) throw new Error('DEEPSEEK_API_KEY not set');
 
-  const res = await fetch('https://api.deepseek.com/chat/completions', {
+  const res = await fetchWithTimeout('https://api.deepseek.com/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
@@ -19,7 +23,8 @@ export async function callDeepSeekText(
       max_tokens: maxTokens,
       temperature: 0.3,
     }),
-  });
+    signal,
+  }, DEEPSEEK_AUX_TIMEOUT_MS);
   if (!res.ok) {
     const err = await res.text();
     console.error('DeepSeek text error:', res.status, err.slice(0, 300));

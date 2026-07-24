@@ -4294,3 +4294,58 @@ storage and needed the same protection.
 - Targeted trust-claim regression test, TypeScript, focused ESLint, and an
   explicit post-change source audit pass.
 - Full tests, lint, and webpack build pending before commit.
+
+---
+
+## ANT-203: durable idempotent AI turns — 2026-07-24
+
+### Changes
+- Added bounded, opaque logical-turn IDs in the game client. The ID is derived
+  from the session, previous committed message, and actions, so a double click,
+  retry, or matching action from another tab reaches the same durable request.
+- Added PostgreSQL-backed AI-turn claims with session-wide single-flight,
+  request/user binding, a three-minute lease, stale lease recovery, and clear
+  `425` (same request) / `409` (another session request) responses.
+- Completed retries replay the stored SSE `done` result without another paid
+  provider call. Replay JSON is capped at 128 KiB in both application and
+  database constraints.
+- AI messages, world state, player mutations, assistant ID, and replay result
+  now commit in one transaction. Finalization validates both the lease token
+  and the session version, so an aborted, reclaimed, completed, or concurrently
+  mutated session cannot receive a stale write.
+- Client aborts, provider failures, and prompt-preparation failures release only
+  their owned lease. `ensureSchema()` now coalesces concurrent initialization
+  and remains retryable after a transient migration failure.
+
+### Verification
+- Covered by the 28-file, 174-test full suite, including 9 focused
+  idempotency/migration/route-wiring checks.
+- `npx tsc --noEmit`, lint, and the webpack production build passed.
+
+---
+
+## ANT-204: bounded and cancellable player upstreams — 2026-07-24
+
+### Changes
+- The main AI turn now has a 120-second total upstream budget beginning at lease
+  claim, safely below its 180-second stale lease. DeepSeek/OpenRouter fetch and
+  streaming body reads share client cancellation and the total deadline.
+- A closed downstream stream explicitly cancels the provider reader. The route
+  aborts its provider controller and waits for upstream unwinding before
+  releasing the durable claim, so a retry cannot overlap an old paid call.
+- Gemini summary/demo/TTS, OpenAI TTS/STT/image, DeepSeek campaign summaries,
+  image downloads/fallbacks, and beta ambient generation now use bounded
+  upstream fetches. Player request cancellation is propagated through each
+  applicable path and image retry waits are abortable.
+- TTS prefetch starts only after the AI turn transaction commits.
+- Timeout budgets: AI turn 120s; Gemini summary/demo 30s; auxiliary DeepSeek
+  30s; Gemini/OpenAI TTS 30s; STT 60s; image generation 45s per attempt and
+  image download 30s; ambient generation 45s.
+
+### Verification
+- `npm test`: 28 files, 174 tests passed, including durable-turn and combined
+  cancellation/body-timeout coverage.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the existing `<img>` warnings only.
+- `npm run build -- --webpack`: passed with the existing package-version import
+  warning.

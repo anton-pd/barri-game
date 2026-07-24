@@ -97,6 +97,7 @@ export async function POST(request: Request) {
         segments as Segment[] | undefined,
         sessionId,
         access.user.id,
+        request.signal,
       );
       // Auto-fallback to OpenAI if Gemini quota exceeded or unavailable
       if (res.status === 502) {
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
           typeof voiceStyle === 'string' ? voiceStyle : 'keeper',
           sessionId,
           access.user.id,
+          request.signal,
         );
       }
       return res;
@@ -115,6 +117,7 @@ export async function POST(request: Request) {
       typeof voiceStyle === 'string' ? voiceStyle : 'keeper',
       sessionId,
       access.user.id,
+      request.signal,
     );
   } catch (error) {
     console.error('TTS request failed:', error);
@@ -129,7 +132,8 @@ async function handleGemini(
   voiceStyle: string,
   segments?: Segment[],
   sessionId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   // Check prefetch cache first
   const cached = await getPrefetch(text, voiceStyle, segments);
@@ -138,7 +142,7 @@ async function handleGemini(
     return wavResponse(cached);
   }
 
-  const pcm = await fetchGeminiPcm(text, voiceStyle, segments);
+  const pcm = await fetchGeminiPcm(text, voiceStyle, segments, signal);
   if (!pcm) return new Response('TTS failed', { status: 502 });
 
   // Track Gemini TTS: input = text tokens, output = audio tokens (approx same as input)
@@ -171,7 +175,8 @@ async function handleOpenAI(
   text: string,
   _voiceStyle: string,
   sessionId?: string,
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI API key not configured', { status: 503 });
@@ -185,6 +190,7 @@ async function handleOpenAI(
       voice: getOpenAIKeeperVoice(),
       response_format: 'mp3',
     }),
+    signal,
   }, OPENAI_TTS_TIMEOUT_MS);
 
   if (!res.ok) {

@@ -110,7 +110,8 @@ export async function POST(
           session.session_number ?? 1,
           session.players,
           messages.map((message) => ({ role: message.role, content: message.content })),
-          sessionLang
+          sessionLang,
+          request.signal,
         );
         summary = summaryData.summary;
       }

@@ -2,7 +2,25 @@
 // cost tracking, inventory mutation tags, keeper activity, random event injection.
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getSession, getLastNMessages, countMessages, saveMessage, saveMessageDebug, updateSession, getUserById, getUserDailyCost, getAllAppSettings } from '@/lib/queries';
+import {
+  claimAiTurn,
+  countMessages,
+  ensureSchema,
+  finalizeAiTurn,
+  getAllAppSettings,
+  getLastNMessages,
+  getSession,
+  getUserById,
+  getUserDailyCost,
+  releaseAiTurn,
+  saveMessageDebug,
+  updateSession,
+} from '@/lib/queries';
+import {
+  AI_TURN_UPSTREAM_TIMEOUT_MS,
+  createCompletedTurnResponse,
+  isValidAiTurnRequestId,
+} from '@/lib/aiTurnIdempotency';
 import { evaluateAccessGate } from '@/lib/accessGate';
 import { buildSystemPromptBlocks, buildSummarizePrompt, getIntroUserContent } from '@/lib/prompts';
 import { parseSegments, stripNpcTags } from '@/lib/segments';
@@ -23,7 +41,10 @@ import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStreamChunk } from '@/lib/deepseekStream';
 import { resolveAiProvider, type AiProvider } from '@/lib/aiProvider';
 import { evaluateSessionAccess } from '@/lib/sessionAccess';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { Player, WorldState } from '@/types';
+
+const GEMINI_SUMMARY_TIMEOUT_MS = 30_000;
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
 //   'deepseek-base' — direct api.deepseek.com. Free/trial tier: cheapest, but cold
@@ -142,7 +163,8 @@ async function callDeepSeekChatStream(
   arm: EngineArm,
   messages: DeepSeekMessage[],
   maxTokens: number,
-  onDelta: (text: string) => void
+  onDelta: (text: string) => void,
+  signal: AbortSignal,
 ): Promise<{
   text: string;
   inputTokens: number;
@@ -164,11 +186,12 @@ async function callDeepSeekChatStream(
     orProvider: arm.orProvider,
   });
 
-  const res = await fetch(arm.url, {
+  const res = await fetchWithTimeout(arm.url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify(body),
-  });
+    signal,
+  }, AI_TURN_UPSTREAM_TIMEOUT_MS);
   if (!res.ok || !res.body) {
     const err = await res.text();
     console.error('DeepSeek error:', res.status, err.slice(0, 300));
@@ -187,16 +210,25 @@ async function callDeepSeekChatStream(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = '';
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() ?? '';
-    for (const line of lines) {
-      if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
-      try {
-        const chunk = JSON.parse(line.slice(6)) as DeepSeekStreamChunk;
+  let streamComplete = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        streamComplete = true;
+        break;
+      }
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop() ?? '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ') || line.includes('[DONE]')) continue;
+        let chunk: DeepSeekStreamChunk;
+        try {
+          chunk = JSON.parse(line.slice(6)) as DeepSeekStreamChunk;
+        } catch {
+          continue;
+        }
         const delta = extractDeepSeekContentDelta(chunk);
         if (delta) {
           text += delta;
@@ -204,7 +236,11 @@ async function callDeepSeekChatStream(
         }
         if (chunk.choices?.[0]?.finish_reason) finishReason = chunk.choices[0].finish_reason;
         if (chunk.usage) usage = chunk.usage;
-      } catch { /* partial SSE line at buffer edge */ }
+      }
+    }
+  } finally {
+    if (!streamComplete) {
+      await reader.cancel().catch(() => undefined);
     }
   }
   if (!text.trim()) {
@@ -233,7 +269,7 @@ async function callGeminiText(modelId: string, prompt: string): Promise<string> 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
@@ -242,7 +278,8 @@ async function callGeminiText(modelId: string, prompt: string): Promise<string> 
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { maxOutputTokens: 500 },
       }),
-    }
+    },
+    GEMINI_SUMMARY_TIMEOUT_MS,
   );
 
   if (!res.ok) throw new Error(`Gemini error: ${res.status}`);
@@ -325,6 +362,7 @@ Do NOT enumerate options as a list — describe a situation that demands a respo
 
 export async function POST(request: Request) {
   // ── Auth & early validation (before stream) ───────────────────────────────
+  await ensureSchema();
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   const payload = token ? await verifyJwt(token) : null;
@@ -361,6 +399,7 @@ export async function POST(request: Request) {
     allActions,
     autoVoiceEnabled = false,
     keeperStyle: keeperStyleFromBody,
+    requestId,
   } = body as {
     sessionId: string;
     message: string;
@@ -368,6 +407,7 @@ export async function POST(request: Request) {
     allActions?: { playerIdx: number; text: string }[];
     autoVoiceEnabled?: boolean;
     keeperStyle?: 'passive' | 'balanced' | 'active';
+    requestId?: string;
   };
   // The engine tier is a server-owned cost/entitlement decision. Legacy clients
   // may still send `aiProvider`, but the request value is intentionally ignored.
@@ -376,8 +416,14 @@ export async function POST(request: Request) {
   if (!sessionId || !message) {
     return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
   }
+  if (!isValidAiTurnRequestId(requestId)) {
+    return NextResponse.json(
+      { error: 'invalid_request_id', message: 'requestId must be 16-64 URL-safe characters' },
+      { status: 400 },
+    );
+  }
 
-  const session = await getSession(sessionId);
+  let session = await getSession(sessionId);
   if (!session) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
@@ -385,9 +431,62 @@ export async function POST(request: Request) {
   const sessionAccess = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser, session });
   if (!sessionAccess.ok) return NextResponse.json({ error: sessionAccess.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: sessionAccess.status });
 
-  if (session.status === 'completed') {
+  if (session.status !== 'active') {
     return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });
   }
+
+  const claim = await claimAiTurn(sessionId, requestId, payload.sub);
+  if (claim.kind === 'completed') {
+    return createCompletedTurnResponse(claim.result);
+  }
+  if (claim.kind === 'in_flight' || claim.kind === 'session_busy') {
+    const status = claim.kind === 'in_flight' ? 425 : 409;
+    return NextResponse.json(
+      {
+        error: claim.kind,
+        message: claim.kind === 'in_flight'
+          ? 'This AI turn is already in progress'
+          : 'Another AI turn is already in progress for this session',
+        retryAfterSeconds: claim.retryAfterSeconds,
+      },
+      {
+        status,
+        headers: { 'Retry-After': String(claim.retryAfterSeconds) },
+      },
+    );
+  }
+  if (claim.kind === 'conflict') {
+    return NextResponse.json({ error: 'request_id_conflict' }, { status: 409 });
+  }
+  if (claim.kind === 'session_missing') {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  }
+
+  const leaseToken = claim.leaseToken;
+  const providerAbortController = new AbortController();
+  // The provider timeout starts with the lease, not with fetch(), so prompt
+  // preparation cannot consume the safety margin and then start a full call.
+  const turnSignal = AbortSignal.any([
+    request.signal,
+    AbortSignal.timeout(AI_TURN_UPSTREAM_TIMEOUT_MS),
+    providerAbortController.signal,
+  ]);
+
+  try {
+  // Re-read only after winning the database claim. This makes the prompt and
+  // state transition derive from the latest committed turn, never a stale
+  // snapshot observed while another replica was still processing.
+  const claimedSession = await getSession(sessionId);
+  if (!claimedSession) {
+    await releaseAiTurn(sessionId, requestId, leaseToken, 'session_missing');
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  }
+  if (claimedSession.status !== 'active') {
+    await releaseAiTurn(sessionId, requestId, leaseToken, 'session_completed');
+    return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });
+  }
+  session = claimedSession;
+  const turnPlayers = claimedSession.players;
 
   // ── Prompt preparation (before stream — fast, no AI call) ─────────────────
 
@@ -402,7 +501,7 @@ export async function POST(request: Request) {
         // Multi-action batches arrive already formatted as "[Name]: action\n[Name]: action" —
         // wrapping again would produce "[Name]: [Name]: …" and mis-attribute the batch.
         if (allActions && allActions.length > 1) return message;
-        const player = session.players[playerIdx];
+        const player = turnPlayers[playerIdx];
         return player ? `[${player.name}]: ${message}` : message;
       })();
 
@@ -428,7 +527,7 @@ export async function POST(request: Request) {
   worldState = applyEventDecision(worldState, eventDecision, currentLocation, scenario);
 
   const keeperStyle = keeperStyleFromBody ?? (session.keeper_style as 'passive' | 'balanced' | 'active') ?? 'balanced';
-  const activitySection = buildKeeperActivitySection(keeperStyle, worldState, sessionLang, session.players);
+  const activitySection = buildKeeperActivitySection(keeperStyle, worldState, sessionLang, turnPlayers);
   const imageRequestInstruction = !isIntro && isExplicitImageRequest(message)
     ? (sessionLang === 'en'
         ? 'The player explicitly asks to SEE something. In this response you MUST add exactly one [IMAGE:type:short English description] tag for the most relevant object or scene they ask to see. Pick the type meaningfully: map / letter / photo / artifact / scene / newspaper. The description in the tag must be short, specific, and in English.'
@@ -441,7 +540,7 @@ export async function POST(request: Request) {
   const campaignContext = session.campaign_id
     ? await getCampaignContext(session.campaign_id, sessionLang)
     : undefined;
-  const blocks = buildSystemPromptBlocks(scenario, worldState, session.players, {
+  const blocks = buildSystemPromptBlocks(scenario, worldState, turnPlayers, {
     campaignContext,
     keeperActivitySection: activitySection,
     eventInstruction,
@@ -454,8 +553,8 @@ export async function POST(request: Request) {
   const deepseekMessages: DeepSeekMessage[] = [
     { role: 'system', content: `${blocks.ruleset}\n\n${blocks.static}` },
     ...recentMessages.map((m): DeepSeekMessage => {
-      if (m.role === 'user' && m.player_idx !== null && session.players[m.player_idx]) {
-        return { role: 'user', content: `[${session.players[m.player_idx].name}]: ${m.content}` };
+      if (m.role === 'user' && m.player_idx !== null && turnPlayers[m.player_idx]) {
+        return { role: 'user', content: `[${turnPlayers[m.player_idx].name}]: ${m.content}` };
       }
       return { role: m.role as 'user' | 'assistant', content: m.content };
     }),
@@ -484,7 +583,8 @@ export async function POST(request: Request) {
           // ANT-129: 900 was tight for narration-heavy turns and produced
           // mid-word cuts; 1200 gives headroom. Intro gets more (ANT-60).
           isIntro ? 1400 : 1200,
-          (delta) => send('chunk', { text: delta })
+          (delta) => send('chunk', { text: delta }),
+          turnSignal,
         );
         const assistantText = dsResult.text;
         const inputTokens   = dsResult.inputTokens;
@@ -533,7 +633,7 @@ export async function POST(request: Request) {
 
         const { cleanText: textAfterInventory, mutatedPlayers } = parseInventoryTags(
           assistantText,
-          session.players
+          turnPlayers
         );
 
         let updatedWorldState = { ...worldState };
@@ -555,13 +655,13 @@ export async function POST(request: Request) {
             // lookup silently skipped validation whenever the tag language
             // differed from the sheet language.
             const rawIdx = Number(idx);
-            const characterIdx = session.players[rawIdx] ? rawIdx : playerIdx;
+            const characterIdx = turnPlayers[rawIdx] ? rawIdx : playerIdx;
             const trimmedSkill = String(skillName).trim();
             const tagValue = Number(skillValue);
             let goodThreshold = Number(threshold);
             let resolvedValue = tagValue;
-            const rollTarget = session.players[characterIdx]
-              ? resolveRollSkillValue(session.players[characterIdx], scenario.rulesetId, trimmedSkill)
+            const rollTarget = turnPlayers[characterIdx]
+              ? resolveRollSkillValue(turnPlayers[characterIdx], scenario.rulesetId, trimmedSkill)
               : null;
             if (rollTarget) {
               resolvedValue = rollTarget.value;
@@ -618,7 +718,7 @@ export async function POST(request: Request) {
             const threshold = Number(rollTextMatch[2]);
             // Match skill to player's actual value (alias-aware, ANT-183);
             // fallback to the threshold the model wrote in the text.
-            const player = session.players[playerIdx] ?? session.players[0];
+            const player = turnPlayers[playerIdx] ?? turnPlayers[0];
             const skillValue = player
               ? (resolveRollSkillValue(player, scenario.rulesetId, skillNameRaw)?.value ?? threshold)
               : threshold;
@@ -700,7 +800,7 @@ export async function POST(request: Request) {
         // render as an NPC bubble and, worse, auto-register the player into
         // npcRelations. Unwrap the tag keeping the inner text so narration
         // is preserved but no NPC artifact leaks downstream.
-        const playerNamesLower = session.players
+        const playerNamesLower = turnPlayers
           .map((p) => p.name?.trim().toLowerCase())
           .filter((n): n is string => Boolean(n));
         if (playerNamesLower.length > 0) {
@@ -852,37 +952,10 @@ export async function POST(request: Request) {
           updatedWorldState = { ...updatedWorldState, variantHint: undefined };
         }
 
-        // ── Persist messages ────────────────────────────────────────────────
-
-        if (!isIntro) {
-          if (allActions && allActions.length > 1) {
-            for (const action of allActions) {
-              await saveMessage(sessionId, 'user', action.text, action.playerIdx);
-            }
-          } else {
-            await saveMessage(sessionId, 'user', message, playerIdx);
-          }
-        }
-        const savedAssistantMsg = await saveMessage(sessionId, 'assistant', textForDB);
-
-        // ── Persist state ───────────────────────────────────────────────────
-
+        // ── Prepare the atomic commit + replay payload ──────────────────────
         const needsPlayerUpdate =
           deltaMatches.length > 0 ||
-          JSON.stringify(mutatedPlayers) !== JSON.stringify(session.players);
-        await updateSession(session.id, {
-          world_state: updatedWorldState,
-          ...(needsPlayerUpdate ? { players: updatedPlayers } : {}),
-        });
-
-        // ── Summarize periodically ──────────────────────────────────────────
-
-        const msgCount = await countMessages(sessionId);
-        if (msgCount % 20 === 0) {
-          summarizeAndUpdateWorldState(sessionId, sessionLang);
-        }
-
-        const updatedSession = await getSession(sessionId);
+          JSON.stringify(mutatedPlayers) !== JSON.stringify(turnPlayers);
 
         // ── Ambient ─────────────────────────────────────────────────────────
 
@@ -891,9 +964,6 @@ export async function POST(request: Request) {
         // ── TTS prefetch ────────────────────────────────────────────────────
 
         const voiceStyle = detectVoiceStyle();
-        if (autoVoiceEnabled) {
-          prefetchGemini(cleanText, voiceStyle, segments);
-        }
 
         const imageType    = imageMatch?.[1] ?? null;
         const imagePrompt  = imageMatch?.[2]?.trim() ?? null;
@@ -904,14 +974,29 @@ export async function POST(request: Request) {
               ?? null)
           : null;
 
-        send('done', {
+        const completed = await finalizeAiTurn({
+          sessionId,
+          requestId,
+          leaseToken,
+          userMessages: isIntro
+            ? []
+            : allActions && allActions.length > 1
+              ? allActions.map((action) => ({
+                  content: action.text,
+                  playerIdx: action.playerIdx,
+                }))
+              : [{ content: message, playerIdx }],
+          assistantContent: textForDB,
+          baseSessionUpdatedAt: claimedSession.updated_at,
+          worldState: updatedWorldState,
+          players: needsPlayerUpdate ? updatedPlayers : undefined,
+          result: {
           response: cleanText,
-          messageId: savedAssistantMsg.id,
           voiceStyle,
           segments,
           aiProvider,
           players: updatedPlayers,
-          world_state: updatedSession?.world_state ?? updatedWorldState,
+          world_state: updatedWorldState,
           imageType,
           imagePrompt,
           location,
@@ -919,7 +1004,25 @@ export async function POST(request: Request) {
           ambientFile,
           completionAction,
           truncated: wasTruncated || undefined,
+          },
         });
+        if (!completed) {
+          throw new Error('AI turn lease was released or reclaimed before commit');
+        }
+        const savedAssistantMsg = completed.assistantMessage;
+
+        if (autoVoiceEnabled) {
+          prefetchGemini(cleanText, voiceStyle, segments);
+        }
+
+        send('done', completed.result);
+
+        // ── Summarize periodically ──────────────────────────────────────────
+
+        const msgCount = await countMessages(sessionId);
+        if (msgCount % 20 === 0) {
+          summarizeAndUpdateWorldState(sessionId, sessionLang);
+        }
 
         // ── Debug snapshot (admin-only, fire-and-forget) ────────────────────
         saveMessageDebug(savedAssistantMsg.id, {
@@ -939,9 +1042,28 @@ export async function POST(request: Request) {
 
       } catch (error) {
         console.error('Error in AI route:', error);
-        send('error', { message: 'Failed to get AI response' });
+        const errorCode = request.signal.aborted
+          ? 'client_aborted'
+          : turnSignal.aborted
+            ? 'provider_timeout'
+            : 'ai_turn_failed';
+        providerAbortController.abort(error);
+        // Releasing happens only after the provider fetch/body read has thrown,
+        // so a retry cannot overlap work still running in this process.
+        await releaseAiTurn(sessionId, requestId, leaseToken, errorCode)
+          .catch((releaseError) => console.error('Failed to release AI turn:', releaseError));
+        try {
+          send('error', { message: 'Failed to get AI response' });
+        } catch {
+          // The client may already have disconnected; the durable lease above
+          // is the important cleanup.
+        }
       } finally {
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Closing an already-cancelled stream is harmless.
+        }
       }
     },
   });
@@ -953,4 +1075,10 @@ export async function POST(request: Request) {
       'Connection': 'keep-alive',
     },
   });
+  } catch (error) {
+    await releaseAiTurn(sessionId, requestId, leaseToken, 'pre_stream_failed')
+      .catch((releaseError) => console.error('Failed to release AI turn:', releaseError));
+    console.error('Error preparing AI turn:', error);
+    return NextResponse.json({ error: 'Failed to prepare AI turn' }, { status: 500 });
+  }
 }

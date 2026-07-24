@@ -9,11 +9,13 @@ import { DEMO_PLAYERS, DEMO_SCENARIO, DEMO_SCENARIO_ID, initialDemoWorldState } 
 import type { Player, WorldState } from '@/types';
 import { enforceRateLimit } from '@/lib/publicRateLimit';
 import { readJsonWithLimit, PayloadTooLargeError } from '@/lib/requestLimits';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 
 export const runtime = 'nodejs';
 
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 800;
+const DEMO_KEEPER_TIMEOUT_MS = 30_000;
 
 interface DemoHistoryMessage {
   role: 'keeper' | 'player';
@@ -190,12 +192,13 @@ function stripDataTags(text: string): string {
 
 async function callGeminiDemo(
   systemPrompt: string,
-  history: GeminiMessage[]
+  history: GeminiMessage[],
+  signal: AbortSignal,
 ): Promise<{ text: string; inputTokens: number; outputTokens: number; finishReason: string | null }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
     {
       method: 'POST',
@@ -209,7 +212,9 @@ async function callGeminiDemo(
           thinkingConfig: { thinkingBudget: 0 },
         },
       }),
-    }
+      signal,
+    },
+    DEMO_KEEPER_TIMEOUT_MS,
   );
 
   if (!res.ok) {
@@ -296,7 +301,8 @@ export async function POST(request: Request) {
 
     const result = await callGeminiDemo(
       `${blocks.ruleset}\n\n${blocks.static}\n\n${blocks.dynamic}`,
-      geminiHistory
+      geminiHistory,
+      request.signal,
     );
 
     trackAPICall({
