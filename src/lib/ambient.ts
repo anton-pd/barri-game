@@ -3,6 +3,10 @@ import path from 'path';
 import type { Scenario } from '@/types';
 import { trackAPICall } from '@/lib/costTracker';
 import { writeScenarioFile, buildAmbientByLocation } from '@/lib/scenarioFiles';
+import {
+  requireScenarioMutationPermit,
+  type ScenarioMutationPermit,
+} from '@/lib/scenarioMutationGuard';
 
 const AMBIENT_MODEL = 'eleven_text_to_sound_v2';
 const AMBIENT_DURATION_SECONDS = 25;
@@ -140,8 +144,11 @@ export async function ensureScenarioAmbientGenerated(params: {
   scenarioId: string;
   scenario: Scenario;
   userId?: string;
+  persistScenario?: boolean;
+  mutationPermit?: ScenarioMutationPermit;
 }): Promise<AmbientGenerationResult> {
-  const { scenarioId, scenario, userId } = params;
+  const { scenarioId, scenario, userId, persistScenario = true, mutationPermit } = params;
+  const permit = persistScenario ? requireScenarioMutationPermit(mutationPermit) : undefined;
   const targets = collectAmbientTargets(scenario);
   const generated: { id: string; kind: 'group' | 'location'; url: string; locationIds: string[] }[] = [];
   let scenarioChanged = false;
@@ -184,8 +191,8 @@ export async function ensureScenarioAmbientGenerated(params: {
     });
   }
 
-  if (scenarioChanged) {
-    writeScenarioFile(scenarioId, scenario);
+  if (scenarioChanged && permit) {
+    writeScenarioFile(scenarioId, scenario, permit);
   }
 
   return {

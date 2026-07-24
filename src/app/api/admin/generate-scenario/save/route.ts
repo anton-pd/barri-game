@@ -4,6 +4,7 @@ import type { Scenario, ScenarioGeneratedBy } from '@/types';
 import { writeScenarioFile } from '@/lib/scenarioFiles';
 import { ensureScenarioAmbientGenerated } from '@/lib/ambient';
 import { ensureScenarioStaticImagesGenerated } from '@/lib/staticImages';
+import { getScenarioMutationAccess } from '@/lib/scenarioMutationGuard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -17,6 +18,11 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdminUser();
   if (!admin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const mutationAccess = getScenarioMutationAccess(req.headers.get('host'));
+  if (!mutationAccess.allowed) {
+    return NextResponse.json({ error: mutationAccess.code }, { status: mutationAccess.status });
   }
 
   const { id, json, generatedBy } = await req.json() as {
@@ -39,7 +45,7 @@ export async function POST(req: NextRequest) {
       ...(json as Scenario),
       ...(generatedBy ? { generatedBy } : {}),
     } satisfies Scenario;
-    writeScenarioFile(id, scenario);
+    writeScenarioFile(id, scenario, mutationAccess.permit);
 
     let imageResult = {
       images: [] as { id: string; url: string; label: string }[],
@@ -63,7 +69,12 @@ export async function POST(req: NextRequest) {
 
     if (process.env.AMBIENT_ENABLED === 'true') {
       try {
-        ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: admin.id });
+        ambientResult = await ensureScenarioAmbientGenerated({
+          scenarioId: id,
+          scenario,
+          userId: admin.id,
+          mutationPermit: mutationAccess.permit,
+        });
       } catch (error) {
         materialErrors.push({
           stage: 'ambient',

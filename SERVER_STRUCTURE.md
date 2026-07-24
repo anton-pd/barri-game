@@ -22,6 +22,19 @@ Barri runtime source of truth:
 
 Do not rely on repo checkout `scenarios/` inside `/opt/apps/barri*` as live data. The repo folder is only a local fallback/template set; live reads and admin saves go through `SCENARIOS_DIR`.
 
+## Shared scenario mutation maintenance
+
+Source scenario JSON is shared by staging and production, so runtime mutation is **off by default**. Reading scenarios and generating image/audio cache files remain available in both environments.
+
+For a short, controlled production-only admin maintenance window, add both values to `/opt/apps/.env`, then recreate the production `barri` service:
+
+```text
+SCENARIO_MUTATIONS_ENABLED=true
+SCENARIO_MUTATIONS_ALLOWED_HOST=barrigame.es
+```
+
+The exact host allowlist means the shared environment still rejects mutations through `staging.barrigame.es` with `403 scenario_mutations_forbidden`. Without both values, mutations return `503 scenario_mutations_disabled` before any source JSON or generated materials are written. Immediately remove the two values (or set `SCENARIO_MUTATIONS_ENABLED=false`) and recreate `barri` after maintenance. Do not enable this for normal staging or gameplay use.
+
 ## Runtime Services
 
 | Service | Owner | Purpose |

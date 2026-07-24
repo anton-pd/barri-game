@@ -53,6 +53,9 @@ export async function POST(
       scenarioId: id,
       scenario,
       userId: payload?.sub,
+      // Cache generation supports beta play, but public gameplay must never
+      // persist a metadata mutation into the shared production scenario JSON.
+      persistScenario: false,
     });
 
     return NextResponse.json(result);

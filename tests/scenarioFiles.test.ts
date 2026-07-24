@@ -11,6 +11,7 @@ import {
   readScenarioFile,
   writeScenarioFile,
 } from '@/lib/scenarioFiles';
+import { getScenarioMutationAccess } from '@/lib/scenarioMutationGuard';
 import type { Scenario } from '@/types';
 
 const originalScenariosDir = process.env.SCENARIOS_DIR;
@@ -45,13 +46,22 @@ function makeScenario(id: string): Scenario {
   };
 }
 
+function mutationPermit() {
+  const access = getScenarioMutationAccess('barrigame.es', {
+    SCENARIO_MUTATIONS_ENABLED: 'true',
+    SCENARIO_MUTATIONS_ALLOWED_HOST: 'barrigame.es',
+  });
+  if (!access.allowed) throw new Error('Expected test scenario mutation permit');
+  return access.permit;
+}
+
 describe('scenarioFiles', () => {
   it('uses SCENARIOS_DIR as the runtime source of truth when configured', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'barri-scenarios-'));
     tempRoots.push(dir);
     process.env.SCENARIOS_DIR = dir;
 
-    writeScenarioFile('shared-case', makeScenario('shared-case'));
+    writeScenarioFile('shared-case', makeScenario('shared-case'), mutationPermit());
 
     expect(getScenariosDir()).toBe(dir);
     expect(getScenarioFilePath('shared-case')).toBe(path.join(dir, 'shared-case.json'));
@@ -70,11 +80,20 @@ describe('scenarioFiles', () => {
     tempRoots.push(dir);
     process.env.SCENARIOS_DIR = dir;
 
-    writeScenarioFile('case-to-delete', makeScenario('case-to-delete'));
+    writeScenarioFile('case-to-delete', makeScenario('case-to-delete'), mutationPermit());
 
-    expect(deleteScenarioFile('case-to-delete')).toBe(true);
+    expect(deleteScenarioFile('case-to-delete', mutationPermit())).toBe(true);
     expect(listScenarioFiles()).toEqual([]);
-    expect(deleteScenarioFile('case-to-delete')).toBe(false);
+    expect(deleteScenarioFile('case-to-delete', mutationPermit())).toBe(false);
+  });
+
+  it('fails closed when a source write has no mutation permit', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'barri-scenarios-'));
+    tempRoots.push(dir);
+    process.env.SCENARIOS_DIR = dir;
+
+    expect(() => writeScenarioFile('blocked-case', makeScenario('blocked-case'), undefined as never))
+      .toThrow('Scenario source mutations require an explicit permit');
   });
 
   it('rejects invalid scenario ids before resolving file paths', () => {

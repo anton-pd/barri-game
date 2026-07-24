@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 import type { Scenario } from '@/types';
+import {
+  assertScenarioMutationPermit,
+  type ScenarioMutationPermit,
+} from '@/lib/scenarioMutationGuard';
 
 export function isValidScenarioId(scenarioId: string): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(scenarioId);
@@ -23,13 +27,19 @@ export function readScenarioFile(scenarioId: string): Scenario {
   return JSON.parse(content) as Scenario;
 }
 
-export function writeScenarioFile(scenarioId: string, scenario: Scenario): void {
+export function writeScenarioFile(
+  scenarioId: string,
+  scenario: Scenario,
+  permit: ScenarioMutationPermit
+): void {
+  assertScenarioMutationPermit(permit);
   const filePath = getScenarioFilePath(scenarioId);
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, JSON.stringify(scenario, null, 2), 'utf-8');
 }
 
-export function deleteScenarioFile(scenarioId: string): boolean {
+export function deleteScenarioFile(scenarioId: string, permit: ScenarioMutationPermit): boolean {
+  assertScenarioMutationPermit(permit);
   const filePath = getScenarioFilePath(scenarioId);
   if (!fs.existsSync(filePath)) return false;
   fs.unlinkSync(filePath);

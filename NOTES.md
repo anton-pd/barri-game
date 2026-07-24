@@ -4055,3 +4055,22 @@ effectively unbounded payloads and outbound provider calls had no timeout.
 - Default Turbopack `npm run build` stalled without diagnostics locally; the
   supported webpack build completed successfully and exercised TypeScript,
   page-data collection, and all route compilation.
+
+---
+
+## ANT-207: guard shared scenario mutations — 2026-07-24
+
+### Problem
+Staging and production mount the same source-of-truth scenario JSON directory. Admin save/delete and the ambient metadata persistence path could therefore mutate or delete live production scenario data from staging.
+
+### Changes
+- Added a fail-closed mutation capability: source JSON writes and deletes require both `SCENARIO_MUTATIONS_ENABLED=true` and an exact request-host match to `SCENARIO_MUTATIONS_ALLOWED_HOST`.
+- Guarded admin scenario generation, save, and delete before parsing/materializing content. Disabled/misconfigured maintenance returns `503 scenario_mutations_disabled`; a host mismatch (including staging) returns `403 scenario_mutations_forbidden`.
+- Made the public ambient endpoint cache-only: it can still generate audio needed by beta gameplay but never persists ambient metadata into the shared scenario JSON.
+- Documented the short-lived, production-host-scoped maintenance contract in `SERVER_STRUCTURE.md`; no VPS or Compose configuration was changed.
+- Added pure guard tests for unset/false/true state, host isolation, central write permits, and route coverage.
+
+### Verification
+- Targeted guard tests pass (2 files / 9 tests).
+- Full test/type/lint/build verification pending before commit.
+- Final verification: `vitest run` passed (19 files / 121 tests); `tsc --noEmit` passed; `eslint .` passed with the existing six `@next/next/no-img-element` warnings only; `npm run build` passed.

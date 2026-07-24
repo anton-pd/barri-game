@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { requireAdminUser } from '@/lib/serverAuth';
+import { getScenarioMutationAccess } from '@/lib/scenarioMutationGuard';
 import {
   deleteScenarioFile,
   getScenarioFilePath,
@@ -53,10 +54,15 @@ export async function GET(_request: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: Params) {
+export async function DELETE(request: Request, { params }: Params) {
   try {
     if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const mutationAccess = getScenarioMutationAccess(request.headers.get('host'));
+    if (!mutationAccess.allowed) {
+      return NextResponse.json({ error: mutationAccess.code }, { status: mutationAccess.status });
     }
 
     const { id } = await params;
@@ -64,7 +70,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Invalid scenario id' }, { status: 400 });
     }
 
-    const deleted = deleteScenarioFile(id);
+    const deleted = deleteScenarioFile(id, mutationAccess.permit);
     if (!deleted) {
       return NextResponse.json({ error: 'Scenario not found' }, { status: 404 });
     }

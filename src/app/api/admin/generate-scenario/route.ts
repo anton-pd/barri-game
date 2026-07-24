@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminUser } from '@/lib/serverAuth';
 import { generateScenario } from '@/lib/scenarioGenerator';
 import type { GenerateScenarioInput } from '@/lib/scenarioGenerator';
+import { getScenarioMutationAccess } from '@/lib/scenarioMutationGuard';
 
 // Scenario generation can take 60–180s on large outputs.
 // Force Node runtime and extend max duration so the upstream proxy doesn't cut us off.
@@ -11,6 +12,11 @@ export const maxDuration = 300;
 export async function POST(req: NextRequest) {
   if (!(await requireAdminUser())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const mutationAccess = getScenarioMutationAccess(req.headers.get('host'));
+  if (!mutationAccess.allowed) {
+    return NextResponse.json({ error: mutationAccess.code }, { status: mutationAccess.status });
   }
 
   const body = await req.json() as Partial<GenerateScenarioInput>;
