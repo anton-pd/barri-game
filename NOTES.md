@@ -1,5 +1,16 @@
 # Barri Game — Нотатки по змінах
 
+## [2026-07-24 · Codex] — ANT-208: beta dependency security baseline
+
+### Solution
+- Updated the app and lint packages from Next.js 16.2.3 to the current 16.2 security release.
+- Updated Resend and moved the Anthropic SDK to `devDependencies`, because it is used only by the offline evaluation scripts.
+- Added explicit patched overrides for DOMPurify, PostCSS, and Sharp. This also removes the vulnerable transitive versions bundled by the dependency tree without changing application APIs.
+
+### Verification
+- `npm audit --omit=dev`: 0 known production vulnerabilities.
+- Full clean install, tests, typecheck, lint, and production build are required again after the remaining release fixes are integrated.
+
 ## [2026-06-23 · Codex] — Email sender display name
 
 ### Problem
