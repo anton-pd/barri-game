@@ -4253,8 +4253,33 @@ storage and needed the same protection.
 - Full tests, lint, and webpack build pending before commit.
 
 ### Final verification
+- `npm test` passed: 29 files / 169 tests; `npx tsc --noEmit` passed.
+- `npm run lint` passed with only the six pre-existing `<img>` warnings.
+- `npm run build` passed with the existing `SessionList.tsx` package-version
+  import warning.
+
+### Final verification
 - `npm test` passed: 28 files / 167 tests; `npx tsc --noEmit` passed.
 - `npm run lint` passed with only the six pre-existing `<img>` warnings.
 - `npm run build` passed with the existing `SessionList.tsx` package-version
   import warning. The initial sandbox run could not resolve Google Fonts; the
   approved network retry completed successfully.
+
+---
+
+## ANT-213: landing trust-claim fail-safe — 2026-07-24
+
+### Changes
+- Removed all rendered landing testimonial quotations, attributed names/roles,
+  testimony navigation, and their now-unused landing CSS. No replacement
+  social-proof claims were added.
+- Audited the landing JSON-LD: it retains only factual WebSite and
+  SoftwareApplication metadata and contains no `Review`, `aggregateRating`, or
+  review-rating fields.
+- Added a regression test that blocks the removed testimonial identifiers and
+  review/rating structured-data fields from returning to the landing.
+
+### Verification
+- Targeted trust-claim regression test, TypeScript, focused ESLint, and an
+  explicit post-change source audit pass.
+- Full tests, lint, and webpack build pending before commit.

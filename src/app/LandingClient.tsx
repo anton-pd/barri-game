@@ -56,7 +56,6 @@ export default function LandingClient() {
           <a href="#exhibits">{c.nav.exhibits}</a>
           <a href="#procedure">{c.nav.procedure}</a>
           <a href="#cases">{c.nav.cases}</a>
-          <a href="#testimony">{c.nav.testimony}</a>
         </nav>
         <div className="topbar-right">
           <div className="lang-switcher">
@@ -287,30 +286,6 @@ export default function LandingClient() {
               </article>
             ))
           )}
-        </div>
-      </section>
-
-      {/* TESTIMONY */}
-      <section id="testimony" className="testimony">
-        <div className="testimony-inner">
-          <div className="testimony-heading">
-            <div className="section-label">{c.testimony.label}</div>
-            <h2>
-              {c.testimony.heading[0]}<em>{c.testimony.heading[1]}</em>
-            </h2>
-          </div>
-
-          <div className="notes">
-            {c.testimony.notes.map((n) => (
-              <figure className="note" key={n.name}>
-                <q>{n.q}</q>
-                <figcaption className="note-sig">
-                  <strong>{n.name}</strong>
-                  {n.role}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
         </div>
       </section>
 

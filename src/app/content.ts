@@ -6,7 +6,6 @@ export const CONTENT = {
       exhibits: "Exhibits",
       procedure: "Procedure",
       cases: "Case Files",
-      testimony: "Testimony",
       enter: "Join Waitlist →",
     },
     hero: {
@@ -169,27 +168,6 @@ export const CONTENT = {
         },
       ],
     },
-    testimony: {
-      label: "Witness statements",
-      heading: ["Statements ", "from the record."],
-      notes: [
-        {
-          q: "Played four hours. The Case Curator noticed my character was afraid of water six rooms ago and used it against me. My wife walked out of the kitchen to check if I was alright.",
-          name: "J. Harwell",
-          role: "Detective · Providence",
-        },
-        {
-          q: "I have run investigative horror tables for fifteen years. This is the first digital Case Curator that let me stop running and start playing.",
-          name: "Mrs. E. Orne",
-          role: "Longtime table GM · Arkham",
-        },
-        {
-          q: "We ran the telegram case twice. Different suspects, different ending. The second run we trusted the wrong man on purpose — just to see. The Case Curator obliged.",
-          name: "Dr. A. Pettigrew",
-          role: "Investigator · Kingsport",
-        },
-      ],
-    },
     cta: {
       label: "Final notice",
       h1: "The file is open.",
@@ -210,7 +188,6 @@ export const CONTENT = {
       exhibits: "Докази",
       procedure: "Процедура",
       cases: "Справи",
-      testimony: "Свідчення",
       enter: "Стати в чергу →",
     },
     hero: {
@@ -373,27 +350,6 @@ export const CONTENT = {
         },
       ],
     },
-    testimony: {
-      label: "Свідчення з архіву",
-      heading: ["Заяви ", "з протоколу."],
-      notes: [
-        {
-          q: "Грав чотири години. Куратор справи пам'ятав, що мій персонаж боїться води ще шість кімнат тому — і використав це проти нього. Дружина вийшла з кухні, щоб дізнатися чи все гаразд.",
-          name: "Й. Харвелл",
-          role: "Детектив · Провіденс",
-        },
-        {
-          q: "Я п'ятнадцять років водив настільні горор-розслідування. Це перший цифровий Куратор справи, який дозволив мені зупинитись і просто грати.",
-          name: "Пані Е. Орн",
-          role: "Досвідчений Куратор справи · Аркхем",
-        },
-        {
-          q: "Ми пройшли справу з телеграмою двічі. Різні підозрювані, різна кінцівка. Другого разу навмисно довірились не тому — щоб подивитись. Куратор справи не підвів.",
-          name: "Д-р А. Петтіґрю",
-          role: "Слідчий · Кінгспорт",
-        },
-      ],
-    },
     cta: {
       label: "Фінальне повідомлення",
       h1: "Справа відкрита.",
@@ -414,7 +370,6 @@ export const CONTENT = {
       exhibits: "Pruebas",
       procedure: "Procedimiento",
       cases: "Expedientes",
-      testimony: "Testimonios",
       enter: "Unirse a la lista →",
     },
     hero: {
@@ -574,27 +529,6 @@ export const CONTENT = {
           replayable: "Próximamente · autorización pendiente",
           cta: null,
           stamp: "Próximamente",
-        },
-      ],
-    },
-    testimony: {
-      label: "Testimonios",
-      heading: ["Declaraciones ", "del registro."],
-      notes: [
-        {
-          q: "Jugué cuatro horas. El Curador del caso recordó que mi personaje tenía miedo al agua desde seis habitaciones atrás y lo usó en mi contra. Mi mujer salió de la cocina a preguntar si estaba bien.",
-          name: "J. Harwell",
-          role: "Detective · Providence",
-        },
-        {
-          q: "Llevo quince años dirigiendo mesas de terror investigativo. Este es el primer Curador digital que me permitió dejar de dirigir y empezar a jugar.",
-          name: "Sra. E. Orne",
-          role: "Curadora veterana · Arkham",
-        },
-        {
-          q: "Jugamos el caso del telegrama dos veces. Distintos sospechosos, distinto final. La segunda vez confiamos a propósito en el hombre equivocado — solo para ver. El Curador del caso cumplió.",
-          name: "Dr. A. Pettigrew",
-          role: "Investigador · Kingsport",
         },
       ],
     },
