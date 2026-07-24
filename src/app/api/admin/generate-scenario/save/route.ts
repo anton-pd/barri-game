@@ -69,13 +69,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    try {
-      ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: payload.sub });
-    } catch (error) {
-      materialErrors.push({
-        stage: 'ambient',
-        error: error instanceof Error ? error.message : String(error),
-      });
+    if (process.env.AMBIENT_ENABLED === 'true') {
+      try {
+        ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: payload.sub });
+      } catch (error) {
+        materialErrors.push({
+          stage: 'ambient',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     return NextResponse.json({

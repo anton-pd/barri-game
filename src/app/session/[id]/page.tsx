@@ -86,6 +86,7 @@ export default async function SessionPage({ params }: PageProps) {
     data.session.scenario_id,
     data.session.world_state.dynamicLocations
   );
+  const ambientAvailable = process.env.AMBIENT_ENABLED === 'true';
 
   const settings = await getAllAppSettings();
   // Legacy stored values ('gemini-flash', 'claude-sonnet', 'deepseek-flash')
@@ -99,7 +100,8 @@ export default async function SessionPage({ params }: PageProps) {
       initialMessages={data.messages}
       briefing={briefing}
       locationNames={locationNames}
-      ambientByLocation={ambientByLocation}
+      ambientByLocation={ambientAvailable ? ambientByLocation : {}}
+      ambientAvailable={ambientAvailable}
       scenarioNpcs={npcs}
       rulesetId={rulesetId}
       defaultAiProvider={defaultAiProvider}

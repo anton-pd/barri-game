@@ -3847,3 +3847,78 @@ Full game access was invite-gated (ANT-180 waitlist) with 1 entry in the list �
 ### Verification
 - tsc + eslint clean, vitest suite green.
 - Staging (post-deploy): GET /api/auth/register → {"open":true}; unauthenticated PATCH /api/admin/settings → 403; self-serve POST creates an unverified approved user and sends the verification letter.
+
+---
+
+## ANT-196 + pre-beta product/security/monetization audit — 2026-07-24
+
+### Decision
+Anton asked for the final pre-beta scope, a beta-to-subscription plan, and to disable ambient because the current soundscapes interfere with play.
+
+The product is ready for a **closed beta after a short hardening pass**. Billing is explicitly not a beta prerequisite. The recommended order is:
+1. close cost/security/data-safety launch blockers;
+2. run free invite/open-registration beta cohorts and measure activation, repeat play, reliability, and real p75/p90 COGS;
+3. test Host Pass vs one-time Case/Game-night Pass;
+4. run a 5–10-host paid pilot before broad subscription launch.
+
+### ANT-196 — ambient disabled for beta
+- Added runtime `AMBIENT_ENABLED` gating with a safe default of OFF.
+- GameChat does not request ambient generation, create/play `Audio`, or expose ambient toggle/volume while disabled. Old `localStorage.ambientEnabled=true` cannot bypass the server-provided availability flag.
+- `GET/POST /api/scenarios/[id]/ambient` returns an empty disabled response while the flag is off.
+- Admin scenario save skips ambient materialization while disabled.
+- Removed EN/UK/ES landing claims about ambient soundscapes.
+- Existing MP3 files remain untouched for later redesign.
+
+### Live UX checks
+- Desktop/mobile landing and demo are visually coherent and strong enough for beta; a redesign is not a launch requirement.
+- A real Ukrainian demo turn completed successfully and produced the expected d100 flow.
+- Staging funnel is contradictory: landing/demo say waitlist, while register currently offers immediate account creation (active ANT-190).
+- Demo copy promises 2/5 minutes on landing but the product runs 10 turns / 15 minutes; full-product voice/1–4-player claims read as demo capabilities.
+- Locale support is uneven end-to-end (EN/UK/ES landing+demo, EN/UK register, English-only login, mixed-language scenario descriptions).
+
+### Confirmed launch risks
+- Anonymous global settings/pricing admin APIs are writable.
+- Paid TTS/STT/image/materialization routes do not share the main access/cost gate.
+- Cookiebot auto-blocking can still prevent production hydration for a clean-profile user.
+- Public `/api/scenarios` exposes complete scenario secrets; evidence assets are not unlock-gated.
+- Demo quota trusts client history; cross-account risks exist for legacy NULL-owner sessions and the global browser session cache.
+- AI turns are not single-flight/idempotent; upstream calls have no bounded timeout/cancellation.
+- Analytics pageviews can include reset/invite tokens in query strings.
+- No verified automated PostgreSQL backup/restore procedure was found.
+- Staging can mutate the production scenario source of truth through the shared volume.
+- Deploy workflow has no test/build gate or post-deploy health smoke; `origin/main` and `origin/staging` were diverged 2/7 commits at audit time.
+- Cost dashboard undercounts several provider paths, so current figures are not yet sufficient for pricing.
+
+### Linear output
+Separate AI Improvements issues, assigned to Codex:
+- ANT-197 admin settings/pricing auth
+- ANT-198 paid media/materialization endpoint guard
+- ANT-199 Cookiebot hydration launch fix
+- ANT-200 spoiler-safe catalog/evidence access
+- ANT-201 demo/auth abuse limits
+- ANT-202 DB/browser session ownership isolation
+- ANT-203 idempotent single-flight AI turns
+- ANT-204 upstream timeouts/cancellation
+- ANT-205 analytics auth-token redaction
+- ANT-206 database backup/restore
+- ANT-207 staging shared-scenario mutation guard
+- ANT-208 CI/health smoke/branch reconciliation
+- ANT-209 complete COGS ledger
+- ANT-210 funnel/locale/demo promise consistency
+- ANT-211 visible load/create error recovery
+- ANT-212 demo first-turn/privacy polish
+- ANT-213 testimonial provenance check
+- ANT-214 Host Pass paid-pilot entitlements/billing lifecycle
+
+Existing work was cross-linked instead of duplicated:
+- ANT-185 server-owned AI tier is now a beta gate.
+- ANT-190 self-serve registration must drive all public funnel copy from the same flag.
+- ANT-191 activation analytics gained audit requirements and links to COGS/funnel work.
+
+### Verification
+- `npm test`: 18 files / 116 tests pass.
+- `npm run lint`: passes with the six known `<img>` warnings only.
+- `npx tsc --noEmit`: passes.
+- `npm run build`: passes on Next.js 16.2.3.
+- Local production response for ambient endpoint: HTTP 200 with `{"ambientByLocation":{},"generated":[],"disabled":true}`.
+- Local landing output contains the replacement voice-only copy and no ambient soundscape claim.

@@ -282,7 +282,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
           )}
 
           <div className="text-xs text-stone-500 max-w-xs leading-relaxed">
-            Saving now also kicks off static image and ambient generation, then reuses the files from shared VPS storage.
+            Saving generates static images. Ambient materialization only runs when the server feature is enabled.
           </div>
         </div>
 

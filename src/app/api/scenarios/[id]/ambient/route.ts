@@ -4,10 +4,22 @@ import { verifyJwt } from '@/lib/auth';
 import { ensureScenarioAmbientGenerated } from '@/lib/ambient';
 import { buildAmbientByLocation, readScenarioFile } from '@/lib/scenarioFiles';
 
+function ambientDisabledResponse() {
+  return NextResponse.json({
+    ambientByLocation: {},
+    generated: [],
+    disabled: true,
+  });
+}
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (process.env.AMBIENT_ENABLED !== 'true') {
+    return ambientDisabledResponse();
+  }
+
   const { id } = await params;
 
   try {
@@ -24,6 +36,10 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (process.env.AMBIENT_ENABLED !== 'true') {
+    return ambientDisabledResponse();
+  }
+
   const { id } = await params;
 
   try {

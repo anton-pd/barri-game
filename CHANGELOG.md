@@ -1047,3 +1047,12 @@ Per-change detail is in the `0.4.x` entries below.
 ### Fixed
 - **New case role picker**: improved contrast for investigator role cards, HP/SAN stats, and skill tags so class selection remains readable on the aged-paper modal.
 - **Keeper replies**: tightened the prompt style guide so normal turns and intros are shorter while keeping the model token cap unchanged for dialogue and protocol tags.
+
+---
+
+## [0.3.23] — 2026-07-24
+
+### Changed
+- **Ambient audio paused for beta**: location soundscapes are now disabled by default behind the server-side `AMBIENT_ENABLED` flag. The game no longer generates, loads, or plays ambient audio, and its controls are hidden while the flag is off.
+- **Scenario materialization**: admin saves skip ambient generation while the beta flag is off; existing audio files are preserved for a later rework.
+- **Landing copy**: EN/UK/ES acquisition copy no longer advertises ambient soundscapes while the feature is unavailable.

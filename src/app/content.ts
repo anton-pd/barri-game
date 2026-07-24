@@ -54,7 +54,7 @@ export const CONTENT = {
       "Witness reports: voices in the static, none of them human",
       "The Case Curator sees every die you roll. Even the ones you hide",
       "Three investigators entered. Two returned. One came back wrong",
-      "Ambient phonographs recovered from the Elm Street property",
+      "Evidence recovered from the Elm Street property",
       "Do not read the file after sundown",
     ],
     exhibits: {
@@ -80,7 +80,7 @@ export const CONTENT = {
         {
           num: "IV", tag: "Exhibit D",
           title: "Voices from the dark",
-          body: "Every character speaks in their own voice. Ambient gramophone loops and location-specific soundscapes turn your browser into a dimly-lit parlour at 2 a.m.",
+          body: "Every character speaks in their own voice. Play the Case Curator's replies aloud whenever you want the investigation to leave the page.",
         },
         {
           num: "V", tag: "Exhibit E",
@@ -258,7 +258,7 @@ export const CONTENT = {
       "Показання свідків: голоси в ефірі — жодного людського",
       "Куратор справи бачить кожен ваш кидок кубика. Навіть приховані",
       "Три слідчі увійшли. Двоє повернулись. Третій — вже не той",
-      "Фонографічні записи вилучено з будинку на вулиці Елм",
+      "Речові докази вилучено з будинку на вулиці Елм",
       "Не читайте справу після заходу сонця",
     ],
     exhibits: {
@@ -284,7 +284,7 @@ export const CONTENT = {
         {
           num: "IV", tag: "Доказ Г",
           title: "Голоси з темряви",
-          body: "Кожен персонаж говорить власним голосом. Фонові петлі та звуки локацій перетворюють ваш браузер на тьмяно освітлений салон о другій ночі.",
+          body: "Кожен персонаж говорить власним голосом. Вмикайте озвучення відповідей Куратора, коли хочете, щоб розслідування вийшло за межі сторінки.",
         },
         {
           num: "V", tag: "Доказ Д",
@@ -462,7 +462,7 @@ export const CONTENT = {
       "Declaraciones de testigos: voces en la estática, ninguna humana",
       "El Curador del caso ve cada dado que tiras. Incluso los que escondes",
       "Tres investigadores entraron. Dos regresaron. El tercero volvió cambiado",
-      "Fonógrafos ambientales recuperados de la propiedad en Elm Street",
+      "Pruebas recuperadas de la propiedad en Elm Street",
       "No leas el expediente después del atardecer",
     ],
     exhibits: {
@@ -488,7 +488,7 @@ export const CONTENT = {
         {
           num: "IV", tag: "Prueba D",
           title: "Voces desde la oscuridad",
-          body: "Cada personaje habla con su propia voz. Los bucles de gramófono ambiental y los paisajes sonoros convierten tu navegador en un salón tenuemente iluminado a las 2 a.m.",
+          body: "Cada personaje habla con su propia voz. Reproduce las respuestas del Curador cuando quieras que la investigación salga de la página.",
         },
         {
           num: "V", tag: "Prueba E",
