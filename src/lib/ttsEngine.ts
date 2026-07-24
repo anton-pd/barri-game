@@ -3,8 +3,11 @@
  * Returns raw PCM Buffer (24 kHz, mono, 16-bit LE) or null on failure.
  */
 import { getGeminiKeeperVoice, getGeminiNpcVoice } from '@/lib/voices';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { stripDiceForTts } from '@/lib/segments';
 import type { Segment } from '@/lib/segments';
+
+const GEMINI_TTS_TIMEOUT_MS = 30_000;
 
 export async function fetchGeminiPcm(
   text: string,
@@ -64,9 +67,10 @@ export async function fetchGeminiPcm(
     };
   }
 
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) },
+    GEMINI_TTS_TIMEOUT_MS,
   );
 
   if (!res.ok) {

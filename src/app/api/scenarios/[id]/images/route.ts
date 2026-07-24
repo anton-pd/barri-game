@@ -2,13 +2,17 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import type { Scenario, StaticImage } from '@/types';
+import { requireCurrentDbAdmin } from '@/lib/paidMediaAccess';
 import { ensureScenarioStaticImagesGenerated } from '@/lib/staticImages';
 import { readScenarioFile } from '@/lib/scenarioFiles';
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const access = await requireCurrentDbAdmin(request);
+  if (!access.ok) return access.response;
+
   const { id } = await params;
 
   let scenario: Scenario;

@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import type { Scenario } from '@/types';
+
+const IMAGE_API_TIMEOUT_MS = 45_000;
+const IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 const STYLE_MAP: Record<string, string> = {
   newspaper: 'newspaper clipping 1920s black and white aged paper old typography print',
@@ -51,9 +55,10 @@ async function generateImage(prompt: string, type: string): Promise<Buffer> {
 
     for (let attempt = 0; attempt < 3; attempt++) {
       if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+        IMAGE_API_TIMEOUT_MS,
       );
       if (res.status === 429) {
         console.warn(`Gemini rate limit attempt ${attempt + 1}`);
@@ -74,13 +79,13 @@ async function generateImage(prompt: string, type: string): Promise<Buffer> {
 
   if (provider === 'openai') {
     const apiKey = process.env.OPENAI_API_KEY!;
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
+    const res = await fetchWithTimeout('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'dall-e-2', prompt: full, n: 1, size: '512x512', response_format: 'url' }),
-    });
+    }, IMAGE_API_TIMEOUT_MS);
     const data = await res.json() as { data: { url: string }[] };
-    const imgRes = await fetch(data.data[0].url);
+    const imgRes = await fetchWithTimeout(data.data[0].url, {}, IMAGE_DOWNLOAD_TIMEOUT_MS);
     const buf = Buffer.from(await imgRes.arrayBuffer());
     if (!isValidJpeg(buf)) throw new Error('Invalid JPEG from DALL-E');
     return buf;
@@ -92,7 +97,11 @@ async function generateImage(prompt: string, type: string): Promise<Buffer> {
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
-    const res = await fetch(url, { headers: { 'User-Agent': 'barri-game/1.0' } });
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { 'User-Agent': 'barri-game/1.0' } },
+      IMAGE_API_TIMEOUT_MS,
+    );
     const buf = Buffer.from(await res.arrayBuffer());
     if (isValidJpeg(buf)) return buf;
     console.warn(`Pollinations attempt ${attempt + 1} returned non-JPEG (${buf.length}b), retrying...`);

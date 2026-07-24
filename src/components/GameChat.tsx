@@ -786,11 +786,12 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Trigger static image generation in background when session starts
+  // Static scenario materialization is an admin-only maintenance operation.
   useEffect(() => {
+    if (!isAdmin) return;
     fetch(`/api/scenarios/${session.scenario_id}/images`, { method: 'POST' }).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdmin]);
 
   // Trigger ambient generation in background when session starts.
   // Files are persisted in shared storage, so subsequent sessions should resolve instantly.

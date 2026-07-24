@@ -4012,3 +4012,46 @@ turns through the paid OpenRouter tier regardless of the admin setting.
 - `npx tsc --noEmit`: pass.
 - `npm run lint`: pass with the six pre-existing `<img>` warnings only.
 - `npm run build`: production build passes on Next.js 16.2.3.
+
+---
+
+## ANT-198: secure paid media endpoints — 2026-07-24
+
+### Problem
+TTS, STT, dynamic image generation, and static scenario image materialization
+could reach paid providers without proving that the caller was a currently
+approved user who owned the supplied session. The routes also accepted
+effectively unbounded payloads and outbound provider calls had no timeout.
+
+### Changes
+- Added a shared paid-media authorization guard that re-reads the current user
+  from PostgreSQL (JWT role is not trusted), applies approval + daily-cost
+  gating, and requires exact `game_sessions.user_id` ownership. Current DB
+  admins may maintain any session; ownerless legacy sessions are denied to
+  normal users.
+- `/api/tts`, `/api/stt`, and `/api/image` now require a bounded `sessionId`
+  and run the shared guard before any paid provider call, including cache hits.
+  Cost tracking is always attributed to the verified DB user.
+- Added input bounds: 64 KiB TTS JSON, 5,000 TTS characters / aggregate segment
+  characters, 64 TTS segments, 12 MiB STT multipart body / 10 MiB audio, and
+  1,000-character dynamic image prompts. Invalid providers, image types,
+  segment shapes, audio types, JSON, and session IDs fail before provider use.
+- Added outbound timeouts for OpenAI/Gemini TTS, Whisper, Gemini/OpenAI/
+  Pollinations dynamic images, static image materialization, and generated
+  image downloads.
+- Made `POST /api/scenarios/[id]/images` current-DB-admin-only. `GameChat`
+  only requests this maintenance operation for admins; normal players continue
+  reading already materialized static images through the unchanged GET route.
+- Kept ambient generation and dossier/evidence visibility behavior untouched
+  (separate ANT-196 and ANT-200 scopes).
+
+### Verification
+- `npm test -- paidMediaAccess requestLimits`: 2 files, 12 tests passed.
+- `npm test`: 20 files, 128 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the 6 existing `<img>` warnings only.
+- `npx next build --webpack`: passed after allowing Google Fonts network access;
+  retained the existing `SessionList.tsx` package-version import warning.
+- Default Turbopack `npm run build` stalled without diagnostics locally; the
+  supported webpack build completed successfully and exercised TypeScript,
+  page-data collection, and all route compilation.

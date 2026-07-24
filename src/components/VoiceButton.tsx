@@ -5,7 +5,7 @@ import { useState, useRef } from 'react';
 interface VoiceButtonProps {
   onTranscript: (text: string) => void;
   disabled?: boolean;
-  sessionId?: string;
+  sessionId: string;
 }
 
 export default function VoiceButton({ onTranscript, disabled, sessionId }: VoiceButtonProps) {
@@ -39,7 +39,7 @@ export default function VoiceButton({ onTranscript, disabled, sessionId }: Voice
       try {
         const form = new FormData();
         form.append('audio', blob, 'audio.webm');
-        if (sessionId) form.append('sessionId', sessionId);
+        form.append('sessionId', sessionId);
 
         const res = await fetch('/api/stt', { method: 'POST', body: form });
         if (res.ok) {

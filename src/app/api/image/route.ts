@@ -2,11 +2,14 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
 import { trackAPICall } from '@/lib/costTracker';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
+import { requirePaidSessionAccess } from '@/lib/paidMediaAccess';
+import { isValidSessionId, PAID_MEDIA_LIMITS } from '@/lib/requestLimits';
 
 const CACHE_DIR = path.join(process.cwd(), 'public', 'scenarios', 'dynamic');
+const IMAGE_API_TIMEOUT_MS = 45_000;
+const IMAGE_DOWNLOAD_TIMEOUT_MS = 30_000;
 
 function getCacheKey(prompt: string, type: string): string {
   return crypto.createHash('sha256').update(`${type}:${prompt}`).digest('hex').slice(0, 24);
@@ -44,10 +47,22 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const prompt    = searchParams.get('prompt')?.trim();
   const type      = searchParams.get('type') ?? 'scene';
-  const sessionId = searchParams.get('sessionId') ?? undefined;
+  const sessionId = searchParams.get('sessionId');
   const asJson    = searchParams.get('json') === 'true';
 
   if (!prompt) return new Response('prompt is required', { status: 400 });
+  if (prompt.length > PAID_MEDIA_LIMITS.imagePromptChars) {
+    return new Response('prompt is too long', { status: 413 });
+  }
+  if (!Object.prototype.hasOwnProperty.call(STYLE_MAP, type)) {
+    return new Response('invalid image type', { status: 400 });
+  }
+  if (!isValidSessionId(sessionId)) {
+    return new Response('valid sessionId is required', { status: 400 });
+  }
+
+  const access = await requirePaidSessionAccess(request, sessionId);
+  if (!access.ok) return access.response;
 
   const cacheKey = getCacheKey(prompt, type);
   const fileUrl = `/scenarios/dynamic/${cacheKey}.jpg`;
@@ -63,22 +78,21 @@ export async function GET(request: Request) {
     });
   }
 
-  // Get userId for cost tracking (best-effort)
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-  const payload = token ? await verifyJwt(token) : null;
-  const userId = payload?.sub;
-
   const fullPrompt = buildPrompt(prompt, type);
   const provider   = process.env.IMAGE_PROVIDER ?? 'gemini';
 
   let response: Response;
-  if (provider === 'gemini') {
-    response = await handleGemini(fullPrompt, cacheKey, sessionId, userId);
-  } else if (provider === 'openai') {
-    response = await handleOpenAI(fullPrompt, cacheKey, sessionId, userId);
-  } else {
-    response = await handlePollinations(fullPrompt, cacheKey);
+  try {
+    if (provider === 'gemini') {
+      response = await handleGemini(fullPrompt, cacheKey, sessionId, access.user.id);
+    } else if (provider === 'openai') {
+      response = await handleOpenAI(fullPrompt, cacheKey, sessionId, access.user.id);
+    } else {
+      response = await handlePollinations(fullPrompt, cacheKey);
+    }
+  } catch (error) {
+    console.error('Image request failed:', error);
+    return new Response('Image generation timed out or failed', { status: 504 });
   }
   
   if (response.ok && asJson) {
@@ -107,9 +121,10 @@ async function handleGemini(
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 5000 * attempt));
 
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+      IMAGE_API_TIMEOUT_MS,
     );
 
     if (res.status === 429) {
@@ -175,11 +190,11 @@ async function handleOpenAI(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return new Response('OpenAI key not configured', { status: 503 });
 
-  const res = await fetch('https://api.openai.com/v1/images/generations', {
+  const res = await fetchWithTimeout('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'dall-e-2', prompt, n: 1, size: '512x512', response_format: 'url' }),
-  });
+  }, IMAGE_API_TIMEOUT_MS);
 
   if (!res.ok) {
     console.error('DALL-E error:', await res.text());
@@ -187,7 +202,7 @@ async function handleOpenAI(
   }
 
   const data = await res.json() as { data: { url: string }[] };
-  const imgRes = await fetch(data.data[0].url);
+  const imgRes = await fetchWithTimeout(data.data[0].url, {}, IMAGE_DOWNLOAD_TIMEOUT_MS);
   const imgBuf = Buffer.from(await imgRes.arrayBuffer());
   if (cacheKey) saveImageToCache(cacheKey, imgBuf);
 
@@ -218,7 +233,11 @@ async function handlePollinations(prompt: string, cacheKey?: string): Promise<Re
 
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await new Promise((r) => setTimeout(r, 8000 * attempt));
-    const res = await fetch(url, { headers: { 'User-Agent': 'barri-game/1.0' } });
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { 'User-Agent': 'barri-game/1.0' } },
+      IMAGE_API_TIMEOUT_MS,
+    );
     const buf = Buffer.from(await res.arrayBuffer());
     const isJpeg = buf[0] === JPEG_MAGIC[0] && buf[1] === JPEG_MAGIC[1] && buf[2] === JPEG_MAGIC[2];
     if (isJpeg) {
