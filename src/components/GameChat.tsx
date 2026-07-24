@@ -142,6 +142,7 @@ interface GameChatProps {
   briefing?: ScenarioBriefing | null;
   locationNames?: Record<string, string>;
   ambientByLocation?: Record<string, string>;
+  ambientAvailable?: boolean;
   scenarioNpcs?: NPC[];
   rulesetId?: string;
   defaultAiProvider?: AiProvider;
@@ -573,7 +574,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'deepseek-base', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, ambientAvailable = false, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'deepseek-base', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -704,9 +705,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   })();
   const [ambientEnabled, setAmbientEnabled]   = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('ambientEnabled') !== 'false';
+      return ambientAvailable && localStorage.getItem('ambientEnabled') !== 'false';
     }
-    return true;
+    return ambientAvailable;
   });
   const [autoVoiceEnabled, setAutoVoiceEnabled] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -797,6 +798,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   // Trigger ambient generation in background when session starts.
   // Files are persisted in shared storage, so subsequent sessions should resolve instantly.
   useEffect(() => {
+    if (!ambientAvailable) return;
+
     let cancelled = false;
 
     fetch(`/api/scenarios/${session.scenario_id}/ambient`, { method: 'POST' })
@@ -810,8 +813,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [ambientAvailable, session.scenario_id]);
 
   // Auto-generate intro if no messages yet
   const introRequested = useRef(false);
@@ -904,6 +906,11 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   }
 
   function playAmbientFile(url: string | null) {
+    if (!ambientAvailable) {
+      stopAmbient();
+      return;
+    }
+
     if (!url) {
       stopAmbient();
       return;
@@ -943,13 +950,24 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   }
 
   useEffect(() => {
-    if (!currentLocation) return;
+    if (!ambientAvailable || !currentLocation) return;
     playAmbient(currentLocation);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentLocation, ambientByLocation]);
+  }, [ambientAvailable, currentLocation, ambientByLocation]);
 
   // Sync ambient volume/enabled state
   useEffect(() => {
+    if (!ambientAvailable) {
+      if (ambientRef.current) {
+        ambientRef.current.pause();
+        ambientRef.current.src = '';
+        ambientRef.current = null;
+      }
+      currentAmbientUrlRef.current = null;
+      localStorage.setItem('ambientEnabled', 'false');
+      return;
+    }
+
     if (ambientRef.current) {
       if (ambientEnabled) {
         if (ambientRef.current.paused && currentLocation) {
@@ -964,7 +982,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
     }
     localStorage.setItem('ambientEnabled', String(ambientEnabled));
     localStorage.setItem('ambientVolume', String(ambientVolume));
-  }, [ambientEnabled, ambientVolume, currentLocation]);
+  }, [ambientAvailable, ambientEnabled, ambientVolume, currentLocation]);
 
   useEffect(() => {
     return () => {
@@ -1516,7 +1534,9 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
           <span className="chat-settings-group-label">Звук</span>
           <Toggle checked={autoVoiceEnabled} onChange={() => setAutoVoiceEnabled((v) => !v)} label="Автоозвучення" />
-          <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ембієнт" />
+          {ambientAvailable && (
+            <Toggle checked={ambientEnabled} onChange={() => setAmbientEnabled((v) => !v)} label="Ембієнт" />
+          )}
 
           <div className="chat-settings-divider" />
 
@@ -1532,7 +1552,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
               <Icon name="download" /> Export log
             </button>
           )}
-          {ambientEnabled && (
+          {ambientAvailable && ambientEnabled && (
             <div className="chat-settings-volume-row">
               <Icon name="sound-off" />
               <input
