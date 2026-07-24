@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as Partial<GenerateScenarioInput>;
-  const { title, titleUk, premise, era, difficulty, minPlayers, maxPlayers, isCampaign, estimatedSessions, language, provider } = body;
+  const { title, titleUk, premise, era, difficulty, minPlayers, maxPlayers, isCampaign, estimatedSessions, provider } = body;
 
   if (!title || !titleUk || !premise || !era || !difficulty) {
     return NextResponse.json({ error: 'title, titleUk, premise, era, difficulty are required' }, { status: 400 });
@@ -40,7 +40,6 @@ export async function POST(req: NextRequest) {
       maxPlayers: maxPlayers ?? 4,
       isCampaign: isCampaign ?? false,
       estimatedSessions: estimatedSessions ?? 1,
-      language: language ?? 'uk',
       provider,
     });
 

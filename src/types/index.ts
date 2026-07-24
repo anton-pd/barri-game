@@ -198,6 +198,31 @@ export interface ScenarioBriefing {
   objective: string;
 }
 
+export interface ScenarioInventoryItemLocalization {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ScenarioRolePresetLocalization {
+  id: string;
+  name: string;
+  description: string;
+  background: string;
+  inventory: ScenarioInventoryItemLocalization[];
+}
+
+/**
+ * Player-facing scenario copy only. Stable ids and all game mechanics remain
+ * in the canonical scenario fields and are merged at read time.
+ */
+export interface ScenarioPlayerLocalization {
+  description: string;
+  briefing?: ScenarioBriefing;
+  rolePresets?: ScenarioRolePresetLocalization[];
+  locations?: Array<{ id: string; name: string }>;
+}
+
 // CHANGED: New types for ruleset system (phase 2)
 export interface RulesetStatDef {
   id: string;
@@ -375,6 +400,9 @@ export interface Scenario {
     negative: string[];
     neutral: string[];
     roll_event: string[];
+  };
+  localizations?: {
+    en?: ScenarioPlayerLocalization;
   };
   generatedBy?: ScenarioGeneratedBy;
 }

@@ -15,7 +15,6 @@ export interface GenerateScenarioInput {
   maxPlayers: number;
   isCampaign: boolean;
   estimatedSessions: number;
-  language: 'uk' | 'en';  // language for Ukrainian content fields
   provider?: ScenarioProvider; // generation provider; defaults to DEFAULT_PROVIDER
 }
 
@@ -86,6 +85,34 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
     "setting": "Where and when. Sensory atmosphere.",
     "premise": "What happened. What players know at the start.",
     "objective": "What players need to accomplish."
+  },
+  "localizations": {
+    "en": {
+      "description": "Idiomatic English translation of the scenario teaser.",
+      "briefing": {
+        "setting": "English translation of briefing.setting.",
+        "premise": "English translation of briefing.premise.",
+        "objective": "English translation of briefing.objective."
+      },
+      "rolePresets": [
+        {
+          "id": "same_role_id",
+          "name": "English role name",
+          "description": "English role description.",
+          "background": "English role background including the translated PERK.",
+          "inventory": [
+            {
+              "id": "same_item_id",
+              "name": "English item name",
+              "description": "English item description."
+            }
+          ]
+        }
+      ],
+      "locations": [
+        { "id": "same_location_id", "name": "English location name" }
+      ]
+    }
   },
   "systemPrompt": "Full Case Curator instruction (see format below)",
   "railguards": [
@@ -190,7 +217,10 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 - mustHappenEvents: minimum 4-5 events
 - railguards: minimum 3-4
 - variants: always 2, rarely 3. Must use location IDs from your locations array.
-- All Ukrainian text fields (name, description, clues, rolePresets names/descriptions/backgrounds/inventory, etc.) must be in Ukrainian
+- Canonical scenario content must be in Ukrainian: description, briefing, systemPrompt, railguards, clues, NPC text, rolePresets names/descriptions/backgrounds/inventory, location names/descriptions, labels, variants, and eventHints
+- localizations.en is mandatory and must contain fluent, idiomatic English for every player-facing field in the schema above
+- Every role, inventory item, and location in localizations.en must use the exact same id as its canonical Ukrainian counterpart; do not add or omit entries
+- localizations.en contains text only. Do not duplicate or alter stats, skill values, uses, ruleset ids, or any other mechanics
 - All English text fields (soundPrompt, staticImages.prompt, skill names) must be in English
 - IDs are always snake_case or kebab-case, no spaces
 
@@ -203,7 +233,7 @@ CRITICAL: Respond with ONLY raw JSON — no markdown, no code blocks, no explana
 - Each role: 8-14 skills with realistic values (primary skills 60-80, secondary 35-55)
 - Each role: 3-4 inventory items — at least one must be unique and thematically specific to this scenario
 - uses: -1 means unlimited; uses: N means consumable with N charges
-- background: written in the content language — 3-5 sentences explaining who they are, why they're here, what unique advantage or burden they carry. Include a PERK — one thematic special ability (narrative, not mechanical)
+- background: 3-5 Ukrainian sentences explaining who they are, why they're here, what unique advantage or burden they carry. Include a PERK — one thematic special ability (narrative, not mechanical), then translate it fully in localizations.en
 - Roles must complement each other: at least one social role, one investigative role, one role with relevant specialized knowledge
 `;
 
@@ -216,7 +246,6 @@ Era: ${input.era}
 Difficulty: ${input.difficulty}
 Players: ${input.minPlayers}–${input.maxPlayers}
 Campaign: ${input.isCampaign} (${input.estimatedSessions} session(s))
-Language for content: ${input.language === 'uk' ? 'Ukrainian' : 'English'}
 
 Premise:
 ${input.premise}

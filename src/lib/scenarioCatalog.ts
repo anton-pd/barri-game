@@ -1,4 +1,8 @@
 import type { InventoryItem, RolePreset, Scenario, StatEntry } from '@/types';
+import {
+  getScenarioPlayerLocalization,
+  localizeScenarioForPlayer,
+} from '@/lib/scenarioPlayerLocalization';
 
 export interface CatalogRolePreset {
   id: string;
@@ -29,6 +33,15 @@ export interface ScenarioCatalogEntry {
   sessionConfig?: Scenario['sessionConfig'];
   rolePresets?: CatalogRolePreset[];
   locations: { id: string; name: string }[];
+  localizations?: {
+    en?: ScenarioCatalogLocalization;
+  };
+}
+
+export interface ScenarioCatalogLocalization {
+  description: string;
+  rolePresets?: CatalogRolePreset[];
+  locations: { id: string; name: string }[];
 }
 
 export function canViewStaticScenarioGallery(
@@ -41,7 +54,7 @@ export function toScenarioCatalogEntry(
   scenario: Scenario,
   cover?: string,
 ): ScenarioCatalogEntry {
-  return {
+  const entry: ScenarioCatalogEntry = {
     id: scenario.id,
     title: scenario.title,
     titleUk: scenario.titleUk,
@@ -68,6 +81,21 @@ export function toScenarioCatalogEntry(
     } : {}),
     locations: (scenario.locations ?? []).map(({ id, name }) => ({ id, name })),
   };
+
+  if (getScenarioPlayerLocalization(scenario, 'en')) {
+    const englishScenario = localizeScenarioForPlayer(scenario, 'en');
+    entry.localizations = {
+      en: {
+        description: englishScenario.description,
+        ...(englishScenario.rolePresets ? {
+          rolePresets: englishScenario.rolePresets.map(toCatalogRolePreset),
+        } : {}),
+        locations: (englishScenario.locations ?? []).map(({ id, name }) => ({ id, name })),
+      },
+    };
+  }
+
+  return entry;
 }
 
 function toCatalogRolePreset(role: RolePreset): CatalogRolePreset {

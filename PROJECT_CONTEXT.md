@@ -253,7 +253,7 @@ Source of truth: live scenario JSON is `/opt/apps/shared_data/scenarios`, mounte
 5. **Next.js standalone caches `public/`** — after adding new files to the public volume, `docker compose -f /opt/apps/docker-compose.yml restart barri` (prod) / `barri-dev` (staging) is required.
 6. **Case Curator style** — stored as legacy `keeperStyle` in localStorage, default `'balanced'`. Values: `'passive'`, `'balanced'`, `'active'`.
 7. **DiceRoller** — shown when `world_state.pendingRollResult` is set + `diceMode === 'virtual'` (localStorage). Result determined by `Math.random()` before animation. On confirm: optimistically clears `pendingRollResult` locally, then sends result as plain message to LLM. Key prop forces remount on each new roll. Physical mode shows inline hint only.
-8. **Language** — stored in `game_sessions.language` (`'uk'` default, `'en'` supported). Set at session creation. `buildSystemPromptBlocks()` injects language instruction + response style. Scenario JSON content (NPCs, locations) remains Ukrainian — AI auto-translates.
+8. **Language** — stored in `game_sessions.language` (`'uk'` default, `'en'` supported). Set from the user's interface language at session creation. `buildSystemPromptBlocks()` injects language instruction + response style. Canonical Keeper-only scenario content remains Ukrainian and the AI translates it; player-facing catalog, briefing, roles, inventory, and location names use `localizations.en` (with bundled overlays for legacy live scenarios).
 9. **Ambient launch flag** — ambient is disabled by default for beta. Playback, the player controls, session-start generation, the ambient API, and admin materialization only activate when server runtime env `AMBIENT_ENABLED=true`. Existing generated files remain on disk for a later rework.
 
 ---
@@ -265,7 +265,6 @@ Source of truth: live scenario JSON is `/opt/apps/shared_data/scenarios`, mounte
 | `generateImageExternal()` in `assets.ts` | Placeholder — throws; not yet needed |
 | SSE client-side error recovery | Basic retry only |
 | DiceRoller visuals | Currently slot-machine animation. 3D physics (dice-box/Babylon.js) tried but incompatible with Next.js standalone. Revisit with raw Three.js or Babylon.js canvas. |
-| English scenario content | `language='en'` sessions get English system prompt, but scenario JSON (NPCs, locations, clues) is Ukrainian — AI auto-translates but native English scenario files would improve quality |
 
 ---
 

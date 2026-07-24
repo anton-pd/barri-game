@@ -137,6 +137,21 @@ function formatDate(iso: string, lang: InterfaceLanguage) {
   return new Date(iso).toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function localizeCatalogEntry(
+  scenario: ScenarioCatalogEntry,
+  language: InterfaceLanguage,
+): ScenarioCatalogEntry {
+  if (language === 'uk') return scenario;
+  const english = scenario.localizations?.en;
+  if (!english) return scenario;
+  return {
+    ...scenario,
+    description: english.description,
+    ...(english.rolePresets ? { rolePresets: english.rolePresets } : {}),
+    locations: english.locations,
+  };
+}
+
 // ── SessionCard sub-component ─────────────────────────────────────────────────
 
 function SessionCard({
@@ -528,10 +543,13 @@ export default function SessionList() {
   const coverById: Record<string, string> = Object.fromEntries(
     scenarios.filter((sc) => sc.cover).map((sc) => [sc.id, sc.cover as string])
   );
+  const localizedScenarios = scenarios.map((scenario) =>
+    localizeCatalogEntry(scenario, interfaceLanguage)
+  );
   // ANT-131: session cards print human-readable scenario titles and location
   // names instead of raw ids (THE-HAUNTING / ELM_STREET_EXTERIOR).
   const scenarioById: Record<string, ScenarioCatalogEntry> = Object.fromEntries(
-    scenarios.map((sc) => [sc.id, sc])
+    localizedScenarios.map((sc) => [sc.id, sc])
   );
   const activeSessions    = sessions.filter((s) => s.status === 'active');
   const pausedSessions    = sessions.filter((s) => s.status === 'paused');
@@ -742,7 +760,7 @@ export default function SessionList() {
         </div>
 
         <div className="case-files-grid">
-          {scenarios.map((sc) => {
+          {localizedScenarios.map((sc) => {
             const diff = difficultyMeta(sc.difficulty, copy.difficulty);
             const isCampaign = sc.sessionConfig?.isCampaign;
             const scenarioTitle = interfaceLanguage === 'uk' ? (sc.titleUk || sc.title) : (sc.title || sc.titleUk);

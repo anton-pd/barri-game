@@ -25,7 +25,7 @@ describe('scenario catalog DTO', () => {
   it('uses an explicit player-facing top-level allowlist', () => {
     expect(Object.keys(dto).sort()).toEqual([
       'cover', 'defaultRoles', 'description', 'difficulty', 'era', 'id',
-      'locations', 'rolePresets', 'rulesetId', 'sessionConfig',
+      'localizations', 'locations', 'rolePresets', 'rulesetId', 'sessionConfig',
       'supportedRoles', 'title', 'titleUk',
     ]);
   });
@@ -34,7 +34,7 @@ describe('scenario catalog DTO', () => {
     const forbidden = [
       'systemPrompt', 'railguards', 'criticalSuccessRules', 'mustHappenEvents',
       'npcs', 'secrets', 'clues', 'staticImages', 'prompt', 'locationGroups',
-      'variants', 'introHint', 'eventHints', 'generatedBy',
+      'variants', 'introHint', 'eventHints', 'generatedBy', 'briefing',
     ];
     const keys = collectKeys(dto);
     for (const key of forbidden) expect(keys.has(key), key).toBe(false);
@@ -57,6 +57,15 @@ describe('scenario catalog DTO', () => {
     expect(dto.locations[0]).toEqual({
       id: scenario.locations[0].id,
       name: scenario.locations[0].name,
+    });
+  });
+
+  it('includes a safe English player-facing overlay', () => {
+    expect(dto.localizations?.en?.description).toContain('Boston');
+    expect(dto.localizations?.en?.rolePresets?.[0].name).toBe('Private Investigator');
+    expect(dto.localizations?.en?.locations[0]).toEqual({
+      id: scenario.locations[0].id,
+      name: "Investigators' Office",
     });
   });
 });

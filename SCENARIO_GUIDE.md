@@ -27,6 +27,14 @@ Live prod/staging scenarios have one source of truth: `/opt/apps/shared_data/sce
   "difficulty": "beginner",
   "rulesetId": "coc_7e",
   "description": "Короткий опис сценарію. 2-3 речення. Де, коли, в чому суть.",
+  "localizations": {
+    "en": {
+      "description": "English scenario teaser.",
+      "briefing": { "setting": "...", "premise": "...", "objective": "..." },
+      "rolePresets": [...],
+      "locations": [...]
+    }
+  },
   "systemPrompt": "...",
   "railguards": [...],
   "criticalSuccessRules": { "investigation": "...", "combat": "...", "persuasion": "..." },
@@ -39,6 +47,61 @@ Live prod/staging scenarios have one source of truth: `/opt/apps/shared_data/sce
 **`difficulty`**: `"beginner"` | `"intermediate"` | `"advanced"`  
 **`era`**: зазвичай `"1920s"`, можна `"1890s"`, `"1930s"`, `"modern"` тощо  
 **`rulesetId`**: завжди `"coc_7e"` (поки що єдиний рулсет)
+
+---
+
+## 2.1. Англійська локалізація
+
+`localizations.en` обов'язкова для всього тексту, який бачить гравець:
+
+- `description` і всі поля `briefing`;
+- кожна роль із тим самим `id`: `name`, `description`, `background`;
+- кожен предмет ролі з тим самим `id`: `name`, `description`;
+- кожна локація з тим самим `id`: `name`.
+
+Локалізація містить лише текст. Не дублюй і не змінюй механіку: HP, SAN,
+Luck, skills, `uses`, `rulesetId`, `supportedRoles` та інші числові або
+структурні поля беруться з канонічного українського сценарію. Кількість та
+порядок `rolePresets`, предметів і локацій мають збігатися; стабільні ID не
+перекладаються.
+
+```json
+{
+  "localizations": {
+    "en": {
+      "description": "Boston, 1923. Telegrams keep arriving after the operator's death.",
+      "briefing": {
+        "setting": "Boston on a rain-soaked November morning.",
+        "premise": "Each investigator received the same impossible telegram.",
+        "objective": "Find who—or what—is speaking through the wires."
+      },
+      "rolePresets": [
+        {
+          "id": "telegraph_operator",
+          "name": "Telegraph Operator",
+          "description": "A communications specialist who hears patterns others miss.",
+          "background": "Three to five translated sentences, including the PERK.",
+          "inventory": [
+            {
+              "id": "signal_notebook",
+              "name": "Signal Notebook",
+              "description": "Codes and observations about unusual network noise."
+            }
+          ]
+        }
+      ],
+      "locations": [
+        { "id": "telegraph_exchange", "name": "Boston Telegraph Exchange" }
+      ]
+    }
+  }
+}
+```
+
+Старі сценарії без `localizations.en` залишаються валідними й показують
+канонічний текст як fallback. Для поточного live-каталогу англійські
+локалізації також вбудовані в застосунок, щоб shared-volume файли старого
+формату не показували змішану мову.
 
 ---
 

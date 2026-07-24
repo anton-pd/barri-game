@@ -13,7 +13,6 @@ interface FormState {
   maxPlayers: number;
   isCampaign: boolean;
   estimatedSessions: number;
-  language: 'uk' | 'en';
   provider: 'gemini' | 'deepseek';
 }
 
@@ -39,7 +38,6 @@ const DEFAULT: FormState = {
   maxPlayers: 4,
   isCampaign: false,
   estimatedSessions: 1,
-  language: 'uk',
   provider: 'gemini',
 };
 
@@ -190,7 +188,7 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
           />
         </div>
 
-        {/* Row 2: era, difficulty, language */}
+        {/* Row 2: era and difficulty */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className={labelCls}>Era</label>
@@ -213,18 +211,6 @@ export default function ScenarioGenerator({ onSaved }: { onSaved?: () => void })
               <option value="advanced">Advanced</option>
             </select>
           </div>
-          <div>
-            <label className={labelCls}>Content language</label>
-            <select
-              className={inputCls}
-              value={form.language}
-              onChange={(e) => set('language', e.target.value as FormState['language'])}
-            >
-              <option value="uk">Ukrainian</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-
           <div>
             <label className={labelCls}>Provider (A/B)</label>
             <select

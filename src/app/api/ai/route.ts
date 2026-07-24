@@ -43,6 +43,10 @@ import { resolveAiProvider, type AiProvider } from '@/lib/aiProvider';
 import { evaluateSessionAccess } from '@/lib/sessionAccess';
 import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import {
+  localizePlayersForScenario,
+  localizeScenarioForPlayer,
+} from '@/lib/scenarioPlayerLocalization';
+import {
   InvalidJsonError,
   PayloadTooLargeError,
   readJsonWithLimit,
@@ -561,6 +565,7 @@ export async function POST(request: Request) {
   const recentMessages = await getLastNMessages(sessionId, 30);
   const isIntro = message === '__intro__';
   const sessionLang: 'uk' | 'en' = (session.language ?? 'uk') as 'uk' | 'en';
+  const playerFacingScenario = localizeScenarioForPlayer(scenario, sessionLang);
 
   const userContent = isIntro
     ? getIntroUserContent(sessionLang)
@@ -1036,10 +1041,14 @@ export async function POST(request: Request) {
         const imagePrompt  = imageMatch?.[2]?.trim() ?? null;
         const location     = finalMove?.id ?? null;
         const locationName = location
-          ? (scenario.locations.find((l) => l.id === location)?.name
+          ? (playerFacingScenario.locations.find((l) => l.id === location)?.name
               ?? updatedWorldState.dynamicLocations?.[location]?.name
               ?? null)
           : null;
+        const playerFacingPlayers = localizePlayersForScenario(
+          updatedPlayers,
+          playerFacingScenario,
+        );
 
         const completed = await finalizeAiTurn({
           sessionId,
@@ -1062,7 +1071,7 @@ export async function POST(request: Request) {
           voiceStyle,
           segments,
           aiProvider,
-          players: updatedPlayers,
+          players: playerFacingPlayers,
           world_state: updatedWorldState,
           imageType,
           imagePrompt,

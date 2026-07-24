@@ -4,8 +4,12 @@ import GameChat from '@/components/GameChat';
 import { verifyJwt } from '@/lib/auth';
 import { getUserById, getAllAppSettings } from '@/lib/queries';
 import { buildAmbientByLocation, readScenarioFile } from '@/lib/scenarioFiles';
-import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
+import type { GameSession, Message, ScenarioBriefing, NPC, Player } from '@/types';
 import { evaluateSessionAccess } from '@/lib/sessionAccess';
+import {
+  localizePlayersForScenario,
+  localizeScenarioForPlayer,
+} from '@/lib/scenarioPlayerLocalization';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -21,6 +25,8 @@ async function getSessionData(id: string): Promise<{ session: GameSession; messa
 
 function loadScenarioMeta(
   scenarioId: string,
+  language: 'uk' | 'en',
+  players: Player[],
   dynamicLocations?: Record<string, { name: string }>
 ): {
   briefing: ScenarioBriefing | null;
@@ -28,9 +34,10 @@ function loadScenarioMeta(
   ambientByLocation: Record<string, string>;
   npcs: NPC[];
   rulesetId: string;
+  players: Player[];
 } {
   try {
-    const scenario = readScenarioFile(scenarioId);
+    const scenario = localizeScenarioForPlayer(readScenarioFile(scenarioId), language);
     const locationNames: Record<string, string> = {};
     for (const loc of scenario.locations ?? []) {
       locationNames[loc.id] = loc.name;
@@ -45,9 +52,17 @@ function loadScenarioMeta(
       ambientByLocation: buildAmbientByLocation(scenario),
       npcs: scenario.npcs ?? [],
       rulesetId: scenario.rulesetId ?? 'coc_7e',
+      players: localizePlayersForScenario(players, scenario),
     };
   } catch {
-    return { briefing: null, locationNames: {}, ambientByLocation: {}, npcs: [], rulesetId: 'coc_7e' };
+    return {
+      briefing: null,
+      locationNames: {},
+      ambientByLocation: {},
+      npcs: [],
+      rulesetId: 'coc_7e',
+      players,
+    };
   }
 }
 
@@ -77,8 +92,10 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  const { briefing, locationNames, ambientByLocation, npcs, rulesetId } = loadScenarioMeta(
+  const { briefing, locationNames, ambientByLocation, npcs, rulesetId, players } = loadScenarioMeta(
     data.session.scenario_id,
+    data.session.language ?? 'uk',
+    data.session.players,
     data.session.world_state.dynamicLocations
   );
   const ambientAvailable = process.env.AMBIENT_ENABLED === 'true';
@@ -88,7 +105,7 @@ export default async function SessionPage({ params }: PageProps) {
 
   return (
     <GameChat
-      session={data.session}
+      session={{ ...data.session, players }}
       initialMessages={data.messages}
       briefing={briefing}
       locationNames={locationNames}

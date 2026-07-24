@@ -4465,3 +4465,45 @@ Anton asked for an urgent direct-to-production fix: logged-in users need a way t
 ### Follow-up
 - Removed the per-session game language selector from the new-case modal.
 - Session creation now always derives `game_sessions.language` from the global account interface language via `gameLanguageForInterface()`.
+
+---
+
+## ANT-192: English player-facing scenario localization — 2026-07-24
+
+### Problem
+The EN game setting changed the Case Curator's response language but did not
+translate scenario data. Several live cases therefore showed an English title
+beside Ukrainian descriptions, briefings, role sheets, inventory, and location
+names. Existing English sessions also retained Ukrainian character-sheet copy.
+
+### Changes
+- Added a text-only `localizations.en` scenario contract keyed by stable role,
+  inventory-item, and location IDs. Mechanics remain canonical and are never
+  duplicated in a translation.
+- Added native English player-facing overlays for all nine current live
+  scenarios, including the shared-volume Barcelona case.
+- Localized the public catalog, authenticated case catalog, role selection,
+  session briefing, character sheets, inventory, and location labels.
+- Existing English sessions receive localized display data without rewriting
+  their stored HP, Sanity, Luck, skills, item uses, equipment, or world state.
+- Spanish scenario copy now uses the English overlay instead of exposing
+  Ukrainian content.
+- Updated scenario generation and authoring guidance so future cases include
+  canonical Ukrainian content plus a mandatory English player-facing
+  localization.
+
+### Decisions
+- Keeper-only prompts, clues, event logic, and other mechanics remain in the
+  canonical scenario object. The existing language instruction makes the Case
+  Curator narrate those details in the session language.
+- Legacy/shared-volume scenarios use a bundled English overlay so staging can
+  be fixed without mutating the production-shared scenario source. Embedded
+  `localizations.en` content takes precedence for newly authored scenarios.
+
+### Verification
+- `npm test`: 38 files / 223 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the six pre-existing `<img>` warnings only.
+- `npm run build`: passed on Next.js 16.2.3.
+- Browser QA confirmed complete EN catalog copy, UK switching, ES English
+  fallback, coherent desktop case cards, and no horizontal overflow.

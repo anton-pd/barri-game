@@ -283,7 +283,7 @@ export default function LandingClient({ registrationMode }: { registrationMode: 
                   <div><span className="k">{caseCopy.locked.metaTone}</span>{formatDifficulty(scenario.difficulty, caseCopy)}</div>
                   <div><span className="k">{caseCopy.locked.metaAccess}</span>{caseCopy.locked.accessValue}</div>
                 </div>
-                <p className="brief">{scenario.description}</p>
+                <p className="brief">{getScenarioDescription(scenario, lang)}</p>
                 <div className="case-replayable">{caseCopy.locked.replayable}</div>
                 <span className="case-open case-open--disabled">
                   <span>{caseCopy.locked.primary}</span>
@@ -513,6 +513,11 @@ const CASE_COPY = {
 function getScenarioTitle(scenario: ScenarioCatalogEntry, lang: Lang) {
   if (lang === "uk") return scenario.titleUk || scenario.title;
   return scenario.title;
+}
+
+function getScenarioDescription(scenario: ScenarioCatalogEntry, lang: Lang) {
+  if (lang === "uk") return scenario.description;
+  return scenario.localizations?.en?.description || scenario.description;
 }
 
 function formatScenarioId(index: number, scenario: ScenarioCatalogEntry, copy: typeof CASE_COPY[Lang]) {
