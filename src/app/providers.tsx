@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { ConsentBanner } from "@/components/ConsentBanner";
+import { sanitizeAnalyticsEvent, sanitizeAnalyticsUrl } from "@/lib/analyticsPrivacy";
 import {
   canInitializeAnalytics,
   hasFallbackAnalyticsConsent,
@@ -118,6 +119,9 @@ export function PostHogProvider({
           defaults: "2025-05-24",
           capture_pageview: false, // captured manually (initial + on route change)
           persistence: "localStorage+cookie",
+          // Applied to every event, including PostHog's standard $current_url
+          // property on autocaptured interactions.
+          before_send: sanitizeAnalyticsEvent,
         });
         posthog.capture("$pageview");
       } else {
@@ -149,9 +153,7 @@ function PageviewTracker() {
 
   useEffect(() => {
     if (!posthog.__loaded) return;
-    let url = window.origin + pathname;
-    const qs = searchParams.toString();
-    if (qs) url += "?" + qs;
+    const url = sanitizeAnalyticsUrl(window.origin + pathname);
     posthog.capture("$pageview", { $current_url: url });
   }, [pathname, searchParams]);
 

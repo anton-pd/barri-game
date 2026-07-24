@@ -3968,3 +3968,21 @@ Cookiebot's `data-blockingmode="auto"` can intercept first-party Next.js scripts
 - `vitest run` — 18 files / 118 tests passed.
 - `tsc --noEmit` — passed.
 - `eslint .` — passed with the existing six `@next/next/no-img-element` warnings only.
+
+---
+
+## ANT-205: redact sensitive URLs from analytics — 2026-07-24
+
+### Problem
+PostHog's manual pageview constructed `$current_url` with the full query string, and its normal capture events can include standard URL properties. Password-reset tokens, registration invitation tokens, and email query values could therefore reach analytics.
+
+### Changes
+- Added a shared analytics URL sanitizer that keeps the useful origin/path but strips every query string and fragment by default; no sensitive-value denylist is relied upon.
+- Manual `$pageview` tracking now sends the sanitized URL.
+- Added the same sanitizer as PostHog's `before_send` hook, covering `$current_url`, referrer, and URL-like standard/custom event properties immediately before any event leaves the browser.
+- Added unit coverage for password-reset URLs, register invitation/email URLs, ordinary URLs, and standard event URL properties.
+
+### Verification
+- Targeted analytics privacy unit tests pass (4/4).
+- Full test/type/lint verification pending before commit.
+- Final verification: `vitest run` passed (19 files / 120 tests); `tsc --noEmit` passed; `eslint .` passed with the existing six `@next/next/no-img-element` warnings only.
