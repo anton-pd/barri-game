@@ -5,6 +5,7 @@ import { verifyJwt } from '@/lib/auth';
 import { getUserById, getAllAppSettings } from '@/lib/queries';
 import { buildAmbientByLocation, readScenarioFile } from '@/lib/scenarioFiles';
 import type { GameSession, Message, ScenarioBriefing, NPC } from '@/types';
+import { evaluateSessionAccess } from '@/lib/sessionAccess';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -75,9 +76,8 @@ export default async function SessionPage({ params }: PageProps) {
     notFound();
   }
 
-  // Ownership check: legacy sessions (user_id = null) are accessible to any authenticated user
-  const sessionUserId = data.session.user_id;
-  if (sessionUserId !== null && sessionUserId !== payload.sub && !isAdmin) {
+  const sessionAccess = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: dbUser, session: data.session });
+  if (!sessionAccess.ok) {
     notFound();
   }
 
@@ -102,6 +102,7 @@ export default async function SessionPage({ params }: PageProps) {
       rulesetId={rulesetId}
       defaultTtsProvider={defaultTtsProvider}
       isAdmin={isAdmin}
+      viewerUserId={dbUser.id}
     />
   );
 }

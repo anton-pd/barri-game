@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { clearAllSessionCaches } from '@/lib/sessionCache';
 
 interface UserInfo {
   id: string;
@@ -22,6 +23,7 @@ export default function AuthBar() {
   }, []);
 
   async function handleLogout() {
+    clearAllSessionCaches();
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/auth/login');
     router.refresh();

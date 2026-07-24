@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import './account.css';
+import { clearAllSessionCaches } from '@/lib/sessionCache';
 
 // Account / privacy controls (ANT-159): GDPR data export (Art. 20) and
 // self-service account deletion (Art. 17).
@@ -34,6 +35,7 @@ export default function AccountPage() {
         body: JSON.stringify({ password }),
       });
       if (res.ok) {
+        clearAllSessionCaches();
         window.location.href = '/';
         return;
       }

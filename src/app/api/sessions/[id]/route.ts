@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getSession, updateSession, deleteSession, getMessages } from '@/lib/queries';
+import { getSession, updateSession, deleteSession, getMessages, getUserById } from '@/lib/queries';
 import { verifyJwt } from '@/lib/auth';
 import type { WorldState, Player } from '@/types';
+import { evaluateSessionAccess } from '@/lib/sessionAccess';
 
 async function getPayload() {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   return token ? verifyJwt(token) : null;
-}
-
-function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
-  if (role === 'admin') return true;
-  if (sessionUserId === null) return true; // legacy anonymous session
-  return sessionUserId === payloadSub;
 }
 
 export async function GET(
@@ -32,9 +27,8 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (!canAccess(session.user_id, payload.sub, payload.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) return NextResponse.json({ error: access.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: access.status });
 
     const messages = await getMessages(id, 30);
     return NextResponse.json({ session, messages });
@@ -60,9 +54,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (!canAccess(session.user_id, payload.sub, payload.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) return NextResponse.json({ error: access.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: access.status });
 
     if (session.status === 'completed') {
       return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });
@@ -105,9 +98,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (!canAccess(session.user_id, payload.sub, payload.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) return NextResponse.json({ error: access.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: access.status });
 
     await deleteSession(id);
     return NextResponse.json({ success: true });

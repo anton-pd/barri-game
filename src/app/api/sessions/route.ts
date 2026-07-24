@@ -73,8 +73,11 @@ export async function POST(request: Request) {
     // Waiting-list gate (ANT-108): only approved users may start sessions.
     // Session creation is cost-free, so the daily cap is not enforced here.
     const gateUser = await getUserById(payload.sub);
+    if (!gateUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const gate = evaluateAccessGate({
-      role: payload.role,
+      role: gateUser.role,
       accessStatus: gateUser?.access_status ?? 'pending',
       enforceDailyCap: false,
       dailyLimitEnabled: false,

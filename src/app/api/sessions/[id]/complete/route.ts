@@ -12,17 +12,13 @@ import {
   updateCampaignRecord,
   updateSession,
   upsertSessionFeedback,
+  getUserById,
 } from '@/lib/queries';
 import type { GameSession, SessionFeedback, WorldState } from '@/types';
+import { evaluateSessionAccess } from '@/lib/sessionAccess';
 
 type CompleteMode = 'complete-session' | 'finish-evening';
 type CompletionTrigger = 'keeper' | 'manual';
-
-function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
-  if (role === 'admin') return true;
-  if (sessionUserId === null) return true;
-  return sessionUserId === payloadSub;
-}
 
 function buildCompletionStats(session: GameSession, completedAt: string, messageCount: number, keeperMessageCount: number) {
   const durationMs = Math.max(
@@ -60,9 +56,8 @@ export async function POST(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    if (!canAccess(session.user_id, payload.sub, payload.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) return NextResponse.json({ error: access.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: access.status });
 
     if (session.status === 'completed') {
       return NextResponse.json({ error: 'Session already completed' }, { status: 409 });
@@ -84,6 +79,13 @@ export async function POST(
 
     if (mode === 'finish-evening' && !session.campaign_id) {
       return NextResponse.json({ error: 'Only campaign sessions can finish an evening' }, { status: 400 });
+    }
+
+    // There are currently no ownerless production sessions. An admin may still
+    // inspect or close a legacy row, but must not silently transfer it to their
+    // own account by creating the next campaign evening.
+    if (mode === 'finish-evening' && !session.user_id) {
+      return NextResponse.json({ error: 'Ownerless sessions cannot continue a campaign' }, { status: 409 });
     }
 
     if (feedback?.rating !== undefined && (!Number.isInteger(feedback.rating) || feedback.rating < 1 || feedback.rating > 5)) {
@@ -142,7 +144,7 @@ export async function POST(
         session.scenario_id,
         session.name,
         session.players,
-        session.user_id ?? payload.sub,
+        session.user_id!,
         nextWorldState.currentLocation,
         session.language ?? 'uk',
         undefined,

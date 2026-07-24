@@ -4167,3 +4167,28 @@ storage and needed the same protection.
 - `npx tsc --noEmit`: passed.
 - `npm run lint`: passed with 6 existing `<img>` warnings.
 - `npx next build --webpack`: passed with the existing package-version warning.
+
+---
+
+## ANT-202: DB/browser session ownership isolation — 2026-07-24
+
+### Changes
+- Added one exact ownership decision shared by game session, message, AI, and
+  completion paths: normal users require `game_sessions.user_id` to equal their
+  current DB identity; ownerless rows are denied. Current DB admins retain
+  intentional support access.
+- Re-read mutable role data from PostgreSQL in session/message/completion APIs;
+  session creation now also uses the current DB role for the access gate.
+- Protected the server-rendered game page with the same rule. Legacy ownerless
+  campaigns can be closed by an admin but cannot silently create a successor
+  assigned to that admin.
+- Namespaced read-only session snapshots in `sessionStorage` by verified viewer
+  ID, removed the legacy shared key during identity cleanup, and clear all such
+  snapshots on logout and successful account deletion.
+
+### Verification
+- `npm test`: 26 files / 164 tests passed, including new ownership and browser
+  cache isolation regression coverage.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the six existing `<img>` warnings only.
+- `npm run build`: passed on Next.js 16.2.3.

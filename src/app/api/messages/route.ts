@@ -1,18 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { getMessages, saveMessage, getSession } from '@/lib/queries';
+import { getMessages, saveMessage, getSession, getUserById } from '@/lib/queries';
 import { verifyJwt } from '@/lib/auth';
+import { evaluateSessionAccess } from '@/lib/sessionAccess';
 
 async function getPayload() {
   const cookieStore = await cookies();
   const token = cookieStore.get('auth_token')?.value;
   return token ? verifyJwt(token) : null;
-}
-
-function canAccess(sessionUserId: string | null, payloadSub: string, role: string): boolean {
-  if (role === 'admin') return true;
-  if (sessionUserId === null) return true;
-  return sessionUserId === payloadSub;
 }
 
 export async function GET(request: Request) {
@@ -31,7 +26,8 @@ export async function GET(request: Request) {
     }
 
     const session = await getSession(sessionId);
-    if (!session || !canAccess(session.user_id, payload.sub, payload.role)) {
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -58,7 +54,8 @@ export async function POST(request: Request) {
     }
 
     const session = await getSession(sessionId);
-    if (!session || !canAccess(session.user_id, payload.sub, payload.role)) {
+    const access = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser: await getUserById(payload.sub), session });
+    if (!access.ok) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

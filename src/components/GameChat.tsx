@@ -11,8 +11,7 @@ import { canViewStaticScenarioGallery } from '@/lib/scenarioCatalog';
 import DiceRoller from './DiceRoller';
 import StatsBar from './StatsBar';
 import Icon from './Icon';
-
-const READ_ONLY_SESSION_CACHE_KEY = 'barri.readOnlySessions';
+import { loadUserSessionCache, writeUserSessionCache } from '@/lib/sessionCache';
 
 type ReadOnlySessionSnapshot = GameSession & { last_message?: string };
 type CompletionMode = 'complete-session' | 'finish-evening';
@@ -89,17 +88,12 @@ function getStatusMeta(session: GameSession) {
   };
 }
 
-function upsertReadOnlySessionCache(snapshot: ReadOnlySessionSnapshot) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const raw = window.sessionStorage.getItem(READ_ONLY_SESSION_CACHE_KEY);
-    const cached = raw ? (JSON.parse(raw) as ReadOnlySessionSnapshot[]) : [];
-    const next = [snapshot, ...cached.filter((item) => item.id !== snapshot.id)].slice(0, 12);
-    window.sessionStorage.setItem(READ_ONLY_SESSION_CACHE_KEY, JSON.stringify(next));
-  } catch {
-    // Ignore cache persistence issues and keep the session usable.
-  }
+function upsertReadOnlySessionCache(viewerUserId: string, snapshot: ReadOnlySessionSnapshot) {
+  const cached = loadUserSessionCache<ReadOnlySessionSnapshot>(viewerUserId);
+  writeUserSessionCache(
+    viewerUserId,
+    [snapshot, ...cached.filter((item) => item.id !== snapshot.id)].slice(0, 12),
+  );
 }
 
 function buildLocalCompletionStats(session: GameSession, messages: Message[]): CompletionStats {
@@ -147,6 +141,7 @@ interface GameChatProps {
   rulesetId?: string;
   defaultTtsProvider?: 'openai' | 'gemini';
   isAdmin?: boolean;
+  viewerUserId: string;
 }
 
 // msgId → { prompt, type }
@@ -577,7 +572,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, ambientAvailable = false, scenarioNpcs = [], rulesetId = 'coc_7e', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, ambientAvailable = false, scenarioNpcs = [], rulesetId = 'coc_7e', defaultTtsProvider = 'gemini', isAdmin = false, viewerUserId }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -768,8 +763,8 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
   useEffect(() => {
     if (!isSessionReadOnly(session.status)) return;
-    upsertReadOnlySessionCache({ ...session, last_message: lastMessagePreview });
-  }, [lastMessagePreview, session]);
+    upsertReadOnlySessionCache(viewerUserId, { ...session, last_message: lastMessagePreview });
+  }, [lastMessagePreview, session, viewerUserId]);
 
   // Parse NPC segments and dynamic images from initial messages so speech bubbles survive reload
   useEffect(() => {
@@ -1441,7 +1436,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       if (options?.closeModal !== false) {
         setCompletionRequest(null);
       }
-      upsertReadOnlySessionCache({ ...updatedSession, last_message: lastMessagePreview });
+      upsertReadOnlySessionCache(viewerUserId, { ...updatedSession, last_message: lastMessagePreview });
 
       // Any campaign completion (an evening or the whole campaign) returns the
       // player to the case list, where the campaign now shows its next active

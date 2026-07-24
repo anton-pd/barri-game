@@ -22,6 +22,7 @@ import { resolveRollSkillValue } from '@/lib/skillAliases';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStreamChunk } from '@/lib/deepseekStream';
 import { resolveAiProvider, type AiProvider } from '@/lib/aiProvider';
+import { evaluateSessionAccess } from '@/lib/sessionAccess';
 import type { Player, WorldState } from '@/types';
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
@@ -381,13 +382,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
-  const isOwner =
-    session.user_id === null ||
-    session.user_id === payload.sub ||
-    currentUser.role === 'admin';
-  if (!isOwner) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const sessionAccess = evaluateSessionAccess({ authenticatedUserId: payload.sub, currentUser, session });
+  if (!sessionAccess.ok) return NextResponse.json({ error: sessionAccess.code === 'unauthorized' ? 'Unauthorized' : 'Forbidden' }, { status: sessionAccess.status });
 
   if (session.status === 'completed') {
     return NextResponse.json({ error: 'Session is read-only' }, { status: 409 });

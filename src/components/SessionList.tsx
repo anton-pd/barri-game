@@ -8,6 +8,7 @@ import type { ScenarioCatalogEntry } from '@/lib/scenarioCatalog';
 import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import { track } from '@/lib/analytics';
 import { version as appVersion } from '../../package.json';
+import { clearAllSessionCaches, loadUserSessionCache, writeUserSessionCache } from '@/lib/sessionCache';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -71,27 +72,14 @@ function normalizeSession(session: RawSession): SessionListEntry {
   };
 }
 
-const READ_ONLY_CACHE_KEY = 'barri.readOnlySessions';
-
-function loadCachedReadOnlySessions(): SessionListEntry[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.sessionStorage.getItem(READ_ONLY_CACHE_KEY);
-    if (!raw) return [];
-    return (JSON.parse(raw) as SessionListEntry[])
-      .map((s) => normalizeSession(s))
-      .filter((s) => s.status === 'completed' || s.status === 'paused');
-  } catch { return []; }
+function loadCachedReadOnlySessions(userId: string): SessionListEntry[] {
+  return loadUserSessionCache<SessionListEntry>(userId)
+    .map((s) => normalizeSession(s))
+    .filter((s) => s.status === 'completed' || s.status === 'paused');
 }
 
-function removeCachedSession(id: string) {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = window.sessionStorage.getItem(READ_ONLY_CACHE_KEY);
-    if (!raw) return;
-    const next = (JSON.parse(raw) as SessionListEntry[]).filter((s) => s.id !== id);
-    window.sessionStorage.setItem(READ_ONLY_CACHE_KEY, JSON.stringify(next));
-  } catch { /* ignore */ }
+function removeCachedSession(userId: string, id: string) {
+  writeUserSessionCache(userId, loadUserSessionCache<SessionListEntry>(userId).filter((s) => s.id !== id));
 }
 
 function mergeSessions(primary: SessionListEntry[], fallback: SessionListEntry[]) {
@@ -311,7 +299,7 @@ export default function SessionList() {
         ]);
 
         const parsed  = (Array.isArray(rawSessions) ? rawSessions : []).map((s) => normalizeSession(s as RawSession));
-        const cached  = loadCachedReadOnlySessions();
+        const cached  = meData?.id ? loadCachedReadOnlySessions(meData.id) : [];
         setSessions(mergeSessions(parsed, cached));
         setScenarios(Array.isArray(rawScenarios) ? rawScenarios : []);
         setUser(meData ?? null);
@@ -327,6 +315,7 @@ export default function SessionList() {
   // ── Auth actions ─────────────────────────────────────────────────────────────
 
   async function handleLogout() {
+    clearAllSessionCaches();
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/auth/login');
     router.refresh();
@@ -434,7 +423,7 @@ export default function SessionList() {
     e.stopPropagation();
     await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
     setSessions((p) => p.filter((s) => s.id !== id));
-    removeCachedSession(id);
+    if (user?.id) removeCachedSession(user.id, id);
   }
 
   // ── Derived state ─────────────────────────────────────────────────────────────
