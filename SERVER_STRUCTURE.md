@@ -78,6 +78,8 @@ GitHub Actions deploys Barri automatically through `.github/workflows/deploy.yml
 
 The workflow connects to the VPS with a dedicated restricted SSH key. The key is forced through `/opt/apps/vps-deploy-barri-ssh.sh`, which only accepts `deploy staging` and `deploy production`, then delegates to `/opt/apps/vps-deploy-barri.sh`.
 
+Before any SSH command, the workflow runs a clean Node 20 quality gate (`npm ci`, tests, TypeScript, ESLint, and `next build --webpack`). After the restricted deploy command completes, it requests `/api/health` over the selected public HTTPS URL and fails unless it receives HTTP `200` with database and scenario-source checks both `ok`. The same smoke can be run locally or from an incident shell with `scripts/smoke-health.sh https://staging.barrigame.es`.
+
 Required GitHub repository secrets:
 
 - `VPS_SSH_HOST`

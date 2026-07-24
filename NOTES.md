@@ -4192,3 +4192,32 @@ storage and needed the same protection.
 - `npx tsc --noEmit`: passed.
 - `npm run lint`: passed with the six existing `<img>` warnings only.
 - `npm run build`: passed on Next.js 16.2.3.
+---
+
+## ANT-208: CI quality gate and deploy readiness smoke — 2026-07-24
+
+### Changes
+- Added a Docker-compatible Node 20 quality job that runs a clean install,
+  tests, TypeScript checking, linting, and the production webpack build before
+  the existing restricted SSH deploy job may start.
+- Added `GET /api/health`, a compact, non-secret readiness response which
+  checks PostgreSQL connectivity and readable, non-empty shared scenario
+  source. It returns `200` only when both are ready, otherwise `503`.
+- Added a post-deploy HTTPS smoke script which retries transient connections
+  but exits non-zero on any non-200 response or unexpected readiness JSON.
+  The deployment key and its forced-command contract remain unchanged.
+- Made the project build script explicitly use Next 16.2's supported webpack
+  production mode, matching the gate and Docker build.
+
+### Verification
+- Targeted readiness/deploy workflow regression tests, typecheck, focused lint,
+  and shell syntax checks pass.
+- Full test, typecheck, lint, and production-build verification pending before
+  commit.
+
+### Final verification
+- `./scripts/ci-quality-gate.sh` passed: clean install, 27 test files / 164
+  tests, `tsc --noEmit`, ESLint (the existing six `<img>` warnings only), and
+  `next build --webpack`.
+- `bash -n scripts/ci-quality-gate.sh scripts/smoke-health.sh` and
+  `git diff --check` passed.

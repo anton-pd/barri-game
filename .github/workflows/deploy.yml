@@ -23,8 +23,25 @@ permissions:
   contents: read
 
 jobs:
+  quality:
+    name: Quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Docker-compatible Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Clean install, test, typecheck, lint, and production build
+        run: ./scripts/ci-quality-gate.sh
+
   deploy:
     name: Deploy ${{ github.event_name == 'workflow_dispatch' && inputs.target || github.ref_name }}
+    needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -35,6 +52,8 @@ jobs:
       VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: Select deploy target
         id: target
         shell: bash
@@ -53,6 +72,11 @@ jobs:
           fi
 
           echo "target=${target}" >> "${GITHUB_OUTPUT}"
+          if [[ "${target}" == "production" ]]; then
+            echo "url=https://barrigame.es" >> "${GITHUB_OUTPUT}"
+          else
+            echo "url=https://staging.barrigame.es" >> "${GITHUB_OUTPUT}"
+          fi
           echo "Selected deploy target: ${target}"
 
       - name: Validate SSH secrets
@@ -96,3 +120,7 @@ jobs:
             -p "${VPS_SSH_PORT}" \
             "${VPS_SSH_USER}@${VPS_SSH_HOST}" \
             "deploy ${{ steps.target.outputs.target }}"
+
+      - name: Verify deployed readiness
+        shell: bash
+        run: ./scripts/smoke-health.sh "${{ steps.target.outputs.url }}"
