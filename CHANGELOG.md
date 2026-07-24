@@ -7,6 +7,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 
 ## Unreleased
 
+## [1.0.0] — 2026-07-24 — v1 release
+
 ### Added
 - **Verified daily data backups (ANT-206).** Production and staging PostgreSQL databases plus the shared scenario source now have a private 14-day backup job. Every production dump is restored into a temporary database and compared against critical table counts before the run is accepted.
 - **Five new Ukrainian-market scenarios (ANT-188).** Three one-shots — «Шепіт у колодязі» (Carpathians 1912, beginner), «Останній сеанс» (Kyiv 1918, intermediate), «Катакомби пам'яті» (Odesa 1926, advanced) — and two three-evening campaigns: «Тіні над Дніпром» (Kyiv 1921) and «Кургани не сплять» (Poltava steppe 1928). Each ships with scenario-specific roles and perks, full clue trails, location ambients, static images and pulp-poster covers.

@@ -4507,3 +4507,23 @@ names. Existing English sessions also retained Ukrainian character-sheet copy.
 - `npm run build`: passed on Next.js 16.2.3.
 - Browser QA confirmed complete EN catalog copy, UK switching, ES English
   fallback, coherent desktop case cards, and no horizontal overflow.
+
+---
+
+## v1.0.0 production release — 2026-07-24
+
+### Context
+Anton approved ANT-192 and requested that the staging release be merged to
+production with the product version promoted from the beta `0.5.0` line to
+`1.0.0`.
+
+### Changes
+- Updated the application and lockfile version to `1.0.0`; the landing/footer
+  version badge reads this value from `package.json`.
+- Closed the accumulated Unreleased changelog section as the `1.0.0` release.
+- Re-ran the full quality gate before merging `staging` into `main`.
+
+### Deployment
+- Production deployment is triggered only after the v1 commit reaches `main`.
+- Production readiness, version display, and English scenario catalog are
+  verified after the deployment completes.
