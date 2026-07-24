@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
-import { getUserById } from '@/lib/queries';
+import { requireAdminUser } from '@/lib/serverAuth';
 import type { Scenario, ScenarioGeneratedBy } from '@/types';
 import { writeScenarioFile } from '@/lib/scenarioFiles';
 import { ensureScenarioAmbientGenerated } from '@/lib/ambient';
@@ -16,14 +14,8 @@ interface SaveMaterialError {
 }
 
 export async function POST(req: NextRequest) {
-  // Admin-only
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-  const payload = token ? await verifyJwt(token) : null;
-  if (!payload) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const user = await getUserById(payload.sub);
-  if (!user || user.role !== 'admin') {
+  const admin = await requireAdminUser();
+  if (!admin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -71,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     if (process.env.AMBIENT_ENABLED === 'true') {
       try {
-        ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: payload.sub });
+        ambientResult = await ensureScenarioAmbientGenerated({ scenarioId: id, scenario, userId: admin.id });
       } catch (error) {
         materialErrors.push({
           stage: 'ambient',

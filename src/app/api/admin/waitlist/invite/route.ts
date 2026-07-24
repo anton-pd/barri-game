@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
 import { sendAccessInviteEmail } from '@/lib/email';
 import { ensureSchema, getAdminWaitlist, openWaitlistAccess } from '@/lib/queries';
+import { requireAdminUser } from '@/lib/serverAuth';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -13,11 +12,7 @@ function normalizeLocale(locale: unknown): 'en' | 'uk' | 'es' {
 export async function POST(request: Request) {
   try {
     await ensureSchema();
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    const payload = token ? await verifyJwt(token) : null;
-
-    if (!payload || payload.role !== 'admin') {
+    if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

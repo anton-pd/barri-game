@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import fs from 'fs';
 import path from 'path';
-import { verifyJwt } from '@/lib/auth';
+import { requireAdminUser } from '@/lib/serverAuth';
 import type { Scenario } from '@/types';
 import { getScenariosDir, listScenarioFiles, readScenarioFile } from '@/lib/scenarioFiles';
 
@@ -20,18 +19,6 @@ interface AdminScenarioSummary {
   updatedAt: string;
   hasCachedAssets: boolean;
   generatedBy?: Scenario['generatedBy'];
-}
-
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-  const payload = token ? await verifyJwt(token) : null;
-
-  if (!payload || payload.role !== 'admin') {
-    return null;
-  }
-
-  return payload;
 }
 
 function buildScenarioSummary(fileName: string): AdminScenarioSummary {
@@ -58,8 +45,7 @@ function buildScenarioSummary(fileName: string): AdminScenarioSummary {
 
 export async function GET() {
   try {
-    const payload = await requireAdmin();
-    if (!payload) {
+    if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

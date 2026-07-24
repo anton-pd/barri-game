@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import fs from 'fs';
 import path from 'path';
-import { verifyJwt } from '@/lib/auth';
+import { requireAdminUser } from '@/lib/serverAuth';
 import {
   deleteScenarioFile,
   getScenarioFilePath,
@@ -16,18 +15,6 @@ interface Params {
   params: Promise<{ id: string }>;
 }
 
-async function requireAdmin() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('auth_token')?.value;
-  const payload = token ? await verifyJwt(token) : null;
-
-  if (!payload || payload.role !== 'admin') {
-    return null;
-  }
-
-  return payload;
-}
-
 function deleteCachedAssets(scenarioId: string): boolean {
   const assetDir = path.join(process.cwd(), 'public', 'scenarios', scenarioId);
   if (!fs.existsSync(assetDir)) return false;
@@ -37,8 +24,7 @@ function deleteCachedAssets(scenarioId: string): boolean {
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const payload = await requireAdmin();
-    if (!payload) {
+    if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -69,8 +55,7 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function DELETE(_request: Request, { params }: Params) {
   try {
-    const payload = await requireAdmin();
-    if (!payload) {
+    if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

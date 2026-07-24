@@ -3922,3 +3922,32 @@ Existing work was cross-linked instead of duplicated:
 - `npm run build`: passes on Next.js 16.2.3.
 - Local production response for ambient endpoint: HTTP 200 with `{"ambientByLocation":{},"generated":[],"disabled":true}`.
 - Local landing output contains the replacement voice-only copy and no ambient soundscape claim.
+
+---
+
+## ANT-197: current-role authorization for admin APIs — 2026-07-24
+
+### Problem
+ANT-190 closed the anonymous settings/pricing hole, but those routes and most
+other admin APIs still trusted the `role` claim cached in a seven-day JWT.
+A demoted administrator could therefore retain API privileges until the token
+expired. Pricing also accepted negative or non-finite values, which could
+corrupt cost accounting and daily-cap behavior.
+
+### Changes
+- Added one server authorization helper that verifies the signed session and
+  then loads the current user row from PostgreSQL.
+- Migrated every `/api/admin/*` route to the shared database-backed admin check,
+  including settings, pricing, users, waitlist, cost/debug/export, scenario
+  generation and scenario management endpoints.
+- Kept the JWT as proof of the session only; mutable role authorization now
+  always comes from the current database row.
+- Pricing updates now require a finite, non-negative `value_usd`.
+- Added regression tests for missing/invalid sessions, stale admin JWT claims,
+  current admin acceptance, and mismatched identities.
+
+### Verification
+- `npm test`: 19 files / 121 tests pass (including 5 new authorization regressions).
+- `npx tsc --noEmit`: pass.
+- `npm run lint`: pass with the six pre-existing `<img>` warnings only.
+- `npm run build`: production build passes on Next.js 16.2.3.

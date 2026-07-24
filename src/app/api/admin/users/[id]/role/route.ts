@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
 import { updateUserRole } from '@/lib/queries';
+import { requireAdminUser } from '@/lib/serverAuth';
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    const payload = token ? await verifyJwt(token) : null;
-
-    if (!payload || payload.role !== 'admin') {
+    const admin = await requireAdminUser();
+    if (!admin) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -24,7 +20,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
     }
 
-    if (id === payload.sub) {
+    if (id === admin.id) {
       return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 });
     }
 

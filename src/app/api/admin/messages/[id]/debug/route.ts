@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { verifyJwt } from '@/lib/auth';
 import { ensureSchema, getMessageDebug } from '@/lib/queries';
+import { requireAdminUser } from '@/lib/serverAuth';
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -11,10 +10,7 @@ export async function GET(_req: Request, { params }: Params) {
   try {
     await ensureSchema();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth_token')?.value;
-    const payload = token ? await verifyJwt(token) : null;
-    if (!payload || payload.role !== 'admin') {
+    if (!(await requireAdminUser())) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
