@@ -4349,3 +4349,34 @@ storage and needed the same protection.
 - `npm run lint`: passed with the existing `<img>` warnings only.
 - `npm run build -- --webpack`: passed with the existing package-version import
   warning.
+
+---
+
+## ANT-211: visible session load and create recovery — 2026-07-24
+
+### Changes
+- Added an inline Ukrainian session/catalog load failure with a retry action.
+  HTTP/JSON failures fail closed instead of rendering a misleading empty
+  archive, while session/auth `401` responses continue directly to login.
+- Added localized Ukrainian/English creation errors. Failed creates keep the
+  selected scenario, case name, player drafts, roles, and language in the open
+  modal; analytics and navigation run only after a valid created-session id.
+- Removed the broad server-page DB catch that converted query exceptions into
+  `notFound()`. A missing or inaccessible session still returns 404, while
+  unexpected failures now reach a local Next error boundary with safe retry
+  and back-to-list actions.
+- Added pure outcome/copy helpers plus source regression coverage for auth vs
+  outage classification, modal preservation, malformed payload handling, and
+  the safe server-page boundary.
+
+### Verification
+- Targeted recovery tests, TypeScript, focused ESLint, and `git diff --check`
+  pass.
+- Full tests, lint, and webpack build pending before commit.
+
+### Final verification
+- `npm test` passed: 32 files / 183 tests; `npx tsc --noEmit` passed.
+- `npm run lint` passed with only the six pre-existing `<img>` warnings.
+- `npm run build` passed with the existing `SessionList.tsx` package-version
+  import warning. The sandboxed attempt could not resolve Google Fonts; the
+  approved network retry completed successfully.

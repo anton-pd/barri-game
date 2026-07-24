@@ -13,6 +13,65 @@
   content: none;
 }
 
+.session-unavailable {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 32px 20px;
+  color: var(--paper-1);
+  background: var(--ink-0);
+  text-align: center;
+}
+
+.session-unavailable-mark {
+  color: var(--blood-0);
+  font-family: var(--font-blackletter);
+  font-size: 54px;
+}
+
+.session-unavailable h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 6vw, 44px);
+}
+
+.session-unavailable p {
+  max-width: 46ch;
+  margin: 0;
+  color: var(--paper-2);
+  line-height: 1.55;
+}
+
+.session-unavailable div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.session-unavailable button,
+.session-unavailable a {
+  border: 1px solid var(--paper-3);
+  color: var(--paper-1);
+  background: transparent;
+  cursor: pointer;
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  padding: 10px 13px;
+  text-decoration: none;
+}
+
+.session-unavailable button:hover,
+.session-unavailable button:focus-visible,
+.session-unavailable a:hover,
+.session-unavailable a:focus-visible {
+  border-color: var(--amber-1);
+  color: var(--amber-0);
+}
+
 /* ── Root layout ────────────────────────────────────────────── */
 .chat-root {
   height: 100dvh;

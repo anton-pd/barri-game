@@ -9,6 +9,7 @@ import { getRolesForScenario, makePlayer, type RolePreset } from '@/lib/roles';
 import { track } from '@/lib/analytics';
 import { version as appVersion } from '../../package.json';
 import { clearAllSessionCaches, loadUserSessionCache, writeUserSessionCache } from '@/lib/sessionCache';
+import { classifySessionLoad, sessionCreateErrorCopy } from '@/lib/sessionRecovery';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,7 @@ export default function SessionList() {
   const [user,      setUser]      = useState<UserInfo | null>(null);
   const [authMenuOpen, setAuthMenuOpen] = useState(false);
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // New-session modal
   const [selectedScenario,  setSelectedScenario]  = useState<ScenarioCatalogEntry | null>(null);
@@ -274,6 +276,7 @@ export default function SessionList() {
   const [pickingRoleFor,    setPickingRoleFor]      = useState<number | null>(null);
   const [language,          setLanguage]            = useState<'uk' | 'en'>('uk');
   const [isCreating,        setIsCreating]          = useState(false);
+  const [createError,       setCreateError]         = useState<string | null>(null);
   // ANT-137: dialog semantics — focus moves into the sheet on open, Tab cycles
   // inside it, Escape closes, and focus returns to the trigger on close.
   const modalRef = useRef<HTMLDivElement>(null);
@@ -281,36 +284,53 @@ export default function SessionList() {
 
   // ── Load data ────────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const [sessRes, scRes, meRes] = await Promise.all([
-          fetch('/api/sessions'),
-          fetch('/api/scenarios'),
-          fetch('/api/auth/me'),
-        ]);
-        if (sessRes.status === 401) { window.location.href = '/auth/login'; return; }
-        if (!sessRes.ok || !scRes.ok) { setLoading(false); return; }
-
-        const [rawSessions, rawScenarios, meData] = await Promise.all([
-          sessRes.json(),
-          scRes.json(),
-          meRes.ok ? meRes.json() : null,
-        ]);
-
-        const parsed  = (Array.isArray(rawSessions) ? rawSessions : []).map((s) => normalizeSession(s as RawSession));
-        const cached  = meData?.id ? loadCachedReadOnlySessions(meData.id) : [];
-        setSessions(mergeSessions(parsed, cached));
-        setScenarios(Array.isArray(rawScenarios) ? rawScenarios : []);
-        setUser(meData ?? null);
-      } catch (err) {
-        console.error('Network error loading data', err);
-      } finally {
-        setLoading(false);
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [sessRes, scRes, meRes] = await Promise.all([
+        fetch('/api/sessions'),
+        fetch('/api/scenarios'),
+        fetch('/api/auth/me'),
+      ]);
+      const outcome = classifySessionLoad({
+        sessionsStatus: sessRes.status,
+        scenariosStatus: scRes.status,
+        authStatus: meRes.status,
+      });
+      if (outcome === 'auth') {
+        window.location.href = '/auth/login';
+        return;
       }
+      if (outcome === 'unavailable') {
+        throw new Error('session_list_unavailable');
+      }
+
+      const [rawSessions, rawScenarios, meData] = await Promise.all([
+        sessRes.json(),
+        scRes.json(),
+        meRes.json(),
+      ]);
+      if (!Array.isArray(rawSessions) || !Array.isArray(rawScenarios) || !meData?.id) {
+        throw new Error('session_list_invalid_response');
+      }
+
+      const parsed  = rawSessions.map((s) => normalizeSession(s as RawSession));
+      const cached  = loadCachedReadOnlySessions(meData.id);
+      setSessions(mergeSessions(parsed, cached));
+      setScenarios(rawScenarios);
+      setUser(meData);
+    } catch (err) {
+      console.error('Network error loading data', err);
+      setLoadError('Не вдалося завантажити справи та каталог. Перевірте з’єднання й спробуйте ще раз.');
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   // ── Auth actions ─────────────────────────────────────────────────────────────
 
@@ -329,11 +349,13 @@ export default function SessionList() {
     setDrafts([emptyDraft()]);
     setPickingRoleFor(null);
     setLanguage('uk');
+    setCreateError(null);
   }, []);
 
   function closeModal() {
     setSelectedScenario(null);
     setPickingRoleFor(null);
+    setCreateError(null);
   }
 
   // ANT-137: focus management for the new-session dialog.
@@ -397,6 +419,7 @@ export default function SessionList() {
   async function createSession() {
     if (!canCreate || !selectedScenario) return;
     setIsCreating(true);
+    setCreateError(null);
     const players: Player[] = drafts.map((d) => makePlayer(d.name.trim(), d.preset!));
     try {
       const res = await fetch('/api/sessions', {
@@ -404,8 +427,19 @@ export default function SessionList() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scenarioId: selectedScenario.id, name: sessionName, players, language }),
       });
-      if (!res.ok) throw new Error('Failed');
+      if (res.status === 401) {
+        window.location.href = '/auth/login';
+        return;
+      }
+      if (!res.ok) {
+        setCreateError(sessionCreateErrorCopy(language, res.status));
+        return;
+      }
       const session = await res.json() as GameSession;
+      if (!session.id) {
+        setCreateError(sessionCreateErrorCopy(language));
+        return;
+      }
       track('session_created', {
         scenario_id: selectedScenario.id,
         ruleset: selectedScenario.rulesetId,
@@ -414,6 +448,8 @@ export default function SessionList() {
       });
       window.location.href = `/session/${session.id}`;
     } catch {
+      setCreateError(sessionCreateErrorCopy(language));
+    } finally {
       setIsCreating(false);
     }
   }
@@ -571,8 +607,17 @@ export default function SessionList() {
         </div>
       </header>
 
+      {loadError && (
+        <div className="sessions-inline-error" role="alert">
+          <span>{loadError}</span>
+          <button type="button" onClick={() => void loadData()}>
+            Спробувати ще раз
+          </button>
+        </div>
+      )}
+
       {/* ── Bureau stats (Tier 2) ── */}
-      {!loading && sessions.length > 0 && (
+      {!loadError && !loading && sessions.length > 0 && (
         <div className="bureau-stats">
           <div className="bureau-stat">
             <span className="bureau-stat-value">{activeSessions.length}</span>
@@ -596,7 +641,7 @@ export default function SessionList() {
       )}
 
       {/* ── Open Investigations ── */}
-      <div className="sessions-section">
+      {!loadError && <div className="sessions-section">
         <div className="section-divider">
           <span className="section-divider-title">Відкриті справи</span>
         </div>
@@ -618,10 +663,10 @@ export default function SessionList() {
             {openSessions.map((s) => <SessionCard key={s.id} s={s} onDelete={deleteSession} playedEvening={isPlayedEvening(s)} coverFallback={coverById[s.scenario_id]} scenario={scenarioById[s.scenario_id]} />)}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* ── Closed Investigations (only if any) ── */}
-      {!loading && completedSessions.length > 0 && (
+      {!loadError && !loading && completedSessions.length > 0 && (
         <div className="sessions-section">
           <div className="section-divider">
             <span className="section-divider-title">Закриті справи</span>
@@ -633,7 +678,7 @@ export default function SessionList() {
       )}
 
       {/* ── Available Case Files (always visible, Tier 1) ── */}
-      <div className="sessions-section">
+      {!loadError && <div className="sessions-section">
         <div className="section-divider">
           <span className="section-divider-title">Доступні справи</span>
         </div>
@@ -676,7 +721,7 @@ export default function SessionList() {
             );
           })}
         </div>
-      </div>
+      </div>}
 
       {/* ── New-session modal ── */}
       {selectedScenario && (
@@ -870,6 +915,11 @@ export default function SessionList() {
                         drafts.some((d) => !d.name.trim()) && "ім'я гравця",
                         drafts.some((d) => !d.preset) && 'клас гравця',
                       ].filter(Boolean).join(', ')}
+                    </p>
+                  )}
+                  {createError && (
+                    <p className="nsm-create-error" role="alert">
+                      {createError}
                     </p>
                   )}
                 </div>

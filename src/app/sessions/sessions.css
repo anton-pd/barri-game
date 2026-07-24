@@ -603,6 +603,38 @@
   line-height: 1.6;
 }
 
+.sessions-inline-error {
+  width: min(1120px, calc(100% - 32px));
+  margin: 18px auto 0;
+  border-left: 3px solid var(--blood-0);
+  background: rgba(139, 26, 20, 0.1);
+  color: var(--paper-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 16px;
+  font-family: var(--font-typewriter);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sessions-inline-error button {
+  flex-shrink: 0;
+  border: 1px solid var(--paper-3);
+  background: transparent;
+  color: var(--paper-1);
+  cursor: pointer;
+  font: inherit;
+  padding: 7px 10px;
+}
+
+.sessions-inline-error button:hover,
+.sessions-inline-error button:focus-visible {
+  border-color: var(--amber-1);
+  color: var(--amber-0);
+}
+
 /* ============================================================
    CASE FILE CARDS (available scenarios)
    ============================================================ */
@@ -1044,6 +1076,27 @@
   color: var(--ink-2);
   opacity: 0.75;
   text-align: center;
+}
+
+.nsm-create-error {
+  margin: 0;
+  border-left: 3px solid var(--blood-0);
+  color: var(--blood-1);
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  line-height: 1.5;
+  padding-left: 10px;
+}
+
+@media (max-width: 620px) {
+  .sessions-inline-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .sessions-inline-error button {
+    min-height: 42px;
+  }
 }
 
 /* Role picker overlay */

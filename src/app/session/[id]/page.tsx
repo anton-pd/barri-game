@@ -12,15 +12,11 @@ interface PageProps {
 }
 
 async function getSessionData(id: string): Promise<{ session: GameSession; messages: Message[] } | null> {
-  try {
-    const { getSession, getMessages } = await import('@/lib/queries');
-    const session = await getSession(id);
-    if (!session) return null;
-    const messages = await getMessages(id);
-    return { session, messages };
-  } catch {
-    return null;
-  }
+  const { getSession, getMessages } = await import('@/lib/queries');
+  const session = await getSession(id);
+  if (!session) return null;
+  const messages = await getMessages(id);
+  return { session, messages };
 }
 
 function loadScenarioMeta(
