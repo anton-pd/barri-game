@@ -4221,3 +4221,31 @@ storage and needed the same protection.
   `next build --webpack`.
 - `bash -n scripts/ci-quality-gate.sh scripts/smoke-health.sh` and
   `git diff --check` passed.
+
+---
+
+## ANT-212: demo first-turn affordance and privacy polish — 2026-07-24
+
+### Changes
+- Restored exactly three existing localized first-turn action chips in the demo,
+  with a clear localized free-form prompt. The chips are real buttons and
+  disappear after the first accepted user turn.
+- Deferred the 15-minute demo guard timer until an intentional first turn
+  (typed submit or action-chip selection), including reset on language change.
+- Added neutral, concise email-capture privacy text with in-app `/privacy` and
+  `/terms` links. This does not add a consent checkbox or alter waitlist API
+  retention/processing.
+- Kept the action controls wrapping on mobile and preserved native button/form
+  semantics; no visual redesign.
+
+### Verification
+- Targeted source regression test, typecheck, and focused lint pass after
+  adding the timer-effect dependency.
+- Full tests, lint, and webpack build pending before commit.
+
+### Final verification
+- `npm test` passed: 28 files / 167 tests; `npx tsc --noEmit` passed.
+- `npm run lint` passed with only the six pre-existing `<img>` warnings.
+- `npm run build` passed with the existing `SessionList.tsx` package-version
+  import warning. The initial sandbox run could not resolve Google Fonts; the
+  approved network retry completed successfully.

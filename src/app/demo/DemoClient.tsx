@@ -147,6 +147,7 @@ export default function DemoClient() {
   const [waitlistState, setWaitlistState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [waitlistError, setWaitlistError] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(DEMO_SECONDS);
+  const [hasStarted, setHasStarted] = useState(false);
   const [showDossier, setShowDossier] = useState(false);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const anonymousSessionRef = useRef('');
@@ -174,13 +175,13 @@ export default function DemoClient() {
   }, [messages, thinking]);
 
   useEffect(() => {
-    if (chatClosedReason) return undefined;
+    if (!hasStarted || chatClosedReason) return undefined;
     const timer = window.setInterval(() => {
       setSecondsLeft((value) => Math.max(value - 1, 0));
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [chatClosedReason]);
+  }, [hasStarted, chatClosedReason]);
 
   useEffect(() => {
     if (secondsLeft !== 0 || chatClosedReason) return;
@@ -207,6 +208,7 @@ export default function DemoClient() {
     setWaitlistState('idle');
     setWaitlistError('');
     setSecondsLeft(DEMO_SECONDS);
+    setHasStarted(false);
   }
 
   function addMessage(message: Omit<DemoMessage, 'id'>) {
@@ -231,6 +233,7 @@ export default function DemoClient() {
       .map((message) => ({ role: message.role, text: message.text }));
 
     setUserMessages(nextCount);
+    setHasStarted(true);
     setInput('');
     addMessage({ role: 'player', meta: 'You', text: trimmed });
     setThinking(true);
@@ -463,6 +466,24 @@ export default function DemoClient() {
               />
             )}
 
+            {userMessages === 0 && (
+              <section className="demo-suggestions" aria-label={copy.suggestionsLabel}>
+                <p>{copy.suggestionsLabel} <span>{copy.suggestionsHint}</span></p>
+                <div>
+                  {copy.suggestions.initial.map((action) => (
+                    <button
+                      key={action}
+                      type="button"
+                      onClick={() => submitTurn(action)}
+                      disabled={thinking || Boolean(chatClosedReason) || Boolean(pendingRoll)}
+                    >
+                      {action}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <form onSubmit={handleSubmit} className="demo-input-row">
               <input
                 value={input}
@@ -519,6 +540,13 @@ export default function DemoClient() {
                   </button>
                 </div>
                 {waitlistState === 'error' && <span className="demo-form-error">{waitlistError}</span>}
+                <p className="demo-waitlist-privacy">
+                  {copy.waitlist.privacy.before}{' '}
+                  <Link href="/privacy">{copy.waitlist.privacy.privacy}</Link>
+                  {copy.waitlist.privacy.between}
+                  <Link href="/terms">{copy.waitlist.privacy.terms}</Link>
+                  {copy.waitlist.privacy.after}
+                </p>
               </form>
             )}
 
@@ -697,6 +725,7 @@ const DEMO_COPY = {
     joinWaitlist: 'Join waitlist',
     thinking: 'The Case Curator consults the file...',
     suggestionsLabel: 'Suggested actions',
+    suggestionsHint: 'or write anything',
     suggestions: {
       waitlist: 'Join the waitlist',
       initial: ['Inspect the brass door', 'Search the intake desk', 'Listen at the keyhole'],
@@ -771,6 +800,13 @@ const DEMO_COPY = {
       placeholder: 'investigator@example.com',
       loading: 'Filing...',
       submit: 'Join queue',
+      privacy: {
+        before: 'We use your email to manage this waiting-list request. See our',
+        privacy: 'Privacy Policy',
+        between: ' and ',
+        terms: 'Terms',
+        after: '.',
+      },
       successTitle: 'Filed under waiting list.',
       successBody: 'We have your address. The next letter will not be blank.',
     },
@@ -816,6 +852,7 @@ const DEMO_COPY = {
     joinWaitlist: 'Стати в чергу',
     thinking: 'Куратор справи звіряється з файлом...',
     suggestionsLabel: 'Запропоновані дії',
+    suggestionsHint: 'або напишіть будь-що',
     suggestions: {
       waitlist: 'Стати в чергу',
       initial: ['Оглянути латунні двері', 'Обшукати стіл реєстрації', 'Послухати біля замкової щілини'],
@@ -890,6 +927,13 @@ const DEMO_COPY = {
       placeholder: 'investigator@example.com',
       loading: 'Підшиваємо...',
       submit: 'Стати в чергу',
+      privacy: {
+        before: 'Ми використовуємо email, щоб опрацювати цю заявку до списку очікування. Деталі — у',
+        privacy: 'Політиці конфіденційності',
+        between: ' та ',
+        terms: 'Умовах',
+        after: '.',
+      },
       successTitle: 'Підшито до списку очікування.',
       successBody: 'Адресу прийнято. Наступний лист не буде порожнім.',
     },
@@ -935,6 +979,7 @@ const DEMO_COPY = {
     joinWaitlist: 'Unirse a la lista',
     thinking: 'El Curador del caso consulta el expediente...',
     suggestionsLabel: 'Acciones sugeridas',
+    suggestionsHint: 'o escribe lo que quieras',
     suggestions: {
       waitlist: 'Unirse a la lista',
       initial: ['Inspeccionar la puerta de latón', 'Registrar el escritorio', 'Escuchar por la cerradura'],
@@ -1009,6 +1054,13 @@ const DEMO_COPY = {
       placeholder: 'investigator@example.com',
       loading: 'Archivando...',
       submit: 'Unirse',
+      privacy: {
+        before: 'Usamos tu email para gestionar esta solicitud de lista de espera. Consulta la',
+        privacy: 'Política de privacidad',
+        between: ' y los ',
+        terms: 'Términos',
+        after: '.',
+      },
       successTitle: 'Archivado en la lista de espera.',
       successBody: 'Tenemos tu dirección. La próxima carta no estará en blanco.',
     },
