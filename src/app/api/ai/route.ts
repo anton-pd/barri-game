@@ -21,6 +21,7 @@ import { supportsPendingRollTag } from '@/lib/rulesets';
 import { resolveRollSkillValue } from '@/lib/skillAliases';
 import { mergeSummarizedWorldState } from '@/lib/worldStateMerge';
 import { buildDeepSeekChatBody, extractDeepSeekContentDelta, type DeepSeekStreamChunk } from '@/lib/deepseekStream';
+import { resolveAiProvider, type AiProvider } from '@/lib/aiProvider';
 import type { Player, WorldState } from '@/types';
 
 // ANT-142: the game engine is DeepSeek V4 Flash, in two tiers:
@@ -30,12 +31,6 @@ import type { Player, WorldState } from '@/types';
 //                     TTFT ~0.6s, ~99% prompt-cache hits, identical prose quality.
 // Sonnet and Gemini are no longer engine options (legacy stored values fall back
 // to 'deepseek-base'); Gemini still powers images, TTS and the summarize call.
-export type AiProvider = 'deepseek-base' | 'deepseek-pro';
-
-export function resolveAiProvider(value: unknown): AiProvider {
-  return value === 'deepseek-pro' ? 'deepseek-pro' : 'deepseek-base';
-}
-
 interface EngineArm {
   url: string;
   apiKeyEnv: string;
@@ -337,23 +332,24 @@ export async function POST(request: Request) {
   }
 
   // ── Access gate (ANT-108): waiting-list approval + per-user daily cost cap ──
-  {
-    const [user, settings, spentTodayUsd] = await Promise.all([
-      getUserById(payload.sub),
-      getAllAppSettings(),
-      getUserDailyCost(payload.sub),
-    ]);
-    const gate = evaluateAccessGate({
-      role: payload.role,
-      accessStatus: user?.access_status ?? 'pending',
-      enforceDailyCap: true,
-      dailyLimitEnabled: settings.daily_limit_enabled === 'true',
-      dailyLimitUsd: parseFloat(settings.daily_user_cost_limit_usd ?? '0'),
-      spentTodayUsd,
-    });
-    if (!gate.ok) {
-      return NextResponse.json({ error: gate.code, message: gate.message }, { status: gate.status });
-    }
+  const [currentUser, settings, spentTodayUsd] = await Promise.all([
+    getUserById(payload.sub),
+    getAllAppSettings(),
+    getUserDailyCost(payload.sub),
+  ]);
+  if (!currentUser) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const gate = evaluateAccessGate({
+    role: currentUser.role,
+    accessStatus: currentUser.access_status ?? 'pending',
+    enforceDailyCap: true,
+    dailyLimitEnabled: settings.daily_limit_enabled === 'true',
+    dailyLimitUsd: parseFloat(settings.daily_user_cost_limit_usd ?? '0'),
+    spentTodayUsd,
+  });
+  if (!gate.ok) {
+    return NextResponse.json({ error: gate.code, message: gate.message }, { status: gate.status });
   }
 
   const body = await request.json();
@@ -372,9 +368,9 @@ export async function POST(request: Request) {
     autoVoiceEnabled?: boolean;
     keeperStyle?: 'passive' | 'balanced' | 'active';
   };
-  // Legacy clients may still send 'claude-sonnet' / 'gemini-flash' / 'deepseek-flash'
-  // — everything that isn't explicitly the pro tier runs on the base tier.
-  const aiProvider = resolveAiProvider((body as { aiProvider?: unknown }).aiProvider);
+  // The engine tier is a server-owned cost/entitlement decision. Legacy clients
+  // may still send `aiProvider`, but the request value is intentionally ignored.
+  const aiProvider = resolveAiProvider(settings.ai_provider);
 
   if (!sessionId || !message) {
     return NextResponse.json({ error: 'sessionId and message are required' }, { status: 400 });
@@ -388,7 +384,7 @@ export async function POST(request: Request) {
   const isOwner =
     session.user_id === null ||
     session.user_id === payload.sub ||
-    payload.role === 'admin';
+    currentUser.role === 'admin';
   if (!isOwner) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }

@@ -6,7 +6,6 @@ import { useState, useEffect, useRef } from 'react';
 import type { CasePlan, CasePlanItem, GameSession, Message, Player, ScenarioBriefing, NPC } from '@/types';
 import type { Segment } from '@/lib/segments';
 import { hasNpcSpeech, parseSegments, stripNpcTags, stripStreamingArtifacts } from '@/lib/segments';
-import type { AiProvider } from '@/app/api/ai/route';
 import { track } from '@/lib/analytics';
 import DiceRoller from './DiceRoller';
 import StatsBar from './StatsBar';
@@ -145,7 +144,6 @@ interface GameChatProps {
   ambientAvailable?: boolean;
   scenarioNpcs?: NPC[];
   rulesetId?: string;
-  defaultAiProvider?: AiProvider;
   defaultTtsProvider?: 'openai' | 'gemini';
   isAdmin?: boolean;
 }
@@ -574,7 +572,7 @@ async function readSseStream(
   return null;
 }
 
-export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, ambientAvailable = false, scenarioNpcs = [], rulesetId = 'coc_7e', defaultAiProvider = 'deepseek-base', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
+export default function GameChat({ session: initialSession, initialMessages, briefing, locationNames = {}, ambientByLocation: initialAmbientByLocation = {}, ambientAvailable = false, scenarioNpcs = [], rulesetId = 'coc_7e', defaultTtsProvider = 'gemini', isAdmin = false }: GameChatProps) {
   const [session, setSession]   = useState<GameSession>(initialSession);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -737,7 +735,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
   const ambientRef        = useRef<HTMLAudioElement | null>(null);
   const currentAmbientUrlRef = useRef<string | null>(null);
   const [ttsProvider]         = useState<'openai' | 'gemini'>(defaultTtsProvider);
-  const [aiProvider]          = useState<AiProvider>(defaultAiProvider);
   // CHANGED: KeeperStyle — controls Keeper activity level
   const [keeperStyle, setKeeperStyle] = useState<'passive' | 'balanced' | 'active'>(() => {
     if (typeof window !== 'undefined') {
@@ -840,7 +837,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
         sessionId: session.id,
         message: '__intro__',
         playerIdx: 0,
-        aiProvider,
         autoVoiceEnabled,
         keeperStyle,
       }),
@@ -880,7 +876,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
       })
       .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiProvider, autoVoiceEnabled, initialMessages.length, session.id]);
+  }, [autoVoiceEnabled, initialMessages.length, session.id]);
 
   // ── TTS ─────────────────────────────────────────────────────────────────────
 
@@ -1255,7 +1251,6 @@ export default function GameChat({ session: initialSession, initialMessages, bri
           message: combinedMessage,
           playerIdx: allActions[0].playerIdx,
           allActions: allActions.length > 1 ? allActions : undefined,
-          aiProvider,
           autoVoiceEnabled,
           keeperStyle,
         }),
@@ -1311,7 +1306,7 @@ export default function GameChat({ session: initialSession, initialMessages, bri
 
       track('ai_turn', {
         scenario_id: session.scenario_id,
-        provider: aiProvider,
+        provider: (data.aiProvider as string | undefined) ?? 'unknown',
         latency_ms: Date.now() - turnStart,
         has_npc: Array.isArray(data.segments) && (data.segments as Segment[]).some((s) => s.type === 'npc'),
         has_image: Boolean(data.imagePrompt),

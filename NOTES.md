@@ -3986,3 +3986,29 @@ PostHog's manual pageview constructed `$current_url` with the full query string,
 - Targeted analytics privacy unit tests pass (4/4).
 - Full test/type/lint verification pending before commit.
 - Final verification: `vitest run` passed (19 files / 120 tests); `tsc --noEmit` passed; `eslint .` passed with the existing six `@next/next/no-img-element` warnings only.
+
+---
+
+## ANT-185: make the AI engine tier server-owned — 2026-07-24
+
+### Problem
+`POST /api/ai` loaded `app_settings.ai_provider` but then ignored it and trusted
+`body.aiProvider`. Any authenticated user could forge `deepseek-pro` and route
+turns through the paid OpenRouter tier regardless of the admin setting.
+
+### Changes
+- Moved engine-tier normalization to `src/lib/aiProvider.ts`.
+- `/api/ai` now resolves the engine only from current server settings and
+  intentionally ignores any legacy/forged request field.
+- Removed `aiProvider` from intro and turn requests in `GameChat`; analytics now
+  records the provider returned in the server's SSE `done` event.
+- The AI access gate and admin ownership bypass now use the current database
+  role instead of the seven-day JWT role claim.
+- Added regression coverage for the only allowed pro value and safe base
+  fallback for unknown, legacy and object-shaped inputs.
+
+### Verification
+- `npm test`: 19 files / 125 tests pass (including 9 provider regressions).
+- `npx tsc --noEmit`: pass.
+- `npm run lint`: pass with the six pre-existing `<img>` warnings only.
+- `npm run build`: production build passes on Next.js 16.2.3.
