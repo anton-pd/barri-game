@@ -4,7 +4,6 @@ import {
   createSelfServeUser,
   createUserFromWaitlistInvite,
   ensureSchema,
-  getAllAppSettings,
   getUserByEmail,
   getWaitlistInviteByToken,
 } from '@/lib/queries';
@@ -12,16 +11,16 @@ import { sendVerificationEmail } from '@/lib/email';
 import { signJwt, setAuthCookie } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/publicRateLimit';
 import { readJsonWithLimit } from '@/lib/requestLimits';
+import { getRegistrationMode } from '@/lib/registrationMode.server';
 
 const PASSWORD_MIN = 8;
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-// ANT-190: registration_mode app setting. 'open' (default) = self-serve
-// signup; 'waitlist' = the ANT-180 invite-only flow. Admin toggles it in
-// Case Curator Settings.
+// ANT-190/210: the seeded 'open' mode enables self-serve signup; 'waitlist'
+// keeps the ANT-180 invite-only flow. The shared resolver fails closed to
+// waitlist when the setting cannot be read.
 async function isOpenRegistration(): Promise<boolean> {
-  const settings = await getAllAppSettings();
-  return (settings.registration_mode ?? 'open') !== 'waitlist';
+  return (await getRegistrationMode()) === 'open';
 }
 
 function invalidRegistration() {

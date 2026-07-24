@@ -5,6 +5,7 @@ import { verifyJwt } from "@/lib/auth";
 import LandingClient from "./LandingClient";
 import "./landing.css";
 import { absoluteUrl, DEFAULT_DESCRIPTION, jsonLd, publicMetadata } from "./seo";
+import { getRegistrationMode } from "@/lib/registrationMode.server";
 
 const typewriter = Special_Elite({ subsets: ["latin"], weight: "400", variable: "--font-typewriter", display: "swap" });
 const serif = Playfair_Display({ subsets: ["latin", "cyrillic"], variable: "--font-serif", display: "swap" });
@@ -24,6 +25,7 @@ export default async function LandingPage() {
   const token = cookieStore.get('auth_token')?.value;
   const payload = token ? await verifyJwt(token) : null;
   if (payload) redirect('/sessions');
+  const registrationMode = await getRegistrationMode();
 
   const structuredData = [
     {
@@ -58,7 +60,7 @@ export default async function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLd(structuredData) }}
       />
-      <LandingClient />
+      <LandingClient registrationMode={registrationMode} />
     </div>
   );
 }

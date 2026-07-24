@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 type Lang = 'en' | 'uk';
+type IntakeLocale = Lang | 'es';
 
 export default function RegisterPage() {
   const router = useRouter();
   const [lang, setLang] = useState<Lang>('en');
+  const [intakeLocale, setIntakeLocale] = useState<IntakeLocale>('en');
   const [email, setEmail] = useState('');
   const [inviteToken, setInviteToken] = useState('');
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -33,7 +35,10 @@ export default function RegisterPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const queryLang = params.get('lang');
-    if (queryLang === 'uk') setLang('uk');
+    if (queryLang === 'uk' || queryLang === 'es' || queryLang === 'en') {
+      setIntakeLocale(queryLang);
+      if (queryLang === 'uk') setLang('uk');
+    }
 
     const token = params.get('invite')?.trim() ?? '';
     if (!token) {
@@ -113,7 +118,7 @@ export default function RegisterPage() {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, locale: lang }),
+          body: JSON.stringify({ email, password, locale: intakeLocale }),
         });
 
         const data = await res.json();
@@ -134,7 +139,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           email,
           source: 'public-waitlist',
-          locale: lang,
+          locale: intakeLocale,
           outcome: 'requested-access',
           messageCount: 0,
           notes: 'Joined from public waitlist intake form.',
@@ -158,7 +163,7 @@ export default function RegisterPage() {
   return (
     <div className="auth-page">
       <div className="auth-topbar">
-        <Link href="/" className="auth-back-brand">
+        <Link href={`/?lang=${intakeLocale}`} className="auth-back-brand">
           <span className="auth-seal">B</span>
           <span className="auth-wordmark">Barri</span>
         </Link>
@@ -314,6 +319,8 @@ export default function RegisterPage() {
               <p>{t.open.subtitle}</p>
             </div>
 
+            {intakeLocale === 'es' && <SpanishAvailabilityNotice />}
+
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="auth-field">
                 <label>{t.investigatorId}</label>
@@ -394,6 +401,8 @@ export default function RegisterPage() {
               <p>{t.form.subtitle}</p>
             </div>
 
+            {intakeLocale === 'es' && <SpanishAvailabilityNotice />}
+
             <form onSubmit={handleSubmit} className="auth-form">
               <div className="auth-field">
                 <label>{t.investigatorId}</label>
@@ -442,6 +451,16 @@ export default function RegisterPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function SpanishAvailabilityNotice() {
+  return (
+    <p className="auth-waitlist-note auth-waitlist-note--form" lang="es">
+      El registro y la beta completa están disponibles en inglés y ucraniano.
+      {' '}
+      <Link href="/demo?lang=es">La demo sigue disponible en español.</Link>
+    </p>
   );
 }
 

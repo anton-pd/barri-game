@@ -1,7 +1,9 @@
 import { IM_Fell_English, Playfair_Display, PT_Mono, Special_Elite, UnifrakturMaguntia } from 'next/font/google';
+import { connection } from 'next/server';
 import DemoClient from './DemoClient';
 import './demo.css';
 import { publicMetadata } from '../seo';
+import { getRegistrationMode } from '@/lib/registrationMode.server';
 
 const typewriter = Special_Elite({ subsets: ['latin'], weight: '400', variable: '--font-typewriter', display: 'swap' });
 const serif = Playfair_Display({ subsets: ['latin', 'cyrillic'], variable: '--font-serif', display: 'swap' });
@@ -15,10 +17,13 @@ export const metadata = publicMetadata({
   path: '/demo',
 });
 
-export default function DemoPage() {
+export default async function DemoPage() {
+  await connection();
+  const registrationMode = await getRegistrationMode();
+
   return (
     <div className={`${typewriter.variable} ${serif.variable} ${oldprint.variable} ${blackletter.variable} ${ptmono.variable} demo-root`}>
-      <DemoClient />
+      <DemoClient registrationMode={registrationMode} />
     </div>
   );
 }

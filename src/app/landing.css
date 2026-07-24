@@ -1339,6 +1339,16 @@
   color: var(--paper-1);
 }
 
+.final-cta-availability {
+  display: block;
+  margin-top: 12px;
+  color: var(--paper-2);
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
 .final-cta .bgseal {
   position: absolute;
   left: 50%;

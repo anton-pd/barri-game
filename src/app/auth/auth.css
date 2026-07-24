@@ -434,6 +434,10 @@
   line-height: 1.55;
 }
 
+.auth-card > .auth-waitlist-note--form {
+  margin-bottom: 22px !important;
+}
+
 /* ANT-156: consent checkbox on the waitlist / registration form */
 .auth-consent {
   display: flex;

@@ -20,6 +20,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 - **New original noir horror scenario for rules testing (ANT-176).** Added `The Black Ledger` / `Чорна книга`, a one-shot playtest case with v2-style planning fields (`clueGraph`, `casePlanSeeds`, `npcHooks`, `finaleGates`, structured event completion criteria) while staying backward-compatible with the current runtime.
 
 ### Changed
+- **Public access CTAs now follow the live registration mode (ANT-210).** Landing and demo read the same request-time `registration_mode` as the registration API: open access sends players to account creation, while waitlist mode keeps email capture. The flow preserves EN/UK/ES locale context, clearly marks the full beta and registration as EN/UK-only, and now describes the public demo accurately as single-player, text-only, and limited to 10 AI turns or 15 minutes.
 - **Self-serve registration is now the default (ANT-190).** New players create an account directly (email + password + email verification) instead of waiting for an invite; the invite-only waitlist remains available behind an admin toggle in Case Curator Settings. The per-user daily cost cap still applies to everyone.
 - **Trademark scrub before global launch (ANT-189).** All user-visible references to "Call of Cthulhu"/Chaosium replaced with original genre phrasing ("classic 1920s investigative horror, d100 roll-under") across the landing, legal pages, ruleset texts and scenario content; the "Cthulhu Mythos" skill is now "Forbidden Lore" (old names still resolve via aliases).
 

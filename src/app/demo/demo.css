@@ -371,12 +371,15 @@
 }
 
 .demo-queue-button {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--paper-3);
   color: var(--paper-1);
   background: transparent;
   cursor: pointer;
   font-size: 10px;
   padding: 10px 13px;
+  text-decoration: none;
 }
 
 .demo-transcript {
@@ -775,11 +778,56 @@
   font-style: italic;
 }
 
+.demo-success small,
+.demo-access-note {
+  color: var(--paper-3);
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .demo-success a {
   color: var(--blood-1);
   font-size: 11px;
   margin-top: 6px;
   text-decoration: none;
+}
+
+.demo-access-open {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.demo-access-cta {
+  display: inline-flex;
+  justify-content: center;
+  width: fit-content;
+  min-height: 46px;
+  align-items: center;
+  border: none;
+  color: var(--paper-0);
+  background: var(--blood-1);
+  box-shadow: 4px 4px 0 var(--ink-0);
+  font-family: var(--font-typewriter);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  padding: 0 22px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.demo-access-open span {
+  max-width: 54ch;
+  color: var(--ink-2);
+  font-family: var(--font-typewriter);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.demo-access-note {
+  display: block;
+  margin-top: 12px;
 }
 
 .demo-modal-links {

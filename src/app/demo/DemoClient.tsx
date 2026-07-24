@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { getPublicAccess, type RegistrationMode } from '@/lib/registrationMode';
 
 type DemoRole = 'keeper' | 'player' | 'system';
 type DemoLang = 'en' | 'uk' | 'es';
@@ -132,9 +133,12 @@ function createAnonymousSessionId() {
   return `demo:${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
-export default function DemoClient() {
+export default function DemoClient({ registrationMode }: { registrationMode: RegistrationMode }) {
   const [lang, setLang] = useState<DemoLang>('en');
   const copy = DEMO_COPY[lang];
+  const accessCopy = copy.access[registrationMode];
+  const publicAccess = getPublicAccess(registrationMode, lang);
+  const registerHref = publicAccess.registrationHref;
   const [messages, setMessages] = useState<DemoMessage[]>(() => createInitialMessages(DEMO_COPY.en));
   const [worldState, setWorldState] = useState<DemoWorldState>(() => createInitialWorldState(DEMO_COPY.en));
   const [players, setPlayers] = useState<DemoPlayer[] | null>(null);
@@ -335,7 +339,7 @@ export default function DemoClient() {
     <>
       <main className="demo-shell">
         <header className="demo-topbar">
-          <Link href="/" className="demo-brand" aria-label={copy.backLabel}>
+          <Link href={`/?lang=${lang}`} className="demo-brand" aria-label={copy.backLabel}>
             <span className="demo-seal">B</span>
             <span>Barri</span>
           </Link>
@@ -435,9 +439,15 @@ export default function DemoClient() {
                 >
                   {copy.caseFileButton}
                 </button>
-                <button type="button" onClick={() => setEnding('manual')} className="demo-queue-button">
-                  {copy.joinWaitlist}
-                </button>
+                {!publicAccess.captureEmail ? (
+                  <Link href={registerHref} className="demo-queue-button">
+                    {accessCopy.action}
+                  </Link>
+                ) : (
+                  <button type="button" onClick={() => setEnding('manual')} className="demo-queue-button">
+                    {accessCopy.action}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -498,7 +508,7 @@ export default function DemoClient() {
             </form>
             {chatClosedReason && (
               <div className="demo-closed-notice">
-                {copy.closed[chatClosedReason]}
+                {accessCopy.closed[chatClosedReason]}
               </div>
             )}
           </section>
@@ -514,13 +524,21 @@ export default function DemoClient() {
               {copy.modal[ending].title}
             </h2>
             <p>
-              {copy.modal[ending].body}
+              {accessCopy.modal[ending]}
             </p>
 
-            {waitlistState === 'success' ? (
+            {!publicAccess.captureEmail ? (
+              <div className="demo-access-open">
+                <Link href={registerHref} className="demo-access-cta">
+                  {accessCopy.cta}
+                </Link>
+                <span>{copy.access.availability}</span>
+              </div>
+            ) : waitlistState === 'success' ? (
               <div className="demo-success">
                 <strong>{copy.waitlist.successTitle}</strong>
                 <span>{copy.waitlist.successBody}</span>
+                <small>{copy.access.availability}</small>
               </div>
             ) : (
               <form onSubmit={submitWaitlist} className="demo-waitlist-form">
@@ -547,6 +565,7 @@ export default function DemoClient() {
                   <Link href="/terms">{copy.waitlist.privacy.terms}</Link>
                   {copy.waitlist.privacy.after}
                 </p>
+                <small className="demo-access-note">{copy.access.availability}</small>
               </form>
             )}
 
@@ -683,7 +702,7 @@ function DemoDiceRoller({
   );
 }
 
-const DEMO_COPY = {
+export const DEMO_COPY = {
   en: {
     keeper: 'Case Curator',
     objective: 'Find a way into the secret archive',
@@ -698,14 +717,14 @@ const DEMO_COPY = {
     fileLabel: 'Demo file / Archive 7',
     languageLabel: 'Demo language',
     signIn: 'Sign in',
-    stageLabel: 'Playable instant demo',
+    stageLabel: 'Playable single-player text demo',
     caseStatusLabel: 'Case status',
     caseFileButton: 'Case file',
     closeCaseFile: 'Close case file',
-    previewLabel: '15-minute preview',
+    previewLabel: 'Single-player text demo',
     title: 'The Archive Door',
     description:
-      'You have 15 minutes before the next guard patrol. Get inside the secret Bureau archive before the corridor catches you.',
+      'You have up to 10 AI turns or 15 minutes. Type what your investigator does and get inside the secret Bureau archive before the guard patrol.',
     progressLabel: 'Demo progress',
     entriesLabel: 'Entries',
     clockLabel: 'Patrol',
@@ -722,7 +741,39 @@ const DEMO_COPY = {
     transcriptLabel: 'Case Curator transcript',
     liveTranscriptLabel: 'Live transcript',
     keeperOnlineLabel: 'Case Curator online',
-    joinWaitlist: 'Join waitlist',
+    access: {
+      availability: 'Account registration and the full beta are available in English and Ukrainian. This demo is also available in Spanish.',
+      open: {
+        action: 'Create account',
+        cta: 'Create free account',
+        closed: {
+          completed: 'The archive file is complete. Create an account to continue into a full case.',
+          message_limit: 'The preview is closed after ten AI turns. Create an account for the full archive.',
+          guard: 'The guard has ended this attempt. Create an account to open a full case.',
+        },
+        modal: {
+          completed: 'Create a free beta account, confirm your email, and open a full case.',
+          message_limit: 'You reached the ten-turn demo limit. Create a free beta account to continue with a full case.',
+          guard: 'The patrol reached the corridor. Create a free beta account and try a full case next.',
+          manual: 'Create a free beta account, confirm your email, and open your first full case.',
+        },
+      },
+      waitlist: {
+        action: 'Join waitlist',
+        cta: 'Join waitlist',
+        closed: {
+          completed: 'The archive file is complete. Join the waiting list to continue beyond the demo.',
+          message_limit: 'The preview is closed after ten AI turns. Join the waiting list for the full archive.',
+          guard: 'The guard has ended this attempt. The transcript is preserved for review.',
+        },
+        modal: {
+          completed: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
+          message_limit: 'You reached the ten-turn demo limit. Join the queue and the Bureau will summon you for the full case.',
+          guard: 'The patrol reaches the corridor before Archive 7 opens. Leave your email and try the full case when access clears.',
+          manual: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
+        },
+      },
+    },
     thinking: 'The Case Curator consults the file...',
     suggestionsLabel: 'Suggested actions',
     suggestionsHint: 'or write anything',
@@ -744,17 +795,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Archive notice',
-      notice: 'The Case Curator closes the preview file at ten entries. The full dossier waits beyond access.',
+      notice: 'The Case Curator closes the preview file after ten AI turns. The full dossier waits beyond access.',
     },
     connection: {
       meta: 'Connection',
       error: 'The Case Curator cannot reach the file right now.',
       errorPrefix: 'The Case Curator cannot reach the file right now:',
-    },
-    closed: {
-      completed: 'The archive file is complete. Join the waiting list to continue beyond the demo.',
-      message_limit: 'The preview is closed after ten entries. Join the waiting list for the full archive.',
-      guard: 'The guard has ended this attempt. The transcript is preserved for review.',
     },
     dice: {
       title: 'd100 check',
@@ -777,22 +823,18 @@ const DEMO_COPY = {
       completed: {
         stamp: 'Entered',
         title: 'The archive opens.',
-        body: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
       },
       message_limit: {
         stamp: 'Filed',
         title: 'The Case Curator closes the preview file.',
-        body: 'Ten entries are enough to prove the file is alive. Join the queue and the Bureau will summon you for the full case.',
       },
       guard: {
         stamp: 'Caught',
         title: 'The guard finds you.',
-        body: 'The patrol reaches the corridor before Archive 7 opens. Leave your email and try the full case when access clears.',
       },
       manual: {
         stamp: 'Queue',
         title: 'Join the waiting list.',
-        body: 'Barri is opening access in controlled batches. Leave your email and the Bureau will call you when the next table is ready.',
       },
     },
     waitlist: {
@@ -825,14 +867,14 @@ const DEMO_COPY = {
     fileLabel: 'Демо-файл / Архів 7',
     languageLabel: 'Мова демо',
     signIn: 'Увійти',
-    stageLabel: 'Ігрове instant demo',
+    stageLabel: 'Ігрове одиночне текстове демо',
     caseStatusLabel: 'Стан справи',
     caseFileButton: 'Справа',
     closeCaseFile: 'Закрити справу',
-    previewLabel: '15-хвилинне превʼю',
+    previewLabel: 'Одиночне текстове демо',
     title: 'Двері Архіву',
     description:
-      'У вас 15 хвилин до наступного обходу сторожа. Потрапте до секретного архіву Бюро, поки коридор вас не видав.',
+      'У вас до 10 ходів AI або 15 хвилин. Пишіть, що робить ваш слідчий, і потрапте до секретного архіву до обходу сторожа.',
     progressLabel: 'Прогрес демо',
     entriesLabel: 'Записи',
     clockLabel: 'Обхід',
@@ -849,7 +891,39 @@ const DEMO_COPY = {
     transcriptLabel: 'Протокол Куратора справи',
     liveTranscriptLabel: 'Живий протокол',
     keeperOnlineLabel: 'Куратор справи на звʼязку',
-    joinWaitlist: 'Стати в чергу',
+    access: {
+      availability: 'Реєстрація й повна бета доступні англійською та українською. Це демо також доступне іспанською.',
+      open: {
+        action: 'Створити акаунт',
+        cta: 'Створити безкоштовний акаунт',
+        closed: {
+          completed: 'Архівний файл завершено. Створіть акаунт, щоб перейти до повної справи.',
+          message_limit: 'Превʼю закрито після десяти ходів AI. Створіть акаунт для доступу до повного архіву.',
+          guard: 'Сторож завершив цю спробу. Створіть акаунт, щоб відкрити повну справу.',
+        },
+        modal: {
+          completed: 'Створіть безкоштовний бета-акаунт, підтвердьте email і відкрийте повну справу.',
+          message_limit: 'Ви використали десять ходів демо. Створіть безкоштовний бета-акаунт, щоб продовжити в повній справі.',
+          guard: 'Обхід дістався коридору. Створіть безкоштовний бета-акаунт і спробуйте повну справу.',
+          manual: 'Створіть безкоштовний бета-акаунт, підтвердьте email і відкрийте першу повну справу.',
+        },
+      },
+      waitlist: {
+        action: 'Стати в чергу',
+        cta: 'Стати в чергу',
+        closed: {
+          completed: 'Архівний файл завершено. Станьте в чергу, щоб продовжити після демо.',
+          message_limit: 'Превʼю закрито після десяти ходів AI. Станьте в чергу до повного архіву.',
+          guard: 'Сторож завершив цю спробу. Протокол збережено для перегляду.',
+        },
+        modal: {
+          completed: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
+          message_limit: 'Ви використали десять ходів демо. Станьте в чергу, і Бюро викличе вас до повної справи.',
+          guard: 'Обхід доходить до коридору раніше, ніж Архів 7 відчиняється. Залиште email і спробуйте повну справу після доступу.',
+          manual: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
+        },
+      },
+    },
     thinking: 'Куратор справи звіряється з файлом...',
     suggestionsLabel: 'Запропоновані дії',
     suggestionsHint: 'або напишіть будь-що',
@@ -871,17 +945,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Повідомлення архіву',
-      notice: 'Куратор справи закриває превʼю після десяти записів. Повне досьє чекає після доступу.',
+      notice: 'Куратор справи закриває превʼю після десяти ходів AI. Повне досьє чекає після доступу.',
     },
     connection: {
       meta: 'Звʼязок',
       error: 'Куратор справи не може дістатися файлу зараз.',
       errorPrefix: 'Куратор справи не може дістатися файлу зараз:',
-    },
-    closed: {
-      completed: 'Архівний файл завершено. Станьте в чергу, щоб продовжити після демо.',
-      message_limit: 'Превʼю закрито після десяти записів. Станьте в чергу до повного архіву.',
-      guard: 'Сторож завершив цю спробу. Протокол збережено для перегляду.',
     },
     dice: {
       title: 'd100 перевірка',
@@ -904,22 +973,18 @@ const DEMO_COPY = {
       completed: {
         stamp: 'Вхід',
         title: 'Архів відкривається.',
-        body: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
       },
       message_limit: {
         stamp: 'Закрито',
         title: 'Куратор справи закриває превʼю.',
-        body: 'Десяти записів достатньо, щоб довести: файл живий. Станьте в чергу, і Бюро викличе вас до повної справи.',
       },
       guard: {
         stamp: 'Спіймано',
         title: 'Сторож вас знаходить.',
-        body: 'Обхід доходить до коридору раніше, ніж Архів 7 відчиняється. Залиште email і спробуйте повну справу після доступу.',
       },
       manual: {
         stamp: 'Черга',
         title: 'Стати в чергу.',
-        body: 'Barri відкриває доступ контрольованими хвилями. Залиште email, і Бюро викличе вас, коли наступний стіл буде готовий.',
       },
     },
     waitlist: {
@@ -952,14 +1017,14 @@ const DEMO_COPY = {
     fileLabel: 'Archivo demo / Archivo 7',
     languageLabel: 'Idioma de la demo',
     signIn: 'Entrar',
-    stageLabel: 'Demo jugable',
+    stageLabel: 'Demo de texto para un jugador',
     caseStatusLabel: 'Estado del expediente',
     caseFileButton: 'Expediente',
     closeCaseFile: 'Cerrar expediente',
-    previewLabel: 'Vista de 15 minutos',
+    previewLabel: 'Demo de texto para un jugador',
     title: 'La Puerta del Archivo',
     description:
-      'Tienes 15 minutos antes de la próxima ronda del guardia. Entra al archivo secreto del Buró antes de que el corredor te delate.',
+      'Tienes hasta 10 turnos de IA o 15 minutos. Escribe qué hace tu investigador y entra al archivo secreto antes de la ronda del guardia.',
     progressLabel: 'Progreso de la demo',
     entriesLabel: 'Entradas',
     clockLabel: 'Ronda',
@@ -976,7 +1041,39 @@ const DEMO_COPY = {
     transcriptLabel: 'Transcripción del Curador',
     liveTranscriptLabel: 'Transcripción en vivo',
     keeperOnlineLabel: 'Curador en línea',
-    joinWaitlist: 'Unirse a la lista',
+    access: {
+      availability: 'El registro y la beta completa están disponibles en inglés y ucraniano. Esta demo también está disponible en español.',
+      open: {
+        action: 'Crear cuenta · EN/UK',
+        cta: 'Crear cuenta · EN/UK',
+        closed: {
+          completed: 'El expediente está completo. Crea una cuenta para continuar con un caso completo en inglés o ucraniano.',
+          message_limit: 'La demo termina tras diez turnos de IA. Crea una cuenta para acceder al archivo completo en inglés o ucraniano.',
+          guard: 'El guardia termina este intento. Crea una cuenta para abrir un caso completo en inglés o ucraniano.',
+        },
+        modal: {
+          completed: 'Crea una cuenta beta gratuita, confirma tu email y abre un caso completo en inglés o ucraniano.',
+          message_limit: 'Has usado los diez turnos de la demo. Crea una cuenta beta gratuita para continuar en inglés o ucraniano.',
+          guard: 'La ronda llegó al corredor. Crea una cuenta beta gratuita y prueba un caso completo en inglés o ucraniano.',
+          manual: 'Crea una cuenta beta gratuita, confirma tu email y abre tu primer caso completo en inglés o ucraniano.',
+        },
+      },
+      waitlist: {
+        action: 'Unirse a la lista',
+        cta: 'Unirse a la lista',
+        closed: {
+          completed: 'El expediente está completo. Únete a la lista para continuar después de la demo.',
+          message_limit: 'La demo termina tras diez turnos de IA. Únete a la lista para acceder al archivo completo.',
+          guard: 'El guardia termina este intento. La transcripción queda guardada.',
+        },
+        modal: {
+          completed: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
+          message_limit: 'Has usado los diez turnos de la demo. Únete a la lista y el Buró te convocará al caso completo.',
+          guard: 'La ronda llega al corredor antes de que el Archivo 7 se abra. Deja tu email e intenta el caso completo cuando tengas acceso.',
+          manual: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
+        },
+      },
+    },
     thinking: 'El Curador del caso consulta el expediente...',
     suggestionsLabel: 'Acciones sugeridas',
     suggestionsHint: 'o escribe lo que quieras',
@@ -998,17 +1095,12 @@ const DEMO_COPY = {
     },
     messageLimit: {
       meta: 'Aviso del archivo',
-      notice: 'El Curador del caso cierra la vista previa tras diez entradas. El expediente completo espera tras el acceso.',
+      notice: 'El Curador cierra la demo tras diez turnos de IA. El expediente completo espera tras el acceso.',
     },
     connection: {
       meta: 'Conexión',
       error: 'El Curador del caso no puede alcanzar el expediente ahora.',
       errorPrefix: 'El Curador del caso no puede alcanzar el expediente ahora:',
-    },
-    closed: {
-      completed: 'El expediente de archivo está completo. Únete a la lista para continuar después de la demo.',
-      message_limit: 'La vista previa se cerró tras diez entradas. Únete a la lista para el archivo completo.',
-      guard: 'El guardia ha terminado este intento. La transcripción queda preservada.',
     },
     dice: {
       title: 'Prueba d100',
@@ -1031,22 +1123,18 @@ const DEMO_COPY = {
       completed: {
         stamp: 'Dentro',
         title: 'El archivo se abre.',
-        body: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
       },
       message_limit: {
         stamp: 'Archivado',
         title: 'El Curador del caso cierra la vista previa.',
-        body: 'Diez entradas bastan para demostrar que el expediente vive. Únete a la lista y el Buró te convocará al caso completo.',
       },
       guard: {
         stamp: 'Capturado',
         title: 'El guardia te encuentra.',
-        body: 'La ronda llega al corredor antes de que el Archivo 7 se abra. Deja tu email e intenta el caso completo cuando tengas acceso.',
       },
       manual: {
         stamp: 'Lista',
         title: 'Unirse a la lista.',
-        body: 'Barri abre el acceso por grupos controlados. Deja tu email y el Buró te llamará cuando la próxima mesa esté lista.',
       },
     },
     waitlist: {

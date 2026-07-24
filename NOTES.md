@@ -4384,3 +4384,43 @@ storage and needed the same protection.
 - `npm run build` passed with the existing `SessionList.tsx` package-version
   import warning. The sandboxed attempt could not resolve Google Fonts; the
   approved network retry completed successfully.
+
+---
+
+## ANT-210: registration-aware public beta funnel — 2026-07-24
+
+### Problem
+Landing and the instant demo still presented waitlist actions even after
+`registration_mode=open` enabled self-serve registration. Demo marketing also
+mixed full-beta voice/party features into the single-player text preview and
+showed conflicting two-, five-, and fifteen-minute duration promises.
+
+### Changes
+- Added a typed request-time registration-mode resolver shared by landing,
+  demo, and `/api/auth/register`. Missing, invalid, or failed setting reads
+  fail closed to `waitlist`.
+- Made `/demo` explicitly dynamic with Next.js `connection()` so an admin mode
+  change is read per request instead of being frozen during build.
+- In open mode, landing access actions and demo completion actions create an
+  account. In waitlist mode, landing opens the intake form and demo retains its
+  inline email capture. The free demo CTA remains available in both modes.
+- Preserved `lang=en|uk|es` across landing, demo, and registration links.
+  Spanish waitlist submissions retain `locale=es`; Spanish users see an
+  explicit notice that registration and the full beta are currently EN/UK,
+  while the playable demo remains available in Spanish.
+- Aligned all acquisition promises: the demo is one investigator, text-only,
+  and capped at 10 AI turns or 15 minutes. Voice and parties of 1–4 are
+  described only as full-beta capabilities.
+- Added regression tests for open/waitlist routing, locale preservation,
+  fail-closed behavior, and acquisition copy.
+
+### Verification
+- `npm test`: 28 files / 172 tests passed.
+- `npx tsc --noEmit`: passed.
+- `npm run lint`: passed with the six existing `<img>` warnings only.
+- `npx next build --webpack`: passed on Next.js 16.2.3; `/` and `/demo` are
+  request-time routes. The existing `SessionList.tsx` package-version import
+  warning remains.
+- Production-server smoke without PostgreSQL: `/` and `/demo` both returned
+  `200`; the server logged the lookup failure and rendered the fail-closed
+  waitlist path instead of failing the page.
